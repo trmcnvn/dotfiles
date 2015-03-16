@@ -1,0 +1,29 @@
+[user]
+	name = Thomas McNiven
+	email = hello@vevix.net
+[github]
+  user = vevix
+[color]
+	ui = auto
+[merge]
+  ff = false
+[pull]
+  rebase = true
+[push]
+  default = current
+[core]
+  autocrlf = input
+  quotepath = false
+  excludesfile = ~/.gitexcludes
+  editor = atom --wait
+[branch]
+  quotepath       = true
+  autosetuprebase = always
+[alias]
+	co = checkout
+	cm = commit
+	br = branch
+  dbr = !git branch --merged | grep -v \"\\* \" | xargs git branch --delete
+  bbb = browse -- pull/$(git rev-parse --abbrev-ref HEAD)
+[remote "origin"]
+  fetch = +refs/pull/*/head:refs/remotes/origin/pull/*
