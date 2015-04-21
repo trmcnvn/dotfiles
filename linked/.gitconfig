@@ -24,6 +24,5 @@
 	cm = commit
 	br = branch
   dbr = !git branch --merged | grep -v \"\\* \" | xargs git branch --delete
-  bbb = browse -- pull/$(git rev-parse --abbrev-ref HEAD)
 [remote "origin"]
   fetch = +refs/pull/*/head:refs/remotes/origin/pull/*

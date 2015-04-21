@@ -9,7 +9,7 @@ TABLE = {
   "~/.pryrc" => "linked/.pryrc",
   "~/.rbenv/default-gems" => "linked/.rbenv/default-gems",
   "~/.rspec" => "linked/.rspec",
-  "~/.zshrc" => "linked/.zshrc"
+  "~/.bash_profile" => "linked/.bash_profile"
 }.inject({}) do |result, (key, value)|
   result.merge(File.expand_path(key) => File.expand_path(value))
 end

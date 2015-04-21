@@ -2,3 +2,4 @@ bundler
 rbenv-rehash
 pry
 pry-doc
+awesome_print
