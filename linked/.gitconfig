@@ -23,6 +23,13 @@
 	co = checkout
 	cm = commit
 	br = branch
-  dbr = !git branch --merged | grep -v \"\\* \" | xargs git branch --delete
+	pr = "!f() { git fetch ${1-master} pull/${2}/head:pr-${2}; }; f"
+	wip = !git add -A && git commit -m 'wip'
+	undo = reset HEAD~1 --mixed
+	dbr = !git branch --merged | grep -v \"\\* \" | xargs git branch --delete
 [remote "origin"]
   fetch = +refs/pull/*/head:refs/remotes/origin/pull/*
+[filter "lfs"]
+	clean = git-lfs clean %f
+	smudge = git-lfs smudge %f
+	required = true
