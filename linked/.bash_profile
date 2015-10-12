@@ -1,6 +1,9 @@
 export PATH="$HOME/.rbenv/bin:$PATH"
 eval "$(rbenv init -)"
 
+export NVM_DIR=$HOME/.nvm
+source $(brew --prefix nvm)/nvm.sh
+
 export GOPATH=$HOME/code/go
 export PATH="$GOPATH/bin:$PATH"
 
@@ -18,31 +21,19 @@ alias la="ls -a"
 alias lla="ls -la"
 alias cl="clear"
 
-function gep {
-  git push $* origin $(git-branch)
-}
-
-function gepl {
-  git pull --rebase $* origin $(git-branch)
-}
-
 function git-branch {
   git branch 2> /dev/null | grep -e '\* ' | sed 's/^..\(.*\)/\1 /'
 }
 
-red="\033[31m"
-green="\033[32m"
-blue="\033[36m"
+blue="\033[38;5;111m"
+green="\033[38;5;112m"
+orange="\033[38;5;166m"
 reset="\033[0m"
 bold="\033[1m"
-prompt_char="♥"
+prompt_char="λ"
 
 function prompt-full {
-  PS1="\[\033[G\]\[$bold\]\[$green\]\w \[$blue\]\$(git-branch)\[$red\]\[$bold\]$prompt_char \[$reset\]"
-}
-
-function prompt-min {
-  PS1="\[\033[G\]\[$bold\]\[$blue\]\$(git-branch)\[$red\]\[$bold\]$prompt_char \[$reset\]"
+  PS1="\[\033[G\]\[$bold\]\[$green\]\W \[$blue\]\$(git-branch)\[$orange\]\[$bold\]$prompt_char \[$reset\]"
 }
 
 prompt-full
