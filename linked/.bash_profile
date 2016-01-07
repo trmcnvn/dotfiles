@@ -13,6 +13,7 @@ alias glog="git log --color --oneline"
 alias gbra="git branch"
 alias gst="git status"
 alias gdif="git diff --no-prefix"
+alias gcm="git commit -m"
 alias bi="bundle install"
 alias bx="bundle exec"
 alias ..="cd .."
@@ -33,7 +34,7 @@ bold="\033[1m"
 prompt_char="λ"
 
 function prompt-full {
-  PS1="\[\033[G\]\[$bold\]\[$green\]\W \[$blue\]\$(git-branch)\[$orange\]\[$bold\]$prompt_char \[$reset\]"
+  PS1="\[\033[G\]\[$bold\]\[$orange\]$prompt_char \[$bold\]\[$green\]\W \[$blue\]\$(git-branch)\[$reset\]$ "
 }
 
 prompt-full
