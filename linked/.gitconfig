@@ -1,6 +1,7 @@
 [user]
 	name = Thomas McNiven
 	email = hello@vevix.net
+	signingkey = D8087F83
 [github]
   user = vevix
 [color]
@@ -33,3 +34,5 @@
 	clean = git-lfs clean %f
 	smudge = git-lfs smudge %f
 	required = true
+[commit]
+	gpgsign = true
