@@ -13,13 +13,10 @@ alias glog="git log --color --oneline"
 alias gbra="git branch"
 alias gst="git status"
 alias gdif="git diff --no-prefix"
-alias gcm="git commit -m"
 alias bi="bundle install"
 alias bx="bundle exec"
 alias ..="cd .."
 alias ~="cd ~"
-alias la="ls -a"
-alias lla="ls -la"
 alias cl="clear"
 
 function git-branch {

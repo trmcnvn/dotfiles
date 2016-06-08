@@ -16,7 +16,7 @@
   autocrlf = input
   quotepath = false
   excludesfile = ~/.gitexcludes
-  editor = code --wait
+  editor = atom --wait
 [branch]
   quotepath       = true
   autosetuprebase = always
