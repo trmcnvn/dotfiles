@@ -7,8 +7,6 @@ source $(brew --prefix nvm)/nvm.sh
 export GOPATH=$HOME/code/go
 export PATH="$GOPATH/bin:$PATH"
 
-export PORT=3000
-
 alias glog="git log --color --oneline"
 alias gbra="git branch"
 alias gst="git status"
