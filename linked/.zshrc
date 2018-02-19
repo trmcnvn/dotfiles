@@ -28,10 +28,14 @@ antigen bundle rbenv
 # Syntax
 antigen bundle zsh-users/zsh-syntax-highlighting
 
-# Load the theme.
-export SPACESHIP_PROMPT_DEFAULT_PREFIX=" w/ "
-export SPACESHIP_CHAR_SYMBOL="❯ "
-antigen theme https://github.com/denysdovhan/spaceship-prompt spaceship
+# Load the theme. - Disable Spaceship until 4.0 release (async)
+#export SPACESHIP_PROMPT_DEFAULT_PREFIX="w/ "
+#export SPACESHIP_CHAR_SYMBOL="❯ "
+#export SPACESHIP_PACKAGE_SHOW="false"
+#export SPACESHIP_RUST_SYMBOL="⚙️ "
+#antigen theme https://github.com/denysdovhan/spaceship-prompt spaceship
+antigen bundle mafredri/zsh-async
+antigen bundle sindresorhus/pure
 
 # Tell Antigen that you're done.
 antigen apply
