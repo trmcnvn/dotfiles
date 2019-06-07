@@ -10,8 +10,12 @@ TABLE = {
   result.merge(File.expand_path(key) => File.expand_path(value))
 end
 
-def install
+def install_latest
   system("git pull")
+  install
+end
+
+def install
   TABLE.each do |dest, source|
     File.symlink(source, dest) rescue nil
   end

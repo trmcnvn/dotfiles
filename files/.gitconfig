@@ -16,6 +16,7 @@
   autocrlf = input
   quotepath = false
 	excludesfile = ~/.gitexcludes
+	editor = nano
 [branch]
   quotepath       = true
   autosetuprebase = always
