@@ -3,7 +3,7 @@
 	email = hello@vevix.net
 	signingkey = D8087F83
 [github]
-  user = vevix
+  user = trmcnvn
 [color]
 	ui = auto
 [merge]
@@ -15,8 +15,7 @@
 [core]
   autocrlf = input
   quotepath = false
-	excludesfile = /Users/vevix/.gitexcludes
-  editor = code --wait
+	excludesfile = ~/.gitexcludes
 [branch]
   quotepath       = true
   autosetuprebase = always
@@ -34,11 +33,5 @@
 	clean = git-lfs clean %f
 	smudge = git-lfs smudge %f
 	required = true
-[difftool "sourcetree"]
-	cmd = opendiff \"$LOCAL\" \"$REMOTE\"
-	path =
-[mergetool "sourcetree"]
-	cmd = /Applications/SourceTree.app/Contents/Resources/opendiff-w.sh \"$LOCAL\" \"$REMOTE\" -ancestor \"$BASE\" -merge \"$MERGED\"
-	trustExitCode = true
 [commit]
-	gpgsign = true
+	gpgsign = false
