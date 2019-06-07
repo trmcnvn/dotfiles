@@ -2,6 +2,9 @@
 mafredri/zsh-async
 sindresorhus/pure
 
+# oh-my-zsh
+robbyrussell/oh-my-zsh path:plugins/ssh-agent
+
 # zsh-users repository
 zsh-users/zsh-completions
 zsh-users/zsh-syntax-highlighting
