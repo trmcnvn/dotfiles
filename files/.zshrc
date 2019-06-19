@@ -23,3 +23,6 @@ alias gbra="git branch"
 alias gdif="git diff --no-prefix"
 alias glog="git log --color --oneline"
 alias gst="git status"
+
+# ENV
+export EDITOR="code --wait"
