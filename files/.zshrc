@@ -1,4 +1,9 @@
-# homebrew completions
+# homebrew
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
+  umask 002
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  export PATH="$HOME/.fnm:$PATH"
+fi
 if type brew &>/dev/null; then
   FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
 fi
