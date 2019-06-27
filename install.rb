@@ -17,7 +17,7 @@ end
 
 def install
   TABLE.each do |dest, source|
-    File.symlink(source, dest) rescue nil
+    FileUtils.ln_s(source, dest, force: true)
   end
 end
 
