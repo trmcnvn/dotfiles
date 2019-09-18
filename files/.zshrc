@@ -7,8 +7,10 @@ fi
 if type brew &>/dev/null; then
   FPATH=$(brew --prefix)/share/zsh/site-functions:$FPATH
 fi
+autoload -Uz compinit; compinit
 
 # version managers
+# fnm
 eval "$(fnm env --multi)"
 eval "$(rbenv init -)"
 
@@ -28,6 +30,10 @@ alias gbra="git branch"
 alias gdif="git diff --no-prefix"
 alias glog="git log --color --oneline"
 alias gst="git status"
+alias ls="lsd"
 
 # ENV
 export EDITOR="code --wait"
+
+# Misc
+unsetopt nomatch
