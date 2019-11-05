@@ -34,6 +34,7 @@ alias ls="lsd"
 
 # ENV
 export EDITOR="code --wait"
+export PURE_PROMPT_SYMBOL="λ"
 
 # Misc
 unsetopt nomatch
