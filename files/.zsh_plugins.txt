@@ -4,9 +4,9 @@
 
 # oh-my-zsh
 robbyrussell/oh-my-zsh path:plugins/ssh-agent
-robbyrussell/oh-my-zsh path:lib
+# robbyrussell/oh-my-zsh path:lib
 # robbyrussell/oh-my-zsh path:themes/robbyrussell.zsh-theme
-robbyrussell/oh-my-zsh path:themes/lambda.zsh-theme
+# robbyrussell/oh-my-zsh path:themes/lambda.zsh-theme
 
 # zsh-users repository
 zsh-users/zsh-completions

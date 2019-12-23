@@ -5,7 +5,8 @@ TABLE = {
   "~/.gitexcludes" => "files/.gitexcludes",
   "~/.gitignore" => "files/.gitignore",
   "~/.zshrc" => "files/.zshrc",
-  "~/.zsh_plugins.txt" => "files/.zsh_plugins.txt"
+  "~/.zsh_plugins.txt" => "files/.zsh_plugins.txt",
+  "~/.config/starship.toml" => "files/starship.toml",
 }.inject({}) do |result, (key, value)|
   result.merge(File.expand_path(key) => File.expand_path(value))
 end

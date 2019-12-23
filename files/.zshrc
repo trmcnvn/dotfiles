@@ -38,3 +38,6 @@ export PURE_PROMPT_SYMBOL="λ"
 
 # Misc
 unsetopt nomatch
+
+# Starship
+eval "$(starship init zsh)"

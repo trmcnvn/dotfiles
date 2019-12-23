@@ -1,0 +1,13 @@
+add_newline = false
+
+[character]
+symbol = "λ"
+use_symbol_for_status = true
+
+[package]
+disabled = true
+
+[directory]
+truncation_length = 0
+truncate_to_repo = false
+prefix = ""
