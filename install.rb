@@ -7,6 +7,8 @@ TABLE = {
   "~/.zshrc" => "files/.zshrc",
   "~/.zsh_plugins.txt" => "files/.zsh_plugins.txt",
   "~/.config/starship.toml" => "files/starship.toml",
+  "~/.config/yabai/yabairc" => "files/yabairc",
+  "~/.config/skhd/skhdrc" => "files/skhdrc"
 }.inject({}) do |result, (key, value)|
   result.merge(File.expand_path(key) => File.expand_path(value))
 end

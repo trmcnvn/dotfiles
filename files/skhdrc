@@ -1,0 +1,5 @@
+# general window management
+alt - f : yabai -m window --toggle zoom-fullscreen
+
+# block macOS opening mail client
+cmd - i : ls

@@ -35,4 +35,8 @@
 	smudge = git-lfs smudge %f
 	required = true
 [commit]
-	gpgsign = false
+	gpgsign = true
+[gpg]
+	program = /opt/homebrew/bin/gpg
+[init]
+	defaultBranch = main
