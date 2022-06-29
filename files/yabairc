@@ -52,6 +52,7 @@ yabai -m rule --add app="Firefox Developer Edition" space=^1
 yabai -m rule --add app="Discord" space=^1
 
 # space 3: docs
+yabai -m space 3 --layout bsp
 yabai -m rule --add app="Dash" space=^3
 yabai -m rule --add app="TickTick" space=^3
 yabai -m rule --add app="Linear" space=^3
@@ -69,3 +70,4 @@ yabai -m rule --add title="JetBrains Toolbox" manage=off
 yabai -m rule --add label="System Preferences" app="System Preferences" title=".*" manage=off
 yabai -m rule --add app="Loom" manage=off
 yabai -m rule --add app="Sleeve" manage=off
+yabai -m rule --add app="Docker Desktop" manage=off
