@@ -1,14 +1,24 @@
 add_newline = false
 
 [character]
-format = "➜ "
+format = "% "
 
 [package]
 disabled = true
 
 [directory]
 truncation_length = 0
-truncate_to_repo = false
+truncate_to_repo = true
+fish_style_pwd_dir_length = 1
 
 [battery]
 disabled = true
+
+[git_branch]
+symbol = ""
+
+[ruby]
+version_format = "${raw}"
+symbol = "\ue791 "
+[nodejs]
+version_format = "${raw}"
