@@ -5,11 +5,16 @@
 [github]
   user = trmcnvn
 [color]
-	ui = auto
+	ui = true
+	diff = true
+	status = true
+	branch = true
+	interactive = true
 [merge]
   ff = false
 [pull]
-  rebase = true
+  rebase = merges
+	default = current
 [push]
 	default = current
 [core]
@@ -17,6 +22,8 @@
   quotepath = false
 	excludesfile = ~/.gitexcludes
 	editor = code --wait
+	whitespace = fix
+	trustctime = false
 [branch]
   quotepath       = true
   autosetuprebase = always
@@ -26,7 +33,8 @@
 	br = branch
 	pr = "!f() { git fetch ${1-master} pull/${2}/head:pr-${2}; }; f"
 	wip = !git add -A && git commit -m 'wip'
-	undo = reset HEAD~1 --mixed
+	undo = !git reset HEAD~1 --mixed
+	amend = !git commit --amend --no-edit
 	dbr = !git branch --merged | grep -v \"\\* \" | xargs git branch --delete
 [remote "origin"]
   fetch = +refs/pull/*/head:refs/remotes/origin/pull/*
@@ -37,6 +45,8 @@
 [commit]
 	gpgsign = true
 [gpg]
-	program = /opt/homebrew/bin/gpg
+	program = gpg
 [init]
 	defaultBranch = main
+[diff]
+	compactionHeuristic = true

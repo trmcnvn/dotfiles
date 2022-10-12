@@ -14,10 +14,14 @@ end
 
 # asdf
 source /opt/homebrew/opt/asdf/libexec/asdf.fish
+# zoxide
+zoxide init fish | source
+# Starship
+starship init fish | source
 
 # Aliases
 alias cl=clear
-alias ..="cd. ."
+alias ..="cd .."
 alias gbra="git branch"
 alias gdif="git diff --no-prefix"
 alias glog="git log --color --oneline"
@@ -25,6 +29,7 @@ alias gst="git status"
 alias ls="lsd"
 alias cat="bat"
 alias lg="lazygit"
+alias cd="z"
 
 # ENV
 set -U EDITOR "code --wait"
@@ -34,5 +39,5 @@ set -U fish_user_paths /usr/local/sbin $fish_user_paths
 set -U fish_user_paths $HOME/.cargo/bin $fish_user_paths
 set -U fish_user_paths /opt/homebrew/bin $fish_user_paths
 
-# Starship
-starship init fish | source
+# Fish functions
+fish_ssh_agent

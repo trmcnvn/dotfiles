@@ -19,6 +19,6 @@ symbol = ""
 
 [ruby]
 version_format = "${raw}"
-symbol = "\ue791 "
+symbol = "\ue739 "
 [nodejs]
 version_format = "${raw}"

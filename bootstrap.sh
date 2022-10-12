@@ -22,8 +22,11 @@ brew_apps=(
   redis
   ripgrep
   rustup-init
+  ruby-build
   starship
   tokei
+  zoxide
+  fzf
 )
 brew install "${brew_apps[@]}"
 brew tap homebrew/cask-versions
@@ -43,6 +46,10 @@ brew_casks=(
   zoom
 )
 brew install --cask "${brew_casks[@]}"
+
+# fish shell
+echo $(brew --prefix fish)/bin/fish | sudo tee -a /etc/shells
+chsh -s $(brew --prefix fish)/bin/fish
 
 # asdf
 asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
