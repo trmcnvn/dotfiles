@@ -1,23 +1,15 @@
-require("personal.set")
-require("personal.packer")
-require("personal.tree")
-require("personal.coq")
-require("personal.lsp")
-require("personal.keymaps")
+require("personal.base")
+require("personal.highlights")
+require("personal.maps")
+require("personal.plugins")
 
-require("tokyonight").setup({
-  style = "night",
-  transparent = false,
-  terminal_colors = true,
-  styles = {
-    comments = { italic = false },
-    keywords = { italic = false },
-    functions = { italic = false },
-    strings = { italic = false },
-    variables = { italic = false },
-    sidebars = "dark",
-    floats = "dark",
-  },
-  sidebars = { "qf", "help", "vista_kind", "packer", "terminal" },
-})
-vim.cmd("colorscheme tokyonight")
+local has = vim.fn.has
+local is_mac = has "macunix"
+local is_win = has "win32"
+
+if is_mac then
+  require("personal.macos")
+end
+if is_win then
+  require("personal.windows")
+end

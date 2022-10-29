@@ -29,6 +29,7 @@ brew_apps=(
   zoxide
   fzf
   fd
+  nvim
 )
 brew install "${brew_apps[@]}"
 brew tap homebrew/cask-versions
@@ -45,7 +46,6 @@ brew_casks=(
   google-chrome
   firefox-developer-edition
   spotify
-  telegram
   zoom
 )
 brew install --cask "${brew_casks[@]}"
@@ -62,3 +62,6 @@ asdf install ruby 2.7.6
 asdf install ruby latest
 asdf global nodejs lts
 asdf global ruby latest
+
+# nvim/packer
+git clone --depth 1 https://github.com/wbthomason/packer.nvim  ~/.local/share/nvim/site/pack/packer/start/packer.nvim
