@@ -7,6 +7,7 @@ brew_apps=(
   bat
   doctl
   docker
+  dust
   fish
   gh
   git
@@ -27,6 +28,7 @@ brew_apps=(
   tokei
   zoxide
   fzf
+  fd
 )
 brew install "${brew_apps[@]}"
 brew tap homebrew/cask-versions
@@ -38,6 +40,7 @@ brew_casks=(
   linear-linear
   notion
   discord
+  slack
   bitwarden
   google-chrome
   firefox-developer-edition
