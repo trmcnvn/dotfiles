@@ -47,6 +47,8 @@ brew_casks=(
   firefox-developer-edition
   spotify
   zoom
+  shortcat
+  kap
 )
 brew install --cask "${brew_casks[@]}"
 

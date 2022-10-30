@@ -26,29 +26,50 @@ telescope.setup({
           ["/"] = function() vim.cmd("startinsert") end
         }
       }
+    },
+    fzf = {
+      fuzzy = true,
+      override_generic_sorter = true,
+      override_file_sorter = true,
+      case_mode = "smart_case",
     }
   }
 })
 
 telescope.load_extension("harpoon")
 telescope.load_extension("file_browser")
+telescope.load_extension("fzf")
 
 local M = require("utils.keymaps")
 local function telescope_buffer_dir()
   return vim.fn.expand("%:p:h")
 end
 
-M.n("<leader>f", function() builtin.find_files({ no_ignore = false, hidden = false }) end)
-M.n("<leader>g", function() builtin.live_grep() end)
-M.n("<leader>b", function() builtin.buffers() end)
-M.n("<leader>e", function()
+local function file_finder(hidden)
   telescope.extensions.file_browser.file_browser({
     path = "%:p:h",
     cwd = telescope_buffer_dir(),
     respect_gitignore = true,
-    hidden = false,
+    hidden = hidden,
     grouped = true,
     initial_mode = "normal",
     layout_config = { height = 40 }
   })
-end)
+end
+
+M.n("<leader>f", function() builtin.find_files() end)
+M.n("<leader>F", function() builtin.find_files({ hidden = true }) end)
+M.n("<leader>df", function() builtin.find_files({ cwd = "~/code/dotfiles" }) end)
+M.n("<leader>o", function() builtin.oldfiles() end)
+M.n("<leader>g", function() builtin.live_grep() end)
+M.n("<leader>b", function() builtin.buffers() end)
+M.n("<leader>h", "<cmd>Telescope harpoon marks<CR>")
+M.n("<leader>e", function() file_finder(false) end)
+M.n("<leader>E", function() file_finder(true) end)
+M.n("<leader>gr", function() builtin.lsp_references() end)
+M.n("<leader>gd", function() builtin.lsp_definitions() end)
+M.n("<leader>gt", function() builtin.lsp_type_definitions() end)
+M.n("<leader>gi", function() builtin.lsp_implementations() end)
+M.n("<leader>xd", function() builtin.diagnostics() end)
+M.n("<leader>xs", function() builtin.lsp_document_symbols() end)
+M.n("<leader>xq", function() builtin.quickfix() end)

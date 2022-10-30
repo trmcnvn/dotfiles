@@ -21,7 +21,6 @@
   autocrlf = input
   quotepath = false
 	excludesfile = ~/.gitexcludes
-	editor = code --wait
 	whitespace = fix
 	trustctime = false
 [branch]

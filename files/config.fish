@@ -32,7 +32,7 @@ alias lg="lazygit"
 alias cd="z"
 
 # ENV
-set -U EDITOR "code --wait"
+set -U EDITOR "nvim"
 set -U PNPM_HOME "~/Library/pnpm"
 set -U fish_user_paths $PNPM_HOME $fish_user_paths
 set -U fish_user_paths /usr/local/sbin $fish_user_paths
