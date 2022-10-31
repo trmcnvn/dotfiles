@@ -12,6 +12,7 @@ require("tokyonight").setup({
     floats = "dark",
   },
   sidebars = { "qf", "help", "vista_kind", "packer", "terminal" },
+  hide_inactive_statusline = true,
 })
 
 vim.cmd [[colorscheme tokyonight]]

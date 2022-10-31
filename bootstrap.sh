@@ -13,6 +13,7 @@ brew_apps=(
   git
   git-crypt
   git-secret
+  go
   helm
   helmfile
   imagemagick
@@ -33,6 +34,7 @@ brew_apps=(
 )
 brew install "${brew_apps[@]}"
 brew tap homebrew/cask-versions
+brew tap wez/wezterm
 brew_casks=(
   alfred
   visual-studio-code
@@ -49,6 +51,7 @@ brew_casks=(
   zoom
   shortcat
   kap
+  wez/wezterm/wezterm
 )
 brew install --cask "${brew_casks[@]}"
 

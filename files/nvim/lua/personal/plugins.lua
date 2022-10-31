@@ -28,7 +28,8 @@ packer.startup(function(use)
   use "nvim-telescope/telescope-file-browser.nvim" -- File browser
   use { "nvim-telescope/telescope-fzf-native.nvim", run = "make" } -- Fuzzy finder
   use "folke/tokyonight.nvim" -- Theme
-  use "akinsho/bufferline.nvim" -- Tabs
+  use { "catppuccin/nvim", as = "catppuccin" } -- Theme
+  use { "akinsho/bufferline.nvim", after = "catppuccin" } -- Tabs
   use "github/copilot.vim" -- AI Coding
   use "ThePrimeagen/harpoon" -- Marking per project
   use "kdheepak/lazygit.nvim" -- Git

@@ -4,6 +4,7 @@ local status2, lspconfig = pcall(require, "mason-lspconfig")
 if (not status2) then return end
 
 local augroup_format = vim.api.nvim_create_augroup("format", { clear = true })
+local augroup_diagnostic = vim.api.nvim_create_augroup("diagnostic", { clear = true })
 local on_attach = function(_, bufnr)
   vim.api.nvim_clear_autocmds({ group = augroup_format, buffer = bufnr })
   vim.api.nvim_create_autocmd("BufWritePre", {
@@ -73,6 +74,10 @@ lspconfig.setup_handlers {
       capabilities = capabilities,
       settings = {
         Lua = {
+          runtime = {
+            version = "LuaJIT",
+            path = vim.split(package.path, ";")
+          },
           diagnostics = {
             globals = { "vim" },
           },
@@ -92,6 +97,52 @@ lspconfig.setup_handlers {
       on_attach = on_attach,
       capabilities = capabilities,
       cmd = { "typescript-language-server", "--stdio" }
+    })
+  end,
+  ["ruby_ls"] = function()
+    require("lspconfig")["ruby_ls"].setup({
+      on_attach = function(client, bufnr)
+        on_attach(client, bufnr)
+        vim.api.nvim_clear_autocmds({ group = augroup_diagnostic, buffer = bufnr })
+        vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePre", "CursorHold" }, {
+          group = augroup_diagnostic,
+          buffer = bufnr,
+          callback = function()
+            local params = vim.lsp.util.make_text_document_params(bufnr)
+            client.request(
+              "textDocument/diagnostic",
+              { textDocument = params },
+              function(err, result)
+                if err then return end
+                vim.lsp.diagnostic.on_publish_diagnostics(
+                  nil,
+                  vim.tbl_extend("keep", params, { diagnostics = result.items }),
+                  { bufnr = bufnr, client_id = client.id }
+                )
+              end
+            )
+          end
+        })
+      end,
+      capabilities = capabilities,
+      cmd = { "bundle", "exec", "ruby-lsp" },
+      filetypes = { "ruby", "rakefile", "rspec" },
+      init_options = {
+        enabledFeatures = {
+          "documentHighlights",
+          "documentSymbols",
+          "formatting",
+          "diagnostics",
+          "codeActions",
+          "inlayHint",
+          "hover",
+          "documentLink",
+          "foldingRanges",
+          "selectionRanges",
+          "semanticHighlighting"
+        },
+      },
+      root_dir = require("lspconfig").util.root_pattern("Gemfile", ".git")
     })
   end
 }
@@ -122,3 +173,6 @@ vim.diagnostic.config({
     source = "always"
   },
 })
+
+local M = require("utils.keymaps")
+M.n("<leader>gh", "<cmd>lua vim.lsp.buf.hover()<CR>")
