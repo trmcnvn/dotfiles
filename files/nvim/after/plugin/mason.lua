@@ -142,7 +142,7 @@ lspconfig.setup_handlers {
           "semanticHighlighting"
         },
       },
-      root_dir = require("lspconfig").util.root_pattern("Gemfile", ".git")
+      root_dir = require("lspconfig").util.root_pattern("Gemfile")
     })
   end
 }
@@ -152,6 +152,7 @@ vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
   underline = true,
   update_in_insert = false,
   virtual_text = { spacing = 4, prefix = "●" },
+  -- virtual_text = false,
   severity_sort = true,
 }
 )
@@ -167,6 +168,7 @@ vim.diagnostic.config({
   virtual_text = {
     prefix = "",
   },
+  -- virtual_text = false,
   sverity_sort = true,
   update_in_insert = true,
   float = {
@@ -176,3 +178,4 @@ vim.diagnostic.config({
 
 local M = require("utils.keymaps")
 M.n("<leader>gh", "<cmd>lua vim.lsp.buf.hover()<CR>")
+M.n("<leader>gR", "<cmd>lua vim.lsp.buf.rename()<CR>")

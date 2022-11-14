@@ -5,12 +5,12 @@ lualine.setup({
   options = {
     icons_enabled = true,
     theme = "tokyonight",
-    section_separators = { left = '', right = '' },
-    component_separators = { left = '', right = '' },
+    section_separators = { left = '', right = '' },
+    component_separators = { left = '', right = '' },
     disabled_filetypes = {}
   },
   sections = {
-    lualine_a = { "mode" },
+    lualine_a = { { "mode", fmt = function(str) return str:sub(1, 1) end } },
     lualine_b = { "branch" },
     lualine_c = {
       { "filename", file_status = true, path = 0 },
@@ -19,11 +19,11 @@ lualine.setup({
         function()
           local msg = "No Active LSP"
           local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
-          local clients = vim.lsp.get_active_clients()
+          local clients = vim.lsp.buf_get_clients()
           if next(clients) == nil then return msg end
 
           local client_table = {}
-          for _, client in ipairs(clients) do
+          for _, client in pairs(clients) do
             local filetypes = client.config.filetypes
             if filetypes and vim.fn.index(filetypes, buf_ft) ~= -1 then
               table.insert(client_table, client.name)

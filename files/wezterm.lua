@@ -9,7 +9,7 @@ return {
   font_size = 16.0,
   freetype_load_target = "Normal",
   hide_tab_bar_if_only_one_tab = true,
-  tab_bar_at_bottom = false,
+  tab_bar_at_bottom = true,
   window_frame = {
     font = wezterm.font_with_fallback { "JetBrains Mono" },
     font_size = 16.0,
@@ -34,5 +34,9 @@ return {
         fg_color = "#7aa2f7"
       }
     }
+  },
+  keys = {
+    { key = "Enter", mods = "CMD", action = wezterm.action.SplitHorizontal { domain = "CurrentPaneDomain" } },
+    { key = "Enter", mods = "CMD|CTRL", action = wezterm.action.SplitVertical { domain = "CurrentPaneDomain" } },
   }
 }

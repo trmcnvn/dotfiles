@@ -26,6 +26,7 @@ packer.startup(function(use)
   use "kyazdani42/nvim-web-devicons" -- Nerdfont icons
   use "nvim-telescope/telescope.nvim" -- File finder/grep
   use "nvim-telescope/telescope-file-browser.nvim" -- File browser
+  use "nvim-treesitter/nvim-treesitter-context" -- Context
   use { "nvim-telescope/telescope-fzf-native.nvim", run = "make" } -- Fuzzy finder
   use "folke/tokyonight.nvim" -- Theme
   use { "catppuccin/nvim", as = "catppuccin" } -- Theme
@@ -35,4 +36,5 @@ packer.startup(function(use)
   use "kdheepak/lazygit.nvim" -- Git
   use "windwp/nvim-autopairs" -- Autopairs
   use "glepnir/dashboard-nvim" -- Dashboard
+  -- use "https://git.sr.ht/~whynothugo/lsp_lines.nvim" -- Better Diagnostic inline UI
 end)

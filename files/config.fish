@@ -39,6 +39,7 @@ set -U fish_user_paths /usr/local/sbin $fish_user_paths
 set -U fish_user_paths $HOME/.cargo/bin $fish_user_paths
 set -U fish_user_paths /opt/homebrew/bin $fish_user_paths
 set -U fish_user_paths "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" $fish_user_paths
+set -U fish_user_paths $HOME/.npm-global/bin $fish_user_paths
 
 # Fish functions
 fish_ssh_agent

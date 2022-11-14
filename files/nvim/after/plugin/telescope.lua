@@ -7,14 +7,23 @@ local fb_actions = require("telescope").extensions.file_browser.actions
 
 telescope.setup({
   defaults = {
+    prompt_prefix = "  ",
+    initial_mode = "normal",
     mappings = {
       n = {
         ["q"] = actions.close
       }
     }
   },
+  pickers = {
+    find_files = { theme = "dropdown" },
+    live_grep = { theme = "dropdown" },
+    buffers = { theme = "dropdown" },
+    oldfiles = { theme = "dropdown" },
+  },
   extensions = {
     file_browser = {
+      theme = "dropdown",
       hijack_netrw = true,
       mappings = {
         ["i"] = {
@@ -45,7 +54,7 @@ local function telescope_buffer_dir()
   return vim.fn.expand("%:p:h")
 end
 
-local function file_finder(hidden)
+local function file_browser(hidden)
   telescope.extensions.file_browser.file_browser({
     path = "%:p:h",
     cwd = telescope_buffer_dir(),
@@ -64,8 +73,8 @@ M.n("<leader>o", function() builtin.oldfiles() end)
 M.n("<leader>g", function() builtin.live_grep() end)
 M.n("<leader>b", function() builtin.buffers() end)
 M.n("<leader>h", "<cmd>Telescope harpoon marks<CR>")
-M.n("<leader>e", function() file_finder(false) end)
-M.n("<leader>E", function() file_finder(true) end)
+M.n("<leader>e", function() file_browser(false) end)
+M.n("<leader>E", function() file_browser(true) end)
 M.n("<leader>gr", function() builtin.lsp_references() end)
 M.n("<leader>gd", function() builtin.lsp_definitions() end)
 M.n("<leader>gt", function() builtin.lsp_type_definitions() end)
