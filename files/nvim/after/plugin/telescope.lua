@@ -16,14 +16,14 @@ telescope.setup({
     }
   },
   pickers = {
-    find_files = { theme = "dropdown" },
-    live_grep = { theme = "dropdown" },
-    buffers = { theme = "dropdown" },
-    oldfiles = { theme = "dropdown" },
+    --find_files = { theme = "dropdown" },
+    --live_grep = { theme = "dropdown" },
+    --buffers = { theme = "dropdown" },
+    --oldfiles = { theme = "dropdown" },
   },
   extensions = {
     file_browser = {
-      theme = "dropdown",
+      --theme = "dropdown",
       hijack_netrw = true,
       mappings = {
         ["i"] = {
@@ -45,7 +45,7 @@ telescope.setup({
   }
 })
 
-telescope.load_extension("harpoon")
+--telescope.load_extension("harpoon")
 telescope.load_extension("file_browser")
 telescope.load_extension("fzf")
 
@@ -72,7 +72,7 @@ M.n("<leader>df", function() builtin.find_files({ cwd = "~/code/dotfiles" }) end
 M.n("<leader>o", function() builtin.oldfiles() end)
 M.n("<leader>g", function() builtin.live_grep() end)
 M.n("<leader>b", function() builtin.buffers() end)
-M.n("<leader>h", "<cmd>Telescope harpoon marks<CR>")
+--M.n("<leader>h", "<cmd>Telescope harpoon marks<CR>")
 M.n("<leader>e", function() file_browser(false) end)
 M.n("<leader>E", function() file_browser(true) end)
 M.n("<leader>gr", function() builtin.lsp_references() end)
@@ -82,3 +82,4 @@ M.n("<leader>gi", function() builtin.lsp_implementations() end)
 M.n("<leader>xd", function() builtin.diagnostics() end)
 M.n("<leader>xs", function() builtin.lsp_document_symbols() end)
 M.n("<leader>xq", function() builtin.quickfix() end)
+M.n("<leader>h", function() require('harpoon.cmd-ui').toggle_quick_menu() end)
