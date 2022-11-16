@@ -21,7 +21,8 @@ cmp.setup({
     { name = "nvim_lsp" },
     { name = "luasnip" },
     { name = "buffer" },
-    { name = "treesitter" }
+    { name = "treesitter" },
+    { name = "cmp_tabnine" }
   }),
   formatting = {
     format = lspkind.cmp_format({ with_text = false, maxwidth = 50 })
