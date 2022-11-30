@@ -38,7 +38,6 @@ brew tap wez/wezterm
 brew_casks=(
   alfred
   visual-studio-code
-  kitty
   ticktick
   linear-linear
   notion

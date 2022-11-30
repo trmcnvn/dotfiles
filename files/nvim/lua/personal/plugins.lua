@@ -14,7 +14,7 @@ packer.startup(function(use)
   use "hrsh7th/cmp-buffer" -- nvim-csp source for buffers
   use "hrsh7th/cmp-nvim-lsp" --  nvim-cmp source for neovim lsp
   use "hrsh7th/nvim-cmp" -- completion
-  use { "tzachar/cmp-tabnine", run = "./install.sh", requires = "hrsh7th/nvim-cmp" }
+  -- use { "tzachar/cmp-tabnine", run = "./install.sh", requires = "hrsh7th/nvim-cmp" }
   use "neovim/nvim-lspconfig" -- LSP
   use "L3MON4D3/LuaSnip" -- Snippets
   use "williamboman/mason.nvim" -- LSP
@@ -31,11 +31,15 @@ packer.startup(function(use)
   use { "nvim-telescope/telescope-fzf-native.nvim", run = "make" } -- Fuzzy finder
   use "folke/tokyonight.nvim" -- Theme
   use { "catppuccin/nvim", as = "catppuccin" } -- Theme
+  use "sainnhe/gruvbox-material" -- Theme
+  use "rebelot/kanagawa.nvim" -- Theme
   use { "akinsho/bufferline.nvim", after = "catppuccin" } -- Tabs
-  --use "github/copilot.vim" -- AI Coding
+  use "github/copilot.vim" -- AI Coding
   use "ThePrimeagen/harpoon" -- Marking per project
   use "kdheepak/lazygit.nvim" -- Git
   use "windwp/nvim-autopairs" -- Autopairs
+  use "windwp/nvim-ts-autotag" -- Autotags
   use "glepnir/dashboard-nvim" -- Dashboard
   -- use "https://git.sr.ht/~whynothugo/lsp_lines.nvim" -- Better Diagnostic inline UI
+  use "norcalli/nvim-colorizer.lua" -- Colorizer
 end)

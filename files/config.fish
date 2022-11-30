@@ -3,7 +3,13 @@ if status is-interactive
 end
 
 # Fish
-set -U fish_greeting ""
+set -g fish_greeting ""
+set -gx TERM xterm-256color
+set -g theme_color_scheme terminal-dark
+set -g fish_prompt_pwd_dir_length 1
+set -g theme_display_user yes
+set -g theme_hide_hostname no
+set -g theme_hostname always
 
 # Kitty
 if set -q KITTY_INSTALLATION_DIR
@@ -32,14 +38,14 @@ alias lg="lazygit"
 alias cd="z"
 
 # ENV
-set -U EDITOR "nvim"
-set -U PNPM_HOME "~/Library/pnpm"
-set -U fish_user_paths $PNPM_HOME $fish_user_paths
-set -U fish_user_paths /usr/local/sbin $fish_user_paths
-set -U fish_user_paths $HOME/.cargo/bin $fish_user_paths
-set -U fish_user_paths /opt/homebrew/bin $fish_user_paths
-set -U fish_user_paths "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" $fish_user_paths
-set -U fish_user_paths $HOME/.npm-global/bin $fish_user_paths
+set -gx EDITOR "nvim"
+set -gx PNPM_HOME "~/Library/pnpm"
+set -gx fish_user_paths $PNPM_HOME $fish_user_paths
+set -gx fish_user_paths /usr/local/sbin $fish_user_paths
+set -gx fish_user_paths $HOME/.cargo/bin $fish_user_paths
+set -gx fish_user_paths /opt/homebrew/bin $fish_user_paths
+set -gx fish_user_paths "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" $fish_user_paths
+set -gx fish_user_paths $HOME/.npm-global/bin $fish_user_paths
 
 # Fish functions
 fish_ssh_agent

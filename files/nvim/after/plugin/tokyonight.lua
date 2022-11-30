@@ -1,6 +1,6 @@
 require("tokyonight").setup({
   style = "night",
-  transparent = false,
+  transparent = true,
   terminal_colors = true,
   styles = {
     comments = { italic = false },
@@ -15,4 +15,4 @@ require("tokyonight").setup({
   hide_inactive_statusline = true,
 })
 
-vim.cmd [[colorscheme tokyonight]]
+-- vim.cmd [[colorscheme tokyonight]]

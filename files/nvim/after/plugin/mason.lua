@@ -54,7 +54,9 @@ lspconfig.setup({
     "sumneko_lua",
     "eslint",
     "tsserver",
-    "ruby_ls",
+    --"ruby_ls",
+    --"sorbet",
+    "solargraph",
     "svelte",
     "tailwindcss",
     "gopls"
@@ -99,7 +101,29 @@ lspconfig.setup_handlers {
       cmd = { "typescript-language-server", "--stdio" }
     })
   end,
-  ["ruby_ls"] = function()
+  ["solargraph"] = function()
+    require("lspconfig")["solargraph"].setup({
+      cmd = { "bundle", "exec", "solargraph", "stdio" },
+      on_attach = on_attach,
+      capabilities = capabilities,
+      settings = {
+        solargraph = {
+          useBundler = true,
+          diagnostic = true,
+          completion = true,
+          hover = true,
+          formatting = true,
+          symbols = true,
+          definitions = true,
+          rename = true,
+          references = true,
+          folding = true
+        }
+      },
+      root_dir = require("lspconfig").util.root_pattern("Gemfile")
+    })
+  end
+  --[[["ruby_ls"] = function()
     require("lspconfig")["ruby_ls"].setup({
       on_attach = function(client, bufnr)
         on_attach(client, bufnr)
@@ -144,7 +168,14 @@ lspconfig.setup_handlers {
       },
       root_dir = require("lspconfig").util.root_pattern("Gemfile")
     })
-  end
+  end,]]
+  --[[["sorbet"] = function()
+    require("lspconfig")["sorbet"].setup({
+      on_attach = on_attach,
+      capabilities = capabilities,
+      cmd = { "srb", "tc", "--lsp", "--no-config", "--dir", "." }
+    })
+  end]]
 }
 
 vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(

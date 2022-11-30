@@ -27,7 +27,7 @@ dash.custom_center = {
   {
     icon = "  ",
     desc = "Live Grep          ",
-    shortcut = "SPC g",
+    shortcut = "SPC r",
   },
   {
     icon = "  ",
