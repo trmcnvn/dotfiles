@@ -1,9 +1,5 @@
 local wezterm = require("wezterm")
 
-function basename(s)
-  return string.gsub(s, "(.*[/\\])(.*)", "%2")
-end
-
 wezterm.on(
   "format-tab-title",
   function(tab, _, _, _, _, max_width)
@@ -12,6 +8,7 @@ wezterm.on(
 )
 
 return {
+  front_end = "WebGpu",
   --color_scheme = "tokyonight",
   --color_scheme = "Gruvbox Dark",
   force_reverse_video_cursor = true,
@@ -22,9 +19,8 @@ return {
     "Consolas"
   },
   window_background_opacity = 1.0,
-  max_fps = 100,
+  max_fps = 120,
   scrollback_lines = 3500,
-  dpi = 114.0,
   font_size = 16.0,
   freetype_load_target = "Normal",
   hide_tab_bar_if_only_one_tab = true,
@@ -69,6 +65,7 @@ return {
   keys = {
     { key = "Enter", mods = "CMD", action = wezterm.action.SplitHorizontal { domain = "CurrentPaneDomain" } },
     { key = "Enter", mods = "CMD|CTRL", action = wezterm.action.SplitVertical { domain = "CurrentPaneDomain" } },
+    { key = 'L', mods = 'CTRL', action = wezterm.action.ShowDebugOverlay },
   },
   mouse_bindings = {
     {

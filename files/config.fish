@@ -40,12 +40,15 @@ alias cd="z"
 # ENV
 set -gx EDITOR "nvim"
 set -gx PNPM_HOME "~/Library/pnpm"
+set -gx DOTNET_ROOT "/opt/homebrew/opt/dotnet/libexec"
 set -gx fish_user_paths $PNPM_HOME $fish_user_paths
 set -gx fish_user_paths /usr/local/sbin $fish_user_paths
 set -gx fish_user_paths $HOME/.cargo/bin $fish_user_paths
 set -gx fish_user_paths /opt/homebrew/bin $fish_user_paths
 set -gx fish_user_paths "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" $fish_user_paths
 set -gx fish_user_paths $HOME/.npm-global/bin $fish_user_paths
+set -ga fish_user_paths $HOME/.nimble/bin
+set -ga fish_user_paths $HOME/.dotnet/tools
 
 # Fish functions
 fish_ssh_agent

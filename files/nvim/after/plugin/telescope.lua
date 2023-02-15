@@ -40,7 +40,10 @@ telescope.setup({
       fuzzy = true,
       override_generic_sorter = true,
       override_file_sorter = true,
-      case_mode = "smart_case",
+      case_mode = "ignore_case",
+    },
+    live_grep_args = {
+      auto_quoting = true,
     }
   }
 })
@@ -49,7 +52,6 @@ telescope.setup({
 telescope.load_extension("file_browser")
 telescope.load_extension("fzf")
 
-local M = require("utils.keymaps")
 local function telescope_buffer_dir()
   return vim.fn.expand("%:p:h")
 end
@@ -66,11 +68,13 @@ local function file_browser(hidden)
   })
 end
 
+local M = require("utils.keymaps")
 M.n("<leader>f", function() builtin.find_files() end)
 M.n("<leader>F", function() builtin.find_files({ hidden = true }) end)
 M.n("<leader>df", function() builtin.find_files({ cwd = "~/code/dotfiles" }) end)
 M.n("<leader>o", function() builtin.oldfiles() end)
 M.n("<leader>r", function() builtin.live_grep({ previewer = false }) end)
+M.n("<leader>R", function() require("telescope").extensions.live_grep_args.live_grep_args() end)
 M.n("<leader>b", function() builtin.buffers() end)
 --M.n("<leader>h", "<cmd>Telescope harpoon marks<CR>")
 M.n("<leader>e", function() file_browser(false) end)

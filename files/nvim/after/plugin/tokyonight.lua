@@ -15,4 +15,4 @@ require("tokyonight").setup({
   hide_inactive_statusline = true,
 })
 
--- vim.cmd [[colorscheme tokyonight]]
+--vim.cmd [[colorscheme tokyonight]]

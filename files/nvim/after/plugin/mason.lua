@@ -51,11 +51,9 @@ mason.setup({})
 lspconfig.setup({
   ensure_installed = {
     "rust_analyzer",
-    "sumneko_lua",
+    "lua_ls",
     "eslint",
     "tsserver",
-    --"ruby_ls",
-    --"sorbet",
     "solargraph",
     "svelte",
     "tailwindcss",
@@ -70,8 +68,8 @@ lspconfig.setup_handlers {
       capabilities = capabilities,
     })
   end,
-  ["sumneko_lua"] = function()
-    require("lspconfig")["sumneko_lua"].setup({
+  ["lua_ls"] = function()
+    require("lspconfig")["lua_ls"].setup({
       on_attach = on_attach,
       capabilities = capabilities,
       settings = {
@@ -122,7 +120,7 @@ lspconfig.setup_handlers {
       },
       root_dir = require("lspconfig").util.root_pattern("Gemfile")
     })
-  end
+  end,
   --[[["ruby_ls"] = function()
     require("lspconfig")["ruby_ls"].setup({
       on_attach = function(client, bufnr)
@@ -176,6 +174,13 @@ lspconfig.setup_handlers {
       cmd = { "srb", "tc", "--lsp", "--no-config", "--dir", "." }
     })
   end]]
+  ["graphql"] = function()
+    require("lspconfig")["graphql"].setup({
+      on_attach = on_attach,
+      capabilities = capabilities,
+      filetypes = { "gql", "graphql", "svelte" }
+    })
+  end
 }
 
 vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
@@ -210,3 +215,4 @@ vim.diagnostic.config({
 local M = require("utils.keymaps")
 M.n("<leader>gh", "<cmd>lua vim.lsp.buf.hover()<CR>")
 M.n("<leader>gR", "<cmd>lua vim.lsp.buf.rename()<CR>")
+M.n("<leader>dd", "<cmd>lua vim.diagnostic.open_float()<CR>")

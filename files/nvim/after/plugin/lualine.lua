@@ -5,6 +5,7 @@ lualine.setup({
   options = {
     icons_enabled = true,
     theme = "kanagawa",
+    --theme = "tokyonight",
     section_separators = { left = '', right = '' },
     component_separators = { left = '', right = '' },
     disabled_filetypes = {}
@@ -17,7 +18,7 @@ lualine.setup({
       { "diff" },
       {
         function()
-          local msg = "No Active LSP"
+          local msg = ""
           local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
           local clients = vim.lsp.buf_get_clients()
           if next(clients) == nil then return msg end

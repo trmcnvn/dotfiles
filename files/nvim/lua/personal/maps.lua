@@ -19,3 +19,6 @@ M.e("sh", "<C-w>h")
 M.e("sk", "<C-w>k")
 M.e("sj", "<C-w>j")
 M.e("sl", "<C-w>l")
+-- Horizontal nav
+M.n("<C-d>", "<C-d>zz")
+M.n("<C-u>", "<C-u>zz")

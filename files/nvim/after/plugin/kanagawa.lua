@@ -9,7 +9,7 @@ kanagawa.setup({
   statementStyle = {},
   typeStyle = {},
   variablebuiltinStyle = { italic = false },
-  specialReturn = false,
+  specialReturn = true,
   specialException = true,
   transparent = false,
   dimInactive = false,
