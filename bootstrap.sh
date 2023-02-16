@@ -1,5 +1,6 @@
 # homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+eval $(/opt/homebrew/bin/brew shellenv)
 brew update
 brew upgrade
 brew_apps=(
@@ -51,6 +52,9 @@ brew_casks=(
   shortcat
   kap
   wez/wezterm/wezterm
+  dash
+  gpg-suite
+  numi
 )
 brew install --cask "${brew_casks[@]}"
 

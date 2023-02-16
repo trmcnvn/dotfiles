@@ -44,7 +44,7 @@
 [commit]
 	gpgsign = true
 [gpg]
-	program = gpg
+	program = gpg2
 [init]
 	defaultBranch = main
 [diff]
