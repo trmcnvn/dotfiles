@@ -55,6 +55,7 @@ brew_casks=(
   dash
   gpg-suite
   numi
+  iina
 )
 brew install --cask "${brew_casks[@]}"
 
