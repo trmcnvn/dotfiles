@@ -34,6 +34,7 @@ packer.startup(function(use)
   use { "catppuccin/nvim", as = "catppuccin" } -- Theme
   use "sainnhe/gruvbox-material" -- Theme
   use "rebelot/kanagawa.nvim" -- Theme
+  use "rose-pine/neovim" -- Theme
   use { "akinsho/bufferline.nvim", after = "catppuccin" } -- Tabs
   use "github/copilot.vim" -- AI Coding
   use "ThePrimeagen/harpoon" -- Marking per project

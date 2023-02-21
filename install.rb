@@ -14,7 +14,8 @@ TABLE =
     "~/.config/nvim/init.lua" => "files/nvim/init.lua",
     "~/.config/nvim/after" => "files/nvim/after",
     "~/.config/nvim/lua" => "files/nvim/lua",
-    "~/.config/wezterm/wezterm.lua" => "files/wezterm.lua"
+    "~/.config/wezterm/wezterm.lua" => "files/wezterm.lua",
+    "~/.config/wezterm/lua" => "files/wezterm/lua"
   }.inject({}) do |result, (key, value)|
     result.merge(File.expand_path(key) => File.expand_path(value))
   end

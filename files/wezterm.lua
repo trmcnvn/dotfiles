@@ -1,4 +1,6 @@
 local wezterm = require("wezterm")
+local colors = require("lua/rose-pine").colors()
+local window_frame = require("lua/rose-pine").window_frame(wezterm)
 
 wezterm.on(
   "format-tab-title",
@@ -11,13 +13,10 @@ return {
   front_end = "WebGpu",
   --color_scheme = "tokyonight",
   --color_scheme = "Gruvbox Dark",
+  colors = colors,
+  window_frame = window_frame,
   force_reverse_video_cursor = true,
-  font = wezterm.font_with_fallback {
-    "JetBrains Mono",
-    "Cascadia Code",
-    "Menlo",
-    "Consolas"
-  },
+  font = wezterm.font("JetBrains Mono"),
   window_background_opacity = 1.0,
   max_fps = 120,
   scrollback_lines = 3500,
@@ -26,18 +25,18 @@ return {
   hide_tab_bar_if_only_one_tab = true,
   tab_bar_at_bottom = true,
   use_fancy_tab_bar = true,
-  window_frame = {
+  --[[window_frame = {
     font = wezterm.font_with_fallback { "JetBrains Mono", "Cascadia Code", "Menlo", "Consolas" },
     font_size = 16.0,
     active_titlebar_bg = "#15161E"
-  },
+  },]]
   window_padding = {
     left = 0,
     right = 0,
     top = 0,
     bottom = 0
   },
-  colors = {
+  --[[colors = {
     foreground = "#dcd7ba",
     background = "#1f1f28",
     cursor_bg = "#c8c093",
@@ -61,7 +60,7 @@ return {
         fg_color = "#c8c093"
       }
     }
-  },
+  },]]
   keys = {
     { key = "Enter", mods = "CMD", action = wezterm.action.SplitHorizontal { domain = "CurrentPaneDomain" } },
     { key = "Enter", mods = "CMD|CTRL", action = wezterm.action.SplitVertical { domain = "CurrentPaneDomain" } },
