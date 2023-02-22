@@ -3,6 +3,7 @@ if (not status) then return end
 
 bufferline.setup {
   --highlights = require("catppuccin.groups.integrations.bufferline").get(),
+  highlights = require("rose-pine.plugins.bufferline"),
   options = {
     mode = "buffers",
     separator_style = "thin",

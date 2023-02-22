@@ -56,6 +56,7 @@ brew_casks=(
   gpg-suite
   numi
   iina
+  figma
 )
 brew install --cask "${brew_casks[@]}"
 
