@@ -13,6 +13,9 @@ telescope.setup({
       n = {
         ["q"] = actions.close
       }
+    },
+    layout_config = {
+      horizontal = { preview_width = 80 }
     }
   },
   pickers = {

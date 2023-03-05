@@ -37,7 +37,7 @@ brew install "${brew_apps[@]}"
 brew tap homebrew/cask-versions
 brew tap wez/wezterm
 brew_casks=(
-  alfred
+  raycast
   visual-studio-code
   ticktick
   linear-linear

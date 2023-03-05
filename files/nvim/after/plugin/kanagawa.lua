@@ -5,19 +5,19 @@ kanagawa.setup({
   undercurl = true,
   commentStyle = { italic = false },
   functionStyle = {},
-  keywordStyle = {},
-  statementStyle = {},
+  keywordStyle = { italic = false },
+  statementStyle = { bold = false },
   typeStyle = {},
-  variablebuiltinStyle = { italic = false },
-  specialReturn = true,
-  specialException = true,
   transparent = false,
   dimInactive = false,
-  globalStatus = true,
   terminalColors = true,
-  colors = {},
-  overrides = {},
-  theme = "default"
+  colors = {
+    palette = {},
+    theme = { wave = {}, lotus = {}, dragon = {}, all = {} }
+  },
+  overrides = function(colors)
+    return {}
+  end,
 })
 
-vim.cmd [[colorscheme kanagawa]]
+-- vim.cmd("colorscheme kanagawa-dragon")

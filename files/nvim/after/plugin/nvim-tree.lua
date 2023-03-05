@@ -14,6 +14,15 @@ tree.setup {
   },
   git = {
     ignore = false
+  },
+  trash = { cmd = "trash" },
+  view = {
+    mappings = {
+      list = {
+        { key = "d", action = "trash" },
+        { key = "D", action = "remove" }
+      }
+    }
   }
 }
 

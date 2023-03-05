@@ -1,7 +1,7 @@
 [user]
-	name = Thomas McNiven
+	name = trmcnvn
 	email = hello@trmcnvn.dev
-	signingkey = D8087F83
+	signingkey = ~/.ssh/id_rsa.pub
 [github]
   user = trmcnvn
 [color]
@@ -12,8 +12,9 @@
 	interactive = true
 [merge]
   ff = false
+  conflictstyle = diff3
 [pull]
-  rebase = merges
+  rebase = false
 	default = current
 [push]
 	default = current
@@ -22,7 +23,8 @@
   quotepath = false
 	excludesfile = ~/.gitexcludes
 	whitespace = fix
-	trustctime = false
+  trustctime = false
+  editor = nvim
 [branch]
   quotepath       = true
   autosetuprebase = always
@@ -44,7 +46,7 @@
 [commit]
 	gpgsign = true
 [gpg]
-	program = gpg2
+  format = ssh
 [init]
 	defaultBranch = main
 [diff]

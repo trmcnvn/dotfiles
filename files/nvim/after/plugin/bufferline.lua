@@ -3,14 +3,19 @@ if (not status) then return end
 
 bufferline.setup {
   --highlights = require("catppuccin.groups.integrations.bufferline").get(),
-  highlights = require("rose-pine.plugins.bufferline"),
+  highlights = vim.tbl_deep_extend("force", require("rose-pine.plugins.bufferline"), {
+    buffer_selected = {
+      italic = false,
+      bold = false
+    }
+  }),
   options = {
     mode = "buffers",
     separator_style = "thin",
     always_show_bufferline = false,
     show_buffer_close_icons = false,
     show_buffer_icons = true,
-    show_close_icon = false,
+    show_close_icon = true,
     color_icons = true,
     enfoce_regular_tabs = false
   }

@@ -10,15 +10,11 @@ M.n("<C-]>", "<cmd>lua require(\"harpoon.ui\").nav_next()<CR>")
 M.n("<C-a>", "gg<S-v>G") -- Select all
 M.n("<C-s>", "<cmd>w<CR>") -- Save
 M.n("te", "<cmd>tabedit<CR>") -- New tab
-M.n("sv", "<cmd>vsplit<CR>") -- Vertical split
-M.e("s<left>", "<C-w>h")
-M.e("s<up>", "<C-w>k")
-M.e("s<down>", "<C-w>j")
-M.e("s<right>", "<C-w>l")
-M.e("sh", "<C-w>h")
-M.e("sk", "<C-w>k")
-M.e("sj", "<C-w>j")
-M.e("sl", "<C-w>l")
+M.n("zv", "<cmd>vsplit<CR>") -- Vertical split
+M.e("z<left>", "<C-w>h")
+M.e("z<up>", "<C-w>k")
+M.e("z<down>", "<C-w>j")
+M.e("z<right>", "<C-w>l")
 -- Horizontal nav
 M.n("<C-d>", "<C-d>zz")
 M.n("<C-u>", "<C-u>zz")
