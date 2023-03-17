@@ -15,8 +15,12 @@ telescope.setup({
       }
     },
     layout_config = {
-      horizontal = { preview_width = 80 }
-    }
+      horizontal = { preview_width = 80 },
+      prompt_position = "top"
+    },
+    layout_strategy = "horizontal",
+    sorting_strategy = "ascending",
+    winblend = 0
   },
   pickers = {
     --find_files = { theme = "dropdown" },
@@ -86,7 +90,4 @@ M.n("<leader>gr", function() builtin.lsp_references() end)
 M.n("<leader>gd", function() builtin.lsp_definitions() end)
 M.n("<leader>gt", function() builtin.lsp_type_definitions() end)
 M.n("<leader>gi", function() builtin.lsp_implementations() end)
-M.n("<leader>xd", function() builtin.diagnostics() end)
-M.n("<leader>xs", function() builtin.lsp_document_symbols() end)
-M.n("<leader>xq", function() builtin.quickfix() end)
 M.n("<leader>h", function() require('harpoon.cmd-ui').toggle_quick_menu() end)

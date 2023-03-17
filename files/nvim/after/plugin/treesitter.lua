@@ -23,7 +23,8 @@ ts.setup({
     "svelte",
     "go",
     "ruby",
-    "rust"
+    "rust",
+    "vim"
   },
   autotag = {
     enable = true

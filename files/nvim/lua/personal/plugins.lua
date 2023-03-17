@@ -1,48 +1,69 @@
-local status, packer = pcall(require, "packer")
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable", -- latest stable release
+    lazypath,
+  })
+end
+vim.opt.rtp:prepend(lazypath)
+
+local status, lazy = pcall(require, "lazy")
 if (not status) then
-  print("Packer is not installed")
+  print("Lazy is not installed")
   return
 end
 
-vim.cmd [[packadd packer.nvim]]
-
-packer.startup(function(use)
-  use "wbthomason/packer.nvim"
-  use "nvim-lualine/lualine.nvim" -- Statusline
-  use "nvim-lua/plenary.nvim" -- Common utils
-  use "onsails/lspkind-nvim" -- vscode-like pictograms
-  use "hrsh7th/cmp-buffer" -- nvim-csp source for buffers
-  use "hrsh7th/cmp-nvim-lsp" --  nvim-cmp source for neovim lsp
-  use "hrsh7th/nvim-cmp" -- completion
-  use "neovim/nvim-lspconfig" -- LSP
-  use "L3MON4D3/LuaSnip" -- Snippets
-  use "williamboman/mason.nvim" -- LSP
-  use "williamboman/mason-lspconfig.nvim" -- LSP
-  use "jose-elias-alvarez/null-ls.nvim" -- LSP
-  use {
+lazy.setup({
+  { "nvim-lualine/lualine.nvim", event = "ColorScheme" },
+  { "romgrk/barbar.nvim",        event = "ColorScheme", dependencies = { "nvim-tree/nvim-web-devicons" } },
+  "nvim-lua/plenary.nvim", -- Common utils
+  "onsails/lspkind-nvim",  -- vscode-like pictograms
+  {
+    "hrsh7th/nvim-cmp",
+    event = "InsertEnter",
+    dependencies = {
+      "hrsh7th/cmp-buffer",
+      "hrsh7th/cmp-nvim-lsp",
+      "hrsh7th/cmp-emoji",
+    }
+  },
+  {
+    "williamboman/mason.nvim",
+    dependencies = {
+      "neovim/nvim-lspconfig",
+      "williamboman/mason-lspconfig.nvim",
+      "jose-elias-alvarez/null-ls.nvim",
+    },
+  },
+  {
     "nvim-treesitter/nvim-treesitter",
-    run = function() require("nvim-treesitter.install").update({ with_sync = true }) end,
-  } -- Syntax
-  use "alaviss/nim.nvim" -- Nim Syntax
-  use "kyazdani42/nvim-web-devicons" -- Nerdfont icons
-  use "nvim-telescope/telescope.nvim" -- File finder/grep
-  use "nvim-telescope/telescope-file-browser.nvim" -- File browser
-  use "nvim-telescope/telescope-live-grep-args.nvim" -- Grep/rg args
-  use "nvim-treesitter/nvim-treesitter-context" -- Context
-  use { "nvim-telescope/telescope-fzf-native.nvim", run = "make" } -- Fuzzy finder
-  use "folke/tokyonight.nvim" -- Theme
-  use { "catppuccin/nvim", as = "catppuccin" } -- Theme
-  use "sainnhe/gruvbox-material" -- Theme
-  use "rebelot/kanagawa.nvim" -- Theme
-  use "rose-pine/neovim" -- Theme
-  use { "akinsho/bufferline.nvim", after = "catppuccin" } -- Tabs
-  use "github/copilot.vim" -- AI Coding
-  use "ThePrimeagen/harpoon" -- Marking per project
-  use "kdheepak/lazygit.nvim" -- Git
-  use "windwp/nvim-autopairs" -- Autopairs
-  use "windwp/nvim-ts-autotag" -- Autotags
-  use "glepnir/dashboard-nvim" -- Dashboard
-  -- use "https://git.sr.ht/~whynothugo/lsp_lines.nvim" -- Better Diagnostic inline UI
-  use "norcalli/nvim-colorizer.lua" -- Colorizer
-  use "nvim-tree/nvim-tree.lua" -- File tree
-end)
+    init = function() require("nvim-treesitter.install").update({ with_sync = true }) end,
+  },
+  { "nvim-tree/nvim-web-devicons", priority = 1000 },
+  {
+    "nvim-telescope/telescope.nvim",
+    dependencies = {
+      "nvim-telescope/telescope-file-browser.nvim",
+      "nvim-telescope/telescope-live-grep-args.nvim",
+      { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
+    }
+  },
+  { "rose-pine/neovim",            priority = 1000 }, -- Theme
+  "github/copilot.vim",                               -- AI Coding
+  "ThePrimeagen/harpoon",                             -- Marking per project
+  "kdheepak/lazygit.nvim",                            -- Git
+  "windwp/nvim-autopairs",                            -- Autopairs
+  "windwp/nvim-ts-autotag",                           -- Autotags
+  "glepnir/dashboard-nvim",                           -- Dashboard
+  "norcalli/nvim-colorizer.lua",                      -- Colorizer
+  "nvim-tree/nvim-tree.lua",                          -- File tree
+  "folke/zen-mode.nvim",                              -- Zen mode
+  { "b0o/incline.nvim", event = "BufReadPre" },       -- Floating statuelines
+  "echasnovski/mini.ai",                              -- Improved text objects
+  "Wansmer/treesj",                                   -- Treesitter collapse/expand objects
+  "folke/trouble.nvim",                               -- LSP diagnostics
+})

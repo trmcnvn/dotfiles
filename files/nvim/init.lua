@@ -1,5 +1,4 @@
 require("personal.base")
-require("personal.highlights")
 require("personal.maps")
 require("personal.plugins")
 

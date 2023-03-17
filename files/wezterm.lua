@@ -13,10 +13,19 @@ return {
   front_end = "WebGpu",
   --color_scheme = "tokyonight",
   --color_scheme = "Gruvbox Dark",
+  --color_scheme = "rose-pine",
   colors = colors,
   window_frame = window_frame,
   force_reverse_video_cursor = true,
-  font = wezterm.font_with_fallback { "Cartograph CF", "JetBrains Mono", "Cascadia Code", "Menlo", "Consolas" },
+  font = wezterm.font_with_fallback {
+    "Cartograph CF",
+    "JetBrains Mono",
+    "Cascadia Code",
+    "Menlo",
+    "Consolas",
+    "JetBrainsMono Nerd Font",
+  },
+  cell_width = 0.9,
   window_background_opacity = 1.0,
   max_fps = 120,
   scrollback_lines = 3500,
@@ -62,9 +71,9 @@ return {
     }
   },]]
   keys = {
-    { key = "Enter", mods = "CMD", action = wezterm.action.SplitHorizontal { domain = "CurrentPaneDomain" } },
+    { key = "Enter", mods = "CMD",      action = wezterm.action.SplitHorizontal { domain = "CurrentPaneDomain" } },
     { key = "Enter", mods = "CMD|CTRL", action = wezterm.action.SplitVertical { domain = "CurrentPaneDomain" } },
-    { key = 'L', mods = 'CTRL', action = wezterm.action.ShowDebugOverlay },
+    { key = 'L',     mods = 'CTRL',     action = wezterm.action.ShowDebugOverlay },
   },
   mouse_bindings = {
     {

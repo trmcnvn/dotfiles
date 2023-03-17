@@ -23,6 +23,9 @@ tree.setup {
         { key = "D", action = "remove" }
       }
     }
+  },
+  renderer = {
+    indent_width = 1,
   }
 }
 

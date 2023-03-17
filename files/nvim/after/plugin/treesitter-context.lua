@@ -3,6 +3,6 @@ if (not status) then return end
 
 ts_context.setup {
   patterns = {
-    ruby = { "context", "def", "module", "block", "do_block" }
+    ruby = { "context", "def", "module" }
   }
 }
