@@ -18,24 +18,16 @@ cmp.setup({
     }),
   }),
   sources = cmp.config.sources({
+    { name = "nvim_lua" },
     { name = "nvim_lsp" },
     { name = "luasnip" },
-    { name = "buffer" },
-    { name = "treesitter" },
-    { name = "cmp_tabnine" },
-    { name = "emoji" }
+    { name = "copilot" },
   }),
   formatting = {
-    format = lspkind.cmp_format({ with_text = false, maxwidth = 50 })
+    format = lspkind.cmp_format({ mode = "symbol_text", maxwidth = 50, preset = "default", symbol_map = { Copilot = "" } }),
   },
   experimental = {
-    ghost_text = {
-      hl_group = "LspCodeLens"
-    }
+    native_menu = false,
+    ghost_text = false,
   }
 })
-
-vim.cmd [[
-  set completeopt=menuone,noinsert,noselect
-  highlight! default link CmpItemKind CmpItemMenuDefault
-]]

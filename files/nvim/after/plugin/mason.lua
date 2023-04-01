@@ -57,7 +57,8 @@ lspconfig.setup({
     "solargraph",
     "svelte",
     "tailwindcss",
-    "gopls"
+    "gopls",
+    "prismals"
   },
   automatic_installation = true
 })

@@ -9,5 +9,7 @@ end
 
 M.n = bind("n")
 M.e = bind("")
+M.v = bind("v")
+M.t = bind("t")
 
 return M

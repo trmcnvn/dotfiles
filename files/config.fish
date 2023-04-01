@@ -7,19 +7,11 @@ fish_add_path /opt/homebrew/bin
 
 # Fish
 set fish_greeting
-set -gx TERM xterm-256color
 set -g theme_color_scheme terminal-dark
 set -g fish_prompt_pwd_dir_length 1
 set -g theme_display_user yes
 set -g theme_hide_hostname no
 set -g theme_hostname always
-
-# Kitty
-if set -q KITTY_INSTALLATION_DIR
-    set --global KITTY_SHELL_INTEGRATION enabled
-    source "$KITTY_INSTALLATION_DIR/shell-integration/fish/vendor_conf.d/kitty-shell-integration.fish"
-    set --prepend fish_complete_path "$KITTY_INSTALLATION_DIR/shell-integration/fish/vendor_completions.d"
-end
 
 # asdf
 source /opt/homebrew/opt/asdf/libexec/asdf.fish
@@ -52,6 +44,7 @@ set -gx GPG_TTY $(tty)
 set -gx RUBY_CONFIGURE_OPTS "--with-openssl-dir=$(brew --prefix openssl@1.1)"
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx GOPATH $XDG_DATA_HOME/go
+set -gx TERM "wezterm"
 
 set -gx fish_user_paths $PNPM_HOME $fish_user_paths
 set -gx fish_user_paths /usr/local/sbin $fish_user_paths

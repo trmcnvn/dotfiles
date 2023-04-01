@@ -10,6 +10,10 @@ telescope.setup({
     prompt_prefix = "  ",
     initial_mode = "normal",
     mappings = {
+      i = {
+        ["<C-u>"] = false,
+        ["<C-d>"] = false
+      },
       n = {
         ["q"] = actions.close
       }
@@ -20,7 +24,7 @@ telescope.setup({
     },
     layout_strategy = "horizontal",
     sorting_strategy = "ascending",
-    winblend = 0
+    winblend = 0,
   },
   pickers = {
     --find_files = { theme = "dropdown" },
@@ -77,17 +81,21 @@ end
 
 local M = require("utils.keymaps")
 M.n("<leader>f", function() builtin.find_files() end)
-M.n("<leader>F", function() builtin.find_files({ hidden = true }) end)
 M.n("<leader>df", function() builtin.find_files({ cwd = "~/code/dotfiles" }) end)
 M.n("<leader>o", function() builtin.oldfiles() end)
 M.n("<leader>r", function() builtin.live_grep({ previewer = false }) end)
-M.n("<leader>R", function() require("telescope").extensions.live_grep_args.live_grep_args() end)
-M.n("<leader>b", function() builtin.buffers() end)
+M.n("<leader>R", function() require("telescope").extensions.live_grep_args.live_grep_args({ previewer = false }) end)
+-- Open buffers
+M.n("<leader><space>", function() builtin.buffers() end)
+-- Search within buffer
+M.n("<leader>/", function()
+  builtin.current_buffer_fuzzy_find(require("telescope.themes").get_dropdown { winblend = 10, previewer = false })
+end)
 --M.n("<leader>h", "<cmd>Telescope harpoon marks<CR>")
 M.n("<leader>e", function() file_browser(false) end)
 M.n("<leader>E", function() file_browser(true) end)
 M.n("<leader>gr", function() builtin.lsp_references() end)
-M.n("<leader>gd", function() builtin.lsp_definitions() end)
-M.n("<leader>gt", function() builtin.lsp_type_definitions() end)
-M.n("<leader>gi", function() builtin.lsp_implementations() end)
+M.n("gd", function() builtin.lsp_definitions() end)
+M.n("gt", function() builtin.lsp_type_definitions() end)
+M.n("gi", function() builtin.lsp_implementations() end)
 M.n("<leader>h", function() require('harpoon.cmd-ui').toggle_quick_menu() end)

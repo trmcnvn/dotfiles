@@ -2,7 +2,8 @@ local status, barbar = pcall(require, "bufferline")
 if (not status) then return end
 
 barbar.setup {
-  closable = false,
+  closable = true,
+  animation = false
 }
 
 vim.api.nvim_create_autocmd("FileType", {
