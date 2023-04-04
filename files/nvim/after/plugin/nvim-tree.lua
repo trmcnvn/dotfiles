@@ -30,4 +30,4 @@ tree.setup {
 }
 
 local M = require("utils.keymaps")
-M.n("<leader>p", ":NvimTreeToggle<CR>")
+M.n("<leader>b", ":NvimTreeToggle<CR>")

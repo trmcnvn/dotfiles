@@ -15,6 +15,7 @@ return {
   window_frame = window_frame,
   force_reverse_video_cursor = true,
   font = wezterm.font_with_fallback {
+    "Berkeley Mono",
     -- "Cartograph CF",
     "IBM Plex Mono",
     -- "Dank Mono",

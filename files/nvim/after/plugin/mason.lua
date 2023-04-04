@@ -214,6 +214,6 @@ vim.diagnostic.config({
 })
 
 local M = require("utils.keymaps")
-M.n("<leader>gh", "<cmd>lua vim.lsp.buf.hover()<CR>")
-M.n("<leader>gR", "<cmd>lua vim.lsp.buf.rename()<CR>")
-M.n("<leader>dd", "<cmd>lua vim.diagnostic.open_float()<CR>")
+M.n("gh", "<cmd>lua vim.lsp.buf.hover()<CR>")
+M.n("gr", "<cmd>lua vim.lsp.buf.rename()<CR>")
+M.n("df", "<cmd>lua vim.diagnostic.open_float()<CR>")

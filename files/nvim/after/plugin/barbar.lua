@@ -3,7 +3,7 @@ if (not status) then return end
 
 barbar.setup {
   closable = true,
-  animation = false
+  animation = false,
 }
 
 vim.api.nvim_create_autocmd("FileType", {
@@ -32,7 +32,7 @@ vim.api.nvim_create_autocmd("FileType", {
       once = true,
     })
   end,
-  pattern = "NvimTree", -- or any other filetree's `ft`
+  pattern = "neo-tree", -- or any other filetree's `ft`
 })
 
 local M = require("utils.keymaps")

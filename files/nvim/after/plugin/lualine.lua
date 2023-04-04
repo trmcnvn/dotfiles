@@ -10,7 +10,7 @@ lualine.setup({
     disabled_filetypes = { statusline = { "dashboard" } }
   },
   sections = {
-    lualine_a = { { "mode", fmt = function(str) return str:sub(1, 1) end } },
+    lualine_a = { "mode" },
     lualine_b = { "branch" },
     lualine_c = {
       {

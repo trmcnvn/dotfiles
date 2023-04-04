@@ -29,4 +29,4 @@ M.n("<C-d>", "<C-d>zz")
 M.n("<C-u>", "<C-u>zz")
 -- Floating term
 M.n("<leader>t", function() require("lazy.util").float_term() end)
-M.t("<esc><esc>", "<c-\\><c-n>")
+M.t("<esc>", "<c-\\><c-n>")

@@ -43,7 +43,29 @@ require("lazy").setup({
       "hrsh7th/cmp-nvim-lua",
       "hrsh7th/cmp-nvim-lsp",
       { "saadparwaiz1/cmp_luasnip", dependencies = { "L3MON4D3/LuaSnip" } },
-      { "zbirenbaum/copilot-cmp",   dependencies = { "zbirenbaum/copilot.lua", config = true }, config = true },
+      {
+        "zbirenbaum/copilot-cmp",
+        dependencies = {
+          "zbirenbaum/copilot.lua",
+          opts = {
+            suggestion = { enabled = false },
+            panel = { enabled = false }
+          }
+        },
+        opts = {},
+        config = function(_, opts)
+          local copilot_cmp = require("copilot_cmp")
+          copilot_cmp.setup(opts)
+          vim.api.nvim_create_autocmd("LspAttach", {
+            callback = function(args)
+              local client = vim.lsp.get_client_by_id(args.data.client_id)
+              if client.name == "copilot" then
+                copilot_cmp._on_insert_enter()
+              end
+            end
+          })
+        end
+      },
     }
   },
   -- Comment automagically
@@ -74,13 +96,21 @@ require("lazy").setup({
   { "rose-pine/neovim",         priority = 1000 }, -- Theme
   { "ellisonleao/gruvbox.nvim", priority = 1000 },
   { "luisiacc/gruvbox-baby",    priority = 1000 },
-  "ThePrimeagen/harpoon",                             -- Marking per project
-  "kdheepak/lazygit.nvim",                            -- Git
-  "windwp/nvim-autopairs",                            -- Autopairs
-  "windwp/nvim-ts-autotag",                           -- Autotags
-  { "glepnir/dashboard-nvim", event = "VimEnter" },   -- Dashboard
-  "norcalli/nvim-colorizer.lua",                      -- Colorizer
-  "nvim-tree/nvim-tree.lua",                          -- File tree
+  "ThePrimeagen/harpoon",                                -- Marking per project
+  "kdheepak/lazygit.nvim",                               -- Git
+  "windwp/nvim-autopairs",                               -- Autopairs
+  "windwp/nvim-ts-autotag",                              -- Autotags
+  { "glepnir/dashboard-nvim", event = "VimEnter" },      -- Dashboard
+  "norcalli/nvim-colorizer.lua",                         -- Colorizer
+  --"nvim-tree/nvim-tree.lua",                          -- File tree
+  {
+    "nvim-neo-tree/neo-tree.nvim",
+    dependencies = {
+      "MunifTanjim/nui.nvim",
+      "nvim-tree/nvim-web-devicons",
+      "nvim-lua/plenary.nvim"
+    }
+  },
   "folke/zen-mode.nvim",                              -- Zen mode
   { "b0o/incline.nvim",       event = "BufReadPre" }, -- Floating statuelines
   "echasnovski/mini.ai",                              -- Improved text objects
