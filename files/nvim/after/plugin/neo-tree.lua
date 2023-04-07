@@ -3,6 +3,11 @@ if (not status) then return end
 
 neotree.setup({
   close_if_last_window = true,
+  filesystem = {
+    filtered_items = {
+      visible = true
+    }
+  }
 })
 
 local M = require("utils.keymaps")

@@ -102,7 +102,5 @@ M.n("<leader>gr", function() builtin.lsp_references() end)
 M.n("gd", function() builtin.lsp_definitions() end)
 M.n("gt", function() builtin.lsp_type_definitions() end)
 M.n("gi", function() builtin.lsp_implementations() end)
-M.n("gds", function() builtin.lsp_document_symbols() end)
-M.n("gws", function() builtin.lsp_workspace_symbols() end)
 -- Harpoon
 M.n("<leader>h", function() require('harpoon.cmd-ui').toggle_quick_menu() end)
