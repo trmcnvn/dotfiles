@@ -11,6 +11,9 @@ local has_words_before = function()
 end
 
 cmp.setup({
+  view = {
+    entries = { name = "custom", selection_order = "near_cursor" }
+  },
   snippet = {
     expand = function(args)
       require("luasnip").lsp_expand(args.body)
@@ -55,7 +58,6 @@ cmp.setup({
     format = lspkind.cmp_format({ mode = "symbol_text", maxwidth = 50, preset = "default", symbol_map = { Copilot = "" } }),
   },
   experimental = {
-    native_menu = false,
     ghost_text = false,
   }
 })

@@ -6,10 +6,12 @@ require("rose-pine").setup({
   disable_float_background = true,
   highlight_groups = {
     Comment = { fg = "muted" },
-    ColorColumn = { bg = 'rose' },
+    ColorColumn = { bg = "rose" },
+    Pmenu = { fg = "subtle", bg = "base" },
+    PmenuSel = { fg = "text", bg = "none" },
     -- Blend colours against the "base" background
-    CursorLine = { bg = 'foam', blend = 10 },
-    StatusLine = { fg = 'love', bg = 'love', blend = 10 },
+    CursorLine = { bg = "foam", blend = 10 },
+    StatusLine = { fg = "love", bg = "love", blend = 10 },
     -- Telescope
     TelescopeBorder = { fg = "highlight_high", bg = "none" },
     TelescopeNormal = { bg = "none" },

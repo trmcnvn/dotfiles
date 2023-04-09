@@ -35,6 +35,7 @@ return {
   colors = colors,
   window_frame = window_frame,
   force_reverse_video_cursor = true,
+  adjust_window_size_when_changing_font_size = false,
   font = wezterm.font_with_fallback {
     "Berkeley Mono",
     "Cartograph CF",
