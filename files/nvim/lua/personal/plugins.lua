@@ -17,7 +17,7 @@ require("lazy").setup({
     "nvim-tree/nvim-web-devicons",
     dependencies = {
       { "nvim-lualine/lualine.nvim", event = "VeryLazy" },
-      { "romgrk/barbar.nvim",        event = "VeryLazy" }
+      --{ "romgrk/barbar.nvim",        event = "VeryLazy" }
     }
   },
   -- Detect tabstop/shiftwidth
@@ -37,7 +37,6 @@ require("lazy").setup({
   {
     "hrsh7th/nvim-cmp",
     version = false,
-    event = "InsertEnter",
     dependencies = {
       "onsails/lspkind-nvim",
       "hrsh7th/cmp-nvim-lua",
@@ -69,7 +68,7 @@ require("lazy").setup({
     }
   },
   -- Comment automagically
-  { "numToStr/Comment.nvim",    opts = {} },
+  { "numToStr/Comment.nvim",     opts = {} },
   -- Highlight code
   {
     "nvim-treesitter/nvim-treesitter",
@@ -93,15 +92,17 @@ require("lazy").setup({
       },
     }
   },
-  { "rose-pine/neovim",         priority = 1000 }, -- Theme
-  { "ellisonleao/gruvbox.nvim", priority = 1000 },
-  { "luisiacc/gruvbox-baby",    priority = 1000 },
-  "ThePrimeagen/harpoon",                                -- Marking per project
-  "kdheepak/lazygit.nvim",                               -- Git
-  "windwp/nvim-autopairs",                               -- Autopairs
-  "windwp/nvim-ts-autotag",                              -- Autotags
-  { "glepnir/dashboard-nvim", event = "VimEnter" },      -- Dashboard
-  "norcalli/nvim-colorizer.lua",                         -- Colorizer
+  { "rose-pine/neovim",          priority = 1000, name = "rose-pine" }, -- Theme
+  { "folke/tokyonight.nvim",     priority = 1000 },                     -- Theme
+  { "ellisonleao/gruvbox.nvim",  priority = 1000 },                     -- Theme
+  { "luisiacc/gruvbox-baby",     priority = 1000 },                     -- Theme
+  { "gruvbox-community/gruvbox", priority = 1000 },                     -- Theme
+  "ThePrimeagen/harpoon",                                               -- Marking per project
+  "kdheepak/lazygit.nvim",                                              -- Git
+  "windwp/nvim-autopairs",                                              -- Autopairs
+  "windwp/nvim-ts-autotag",                                             -- Autotags
+  { "glepnir/dashboard-nvim", event = "VimEnter" },                     -- Dashboard
+  "norcalli/nvim-colorizer.lua",                                        -- Colorizer
   --"nvim-tree/nvim-tree.lua",                          -- File tree
   {
     "nvim-neo-tree/neo-tree.nvim",

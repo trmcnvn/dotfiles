@@ -13,25 +13,21 @@ lualine.setup({
     lualine_a = { "mode" },
     lualine_b = { "branch" },
     lualine_c = {
+      -- { "filename", path = 0, symbols = { modified = "[~]", readonly = "", unnamed = "" } },
       {
-        "filetype",
-        icon_only = true,
-        separator = "",
-        padding = {
-          left = 1,
-          right = 0
-        }
-      },
-      { "filename", path = 1, symbols = { modified = "  ", readonly = "", unnamed = "" } },
+        "buffers",
+        symbols = { modified = " [~]", alternate_file = "", directory = "" },
+        max_length = vim.o.columns * 2 / 3
+      }
     },
     lualine_x = {
       { require("lazy.status").updates, cond = require("lazy.status").has_updates },
       {
         "diff",
         symbols = {
-          added = " ",
-          modified = " ",
-          removed = " ",
+          added = "+",
+          modified = "~",
+          removed = "-",
         }
       },
     },
@@ -40,9 +36,9 @@ lualine.setup({
       { "location", padding = { left = 0, right = 1 } }
     },
     lualine_z = {
-      function() return " " .. os.date("%R") end
+      { "datetime", style = "%H:%M" }
     }
   },
-  extensions = { "nvim-tree", "lazy" },
+  extensions = { "neo-tree", "lazy", "quickfix" },
   tabline = {}
 })

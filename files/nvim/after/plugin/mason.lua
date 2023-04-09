@@ -181,6 +181,17 @@ lspconfig.setup_handlers {
       capabilities = capabilities,
       filetypes = { "gql", "graphql", "svelte" }
     })
+  end,
+  ["svelte"] = function()
+    require("lspconfig")["svelte"].setup({
+      on_attach = on_attach,
+      capabilities = capabilities,
+      settings = {
+        svelte = {
+          ["enable-ts-plugin"] = true
+        }
+      }
+    })
   end
 }
 

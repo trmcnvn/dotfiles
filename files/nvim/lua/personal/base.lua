@@ -65,6 +65,7 @@ vim.opt.writebackup = false
 vim.opt.timeout = true
 vim.opt.timeoutlen = 300
 vim.opt.completeopt = "menu,menuone,noselect"
+vim.opt.guicursor = ""
 
 -- Turn off paste mode when leaving insert
 vim.api.nvim_create_autocmd("InsertLeave", {

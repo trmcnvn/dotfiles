@@ -27,14 +27,15 @@ telescope.setup({
     winblend = 0,
   },
   pickers = {
-    --find_files = { theme = "dropdown" },
-    --live_grep = { theme = "dropdown" },
-    --buffers = { theme = "dropdown" },
-    --oldfiles = { theme = "dropdown" },
+    find_files = { theme = "dropdown", previewer = false },
+    live_grep = { theme = "dropdown", previewer = false },
+    buffers = { theme = "dropdown", previewer = false },
+    oldfiles = { theme = "dropdown", previewer = false },
   },
   extensions = {
     file_browser = {
-      --theme = "dropdown",
+      theme = "dropdown",
+      previewer = false,
       hijack_netrw = true,
       mappings = {
         ["i"] = {
@@ -84,7 +85,9 @@ M.n("<leader>f", function() builtin.find_files() end)
 M.n("<leader>df", function() builtin.find_files({ cwd = "~/code/dotfiles" }) end)
 M.n("<leader>o", function() builtin.oldfiles() end)
 M.n("<leader>r", function() builtin.live_grep({ previewer = false }) end)
-M.n("<leader>R", function() require("telescope").extensions.live_grep_args.live_grep_args({ previewer = false }) end)
+M.n("<leader>R", function()
+  require("telescope").extensions.live_grep_args.live_grep_args({ previewer = false, theme = "dropdown" })
+end)
 -- Open buffers
 M.n("<leader><space>", function() builtin.buffers() end)
 -- Search within buffer

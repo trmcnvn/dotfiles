@@ -15,9 +15,8 @@ M.n("<C-\\>", "<cmd>lua require(\"harpoon.mark\").add_file()<CR>")
 M.n("<C-[>", "<cmd>lua require(\"harpoon.ui\").nav_prev()<CR>")
 M.n("<C-]>", "<cmd>lua require(\"harpoon.ui\").nav_next()<CR>")
 -- Other
-M.n("<C-a>", "gg<S-v>G")      -- Select all
-M.n("<C-s>", "<cmd>w<CR>")    -- Save
-M.n("<C-S>", "<cmd>w!<CR>")   -- Save (force)
+M.n("<A-a>", "gg<S-v>G")      -- Select all
+M.n("<A-s>", "<cmd>w!<CR>")   -- Save
 M.n("te", "<cmd>tabedit<CR>") -- New tab
 M.n("zv", "<cmd>vsplit<CR>")  -- Vertical split
 M.e("z<left>", "<C-w>h")
@@ -30,3 +29,7 @@ M.n("<C-u>", "<C-u>zz")
 -- Floating term
 M.n("<leader>t", function() require("lazy.util").float_term() end)
 M.t("<esc>", "<c-\\><c-n>")
+-- Buffers
+M.n("<Tab>", "<cmd>bnext<CR>")
+M.n("<S-Tab>", "<cmd>bprev<CR>")
+M.n("<A-w>", "<cmd>bd<CR>")

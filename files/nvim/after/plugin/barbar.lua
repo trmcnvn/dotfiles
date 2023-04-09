@@ -38,4 +38,4 @@ vim.api.nvim_create_autocmd("FileType", {
 local M = require("utils.keymaps")
 M.n("<Tab>", "<cmd>BufferNext<CR>")
 M.n("<S-Tab>", "<cmd>BufferPrevious<CR>")
-M.n("<C-w>", "<cmd>BufferClose<CR>")
+M.n("<A-w>", "<cmd>BufferClose<CR>")
