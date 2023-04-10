@@ -7,8 +7,9 @@ require("rose-pine").setup({
   highlight_groups = {
     Comment = { fg = "muted" },
     ColorColumn = { bg = "rose" },
-    Pmenu = { fg = "subtle", bg = "base" },
+    Pmenu = { fg = "highlight_high", bg = "base" },
     PmenuSel = { fg = "text", bg = "none" },
+    FloatBorder = { fg = "highlight_high" },
     -- Blend colours against the "base" background
     CursorLine = { bg = "foam", blend = 10 },
     StatusLine = { fg = "love", bg = "love", blend = 10 },

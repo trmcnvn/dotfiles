@@ -11,8 +11,27 @@ local has_words_before = function()
 end
 
 cmp.setup({
+  enabled = function()
+    -- Disable cmp when in a comment
+    local context = require("cmp.config.context")
+    if vim.api.nvim_get_mode().mode == 'c' then
+      return true
+    else
+      return not context.in_treesitter_capture("comment") and not context.in_syntax_group("Comment")
+    end
+  end,
   view = {
     entries = { name = "custom", selection_order = "near_cursor" }
+  },
+  window = {
+    completion = cmp.config.window.bordered({
+      border = "single",
+      winhighlight = "Normal:Pmenu,FloatBorder:Pmenu,CursorLine:PmenuSel,Search:None"
+    }),
+    documentation = cmp.config.window.bordered({
+      border = "single",
+      winhighlight = "Normal:Pmenu,FloatBorder:Pmenu,CursorLine:PmenuSel,Search:None"
+    }),
   },
   snippet = {
     expand = function(args)

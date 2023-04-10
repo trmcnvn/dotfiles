@@ -112,9 +112,9 @@ require("lazy").setup({
       "nvim-lua/plenary.nvim"
     }
   },
-  "folke/zen-mode.nvim",                              -- Zen mode
-  { "b0o/incline.nvim",       event = "BufReadPre" }, -- Floating statuelines
-  "echasnovski/mini.ai",                              -- Improved text objects
-  "Wansmer/treesj",                                   -- Treesitter collapse/expand objects
+  "folke/zen-mode.nvim", -- Zen mode
+  -- { "b0o/incline.nvim",       event = "BufReadPre" }, -- Floating statuelines
+  "echasnovski/mini.ai", -- Improved text objects
+  "Wansmer/treesj",      -- Treesitter collapse/expand objects
   { "folke/persistence.nvim", event = "BufReadPre", opts = {} }
 })
