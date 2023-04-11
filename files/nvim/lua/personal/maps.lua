@@ -8,12 +8,6 @@ M.n("k", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
 M.n("j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 M.n("<down>", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 M.n("<up>", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
--- LazyGit
-M.n("<leader>lg", "<cmd>LazyGit<CR>")
--- Harpoon
-M.n("<C-\\>", "<cmd>lua require(\"harpoon.mark\").add_file()<CR>")
-M.n("<C-[>", "<cmd>lua require(\"harpoon.ui\").nav_prev()<CR>")
-M.n("<C-]>", "<cmd>lua require(\"harpoon.ui\").nav_next()<CR>")
 -- Other
 M.n("<A-a>", "gg<S-v>G")     -- Select all
 M.n("<A-s>", "<cmd>w!<CR>")  -- Save
