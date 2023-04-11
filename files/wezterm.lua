@@ -34,6 +34,18 @@ local random_background = function()
   return images[math.random(#images)]
 end
 
+local wezterm_background = function()
+  return {
+    {
+      source = { Color = colors.background },
+      height = "100%",
+      width = "100%",
+      opacity = 1.0
+    },
+    { source = { File = random_background() }, width = "100%", height = "100%", opacity = 0.1 },
+  }
+end
+
 -- Reload the config every 10 minutes
 wezterm.time.call_after(600, function()
   wezterm.reload_configuration()
@@ -42,15 +54,7 @@ end)
 config.adjust_window_size_when_changing_font_size = false
 config.alternate_buffer_wheel_scroll_speed = 6
 config.audible_bell = "Disabled"
-config.background = {
-  {
-    source = { Color = colors.background },
-    height = "100%",
-    width = "100%",
-    opacity = 1.0
-  },
-  { source = { File = random_background() }, width = "100%", height = "100%", opacity = 0.1 },
-}
+config.background = wezterm_background()
 config.check_for_updates = false
 config.colors = colors
 config.font = wezterm.font_with_fallback {
