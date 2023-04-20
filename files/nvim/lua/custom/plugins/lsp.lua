@@ -9,16 +9,14 @@ return {
 			auto_update = true,
 			debounce_hours = 24,
 			ensure_installed = {
+				"typescript-language-server",
 				"rust-analyzer",
 				"lua-language-server",
-				"eslint-lsp",
-				"typescript-language-server",
 				"solargraph",
 				"svelte-language-server",
 				"tailwindcss-language-server",
 				"gopls",
 				"prisma-language-server",
-				"prettierd",
 				"standardrb",
 				"nginx-language-server"
 			}
@@ -28,5 +26,4 @@ return {
 	"j-hui/fidget.nvim",
 	"folke/neodev.nvim",
 	"jose-elias-alvarez/null-ls.nvim",
-	"jose-elias-alvarez/nvim-lsp-ts-utils"
 }

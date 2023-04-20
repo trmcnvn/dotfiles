@@ -18,6 +18,7 @@ end
 
 cmp.setup {
 	enabled = function()
+		if vim.api.nvim_buf_get_option(0, "buftype") == "prompt" then return false end
 		local ctx = require("cmp.config.context")
 		if vim.api.nvim_get_mode().mode == "c" then
 			return true
@@ -26,15 +27,15 @@ cmp.setup {
 		end
 	end,
 	view = {
-		entries = { name = "custom", selection_order = "near_cursor" },
+		entries = { name = "custom" },
 	},
 	window = {
 		completion = cmp.config.window.bordered({
-			border = "single",
+			border = "rounded",
 			winhighlight = "Normal:Pmenu,FloatBorder:Pmenu,CursorLine:PmenuSel,Search:None"
 		}),
 		documentation = cmp.config.window.bordered({
-			border = "single",
+			border = "rounded",
 			winhighlight = "Normal:Pmenu,FloatBorder:Pmenu,CursorLine:PmenuSel,Search:None"
 		})
 	},
@@ -63,10 +64,25 @@ cmp.setup {
 		{ name = "path" },
 		{ name = "buffer", keyword_length = 5 },
 	}),
+	sorting = {
+		priority_weight = 2,
+		comparators = {
+			cmp.config.compare.exact,
+			require("copilot_cmp.comparators").prioritize,
+			cmp.config.compare.offset,
+			cmp.config.compare.score,
+			cmp.config.compare.recently_used,
+			cmp.config.compare.locality,
+			cmp.config.compare.kind,
+			cmp.config.compare.sort_text,
+			cmp.config.compare.length,
+			cmp.config.compare.order,
+		},
+	},
 	formatting = {
 		format = lspkind.cmp_format({ mode = "symbol_text", max_width = 50, preset = "default" })
 	},
 	experimental = {
-		ghost_text = true
+		ghost_text = false
 	}
 }

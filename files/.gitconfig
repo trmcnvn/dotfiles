@@ -3,7 +3,7 @@
 	email = hello@trmcnvn.dev
 	signingkey = ~/.ssh/id_rsa.pub
 [github]
-  user = trmcnvn
+	user = trmcnvn
 [color]
 	ui = true
 	diff = true
@@ -11,23 +11,23 @@
 	branch = true
 	interactive = true
 [merge]
-  ff = false
-  conflictstyle = diff3
+	ff = false
+	conflictstyle = diff3
 [pull]
-  rebase = false
+	rebase = false
 	default = current
 [push]
 	default = current
 [core]
-  autocrlf = input
-  quotepath = false
+	autocrlf = input
+	quotepath = false
 	excludesfile = ~/.gitexcludes
 	whitespace = fix
-  trustctime = false
-  editor = nvim
+	trustctime = false
+	editor = nvim
 [branch]
-  quotepath       = true
-  autosetuprebase = always
+	quotepath       = true
+	autosetuprebase = always
 [alias]
 	co = checkout
 	cm = commit
@@ -38,7 +38,7 @@
 	amend = !git commit --amend --no-edit
 	dbr = !git branch --merged | grep -v \"\\* \" | xargs git branch --delete
 [remote "origin"]
-  fetch = +refs/pull/*/head:refs/remotes/origin/pull/*
+	fetch = +refs/pull/*/head:refs/remotes/origin/pull/*
 [filter "lfs"]
 	clean = git-lfs clean %f
 	smudge = git-lfs smudge %f
@@ -46,7 +46,7 @@
 [commit]
 	gpgsign = true
 [gpg]
-  format = ssh
+	format = ssh
 [init]
 	defaultBranch = main
 [diff]

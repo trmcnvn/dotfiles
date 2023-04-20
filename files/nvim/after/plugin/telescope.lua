@@ -7,12 +7,16 @@ local fb_actions = require("telescope").extensions.file_browser.actions
 
 telescope.setup {
 	defaults = {
-		prompt_prefix = "  ",
-		initial_mode = "normal",
+		prompt_prefix = "  ",
+		selection_caret = " ",
+		initial_mode = "insert",
+		file_ignore_patterns = { ".git/", "node_modules/", "%.svg" },
 		mappings = {
 			i = {
-				["<C-u>"] = false,
-				["<C-d>"] = false
+				["<Down>"] = actions.move_selection_next,
+				["<Up>"] = actions.move_selection_previous,
+				["<C-j>"] = actions.move_selection_next,
+				["<C-k>"] = actions.move_selection_previous
 			},
 			n = {
 				["q"] = actions.close
@@ -62,6 +66,7 @@ telescope.setup {
 
 telescope.load_extension("file_browser")
 telescope.load_extension("fzf")
+telescope.load_extension("ui-select")
 
 local function telescope_buffer_dir()
 	return vim.fn.expand("%:p:h")
@@ -92,7 +97,7 @@ M.n("<leader><space>", function() builtin.buffers() end)
 -- Search within buffer
 M.n("<leader>/", function()
 	builtin.current_buffer_fuzzy_find(require("telescope.themes").get_dropdown {
-		winblend = 10,
+		winblend = 0,
 		previewer = false,
 		initial_mode = "insert"
 	})

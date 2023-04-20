@@ -45,7 +45,7 @@ vim.opt.undodir = os.getenv("HOME") .. "/.nvim/undodir"
 vim.opt.undolevels = 5000
 vim.opt.showcmd = true
 vim.opt.cmdheight = 1
-vim.opt.laststatus = 0
+vim.opt.laststatus = 3
 vim.opt.expandtab = false
 vim.opt.grepformat = "%f:%l:%c:%m"
 vim.opt.grepprg = "rg --vimgrep"
@@ -82,7 +82,7 @@ vim.opt.writebackup = false
 vim.opt.timeout = true
 vim.opt.timeoutlen = 300
 vim.opt.completeopt = "menu,menuone,noselect"
-vim.opt.guicursor = ""
+vim.opt.guicursor = "n-v-c-sm:block,i-ci-ve:ver25,r-cr-o:hor20"
 vim.opt.splitkeep = "cursor"
 
 -- Turn off paste mode when leaving insert
@@ -98,7 +98,7 @@ vim.opt.formatoptions:append { "r" }
 local hl_group = vim.api.nvim_create_augroup("YankHighlight", { clear = true })
 vim.api.nvim_create_autocmd("TextYankPost", {
 	callback = function()
-		vim.highlight.on_yank()
+		vim.highlight.on_yank({ timeout = 200 })
 	end,
 	group = hl_group,
 	pattern = "*"
@@ -107,3 +107,14 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 -- Reload files
 local ct_group = vim.api.nvim_create_augroup("CheckTime", { clear = true })
 vim.api.nvim_create_autocmd({ "FocusGained", "TermClose", "TermLeave" }, { group = ct_group, command = "checktime" })
+
+-- Use 'q' to quit from common plugins
+vim.api.nvim_create_autocmd({ "FileType" }, {
+	pattern = { "qf", "help", "man", "lspinfo", },
+	callback = function()
+		vim.cmd([[
+      nnoremap <silent> <buffer> q :close<CR>
+      set nobuflisted
+    ]])
+	end,
+})

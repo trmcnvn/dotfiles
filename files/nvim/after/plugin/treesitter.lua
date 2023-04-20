@@ -2,20 +2,8 @@ local ok, treesitter = pcall(require, "nvim-treesitter.configs")
 if not ok then return end
 
 treesitter.setup {
-	highlight = {
-		enable = true,
-		additional_vim_regex_highlighting = false,
-		disable = function(_, bufnr)
-			local max_fs = 100 * 1024
-			local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(bufnr))
-			if ok and stats and stats.size > max_fs then return true end
-		end
-	},
-	indent = {
-		enable = true,
-		disable = {}
-	},
 	ensure_installed = {
+		"astro",
 		"typescript",
 		"toml",
 		"fish",
@@ -31,11 +19,25 @@ treesitter.setup {
 		"vim"
 	},
 	auto_install = true,
+	context_commentstring = {
+		enable = true,
+		enable_autocmd = false,
+	},
+	highlight = {
+		enable = true,
+		additional_vim_regex_highlighting = false,
+		disable = function(_, bufnr)
+			local max_fs = 128 * 1024
+			local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(bufnr))
+			if ok and stats and stats.size > max_fs then return true end
+		end
+	},
+	indent = { enable = true },
 	autotag = { enable = true },
 	textobjects = {
 		select = {
 			enable = true,
-			lookahead = true,
+			lookahead = false,
 			keymaps = {
 				["aa"] = "@parameter.outer",
 				["ia"] = "@parameter.inner",

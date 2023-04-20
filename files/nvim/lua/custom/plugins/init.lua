@@ -10,5 +10,6 @@ return {
 	"windwp/nvim-autopairs",
 	"windwp/nvim-ts-autotag",
 	"Saecki/crates.nvim",
-	{ "nvim-lualine/lualine.nvim", event = "VeryLazy" }
+	-- { "nvim-lualine/lualine.nvim", event = "VeryLazy" }
+	"tjdevries/express_line.nvim",
 }

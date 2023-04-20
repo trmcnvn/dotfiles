@@ -4,6 +4,9 @@ local window_frame = require("lua/rose-pine").window_frame(wezterm)
 
 local config = wezterm.config_builder()
 
+-- Weeb mode
+local weeb_mode_enabled = false
+
 -- Allow CMD to be used as ALT within nvim
 local nvim_cmd_to_opt = function(opts)
   local keys = { "s", "w", "a" }
@@ -48,13 +51,14 @@ end
 
 -- Reload the config every 10 minutes
 wezterm.time.call_after(600, function()
+  if not weeb_mode_enabled then return end
   wezterm.reload_configuration()
 end)
 
 config.adjust_window_size_when_changing_font_size = false
 config.alternate_buffer_wheel_scroll_speed = 6
 config.audible_bell = "Disabled"
-config.background = wezterm_background()
+if weeb_mode_enabled then config.background = wezterm_background() end
 config.check_for_updates = false
 config.colors = colors
 config.font = wezterm.font_with_fallback {
@@ -63,10 +67,10 @@ config.font = wezterm.font_with_fallback {
   "IBM Plex Mono",
   "Dank Mono",
   "JetBrains Mono",
-  "Menlo",
   "JetBrainsMono Nerd Font",
 }
 config.font_size = 16
+config.line_height = 1.1
 config.front_end = "WebGpu"
 config.hide_tab_bar_if_only_one_tab = true
 config.hyperlink_rules = {

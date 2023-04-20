@@ -27,10 +27,15 @@ alias gbra="git branch"
 alias gdif="git diff --no-prefix"
 alias glog="git log --color --oneline"
 alias gst="git status"
+alias gwl="git worktree list"
+alias gwa="git worktree add"
+alias gwr="git worktree remove"
+alias gwp="git worktree prune"
 alias ls="lsd"
 alias cat="bat"
 alias lg="lazygit"
 alias cd="z"
+alias vim="nvim"
 
 # ENV
 set -gx XDG_CACHE_HOME $HOME/.cache
