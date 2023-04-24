@@ -4,6 +4,9 @@ if not ok then return end
 local ok_cmp, cmp_lsp = pcall(require, "cmp_nvim_lsp")
 if not ok_cmp then return end
 
+local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
+if not ok_lspconfig then return end
+
 local mason_cfg = require("mason-lspconfig")
 
 -- Fidget
@@ -24,7 +27,7 @@ local on_attach = function(_, bufnr)
 	})
 end
 
-local capabilities = vim.lsp.protocol.make_client_capabilities()
+local capabilities = lspconfig.util.default_config.capabilities
 vim.tbl_deep_extend("force", capabilities, cmp_lsp.default_capabilities())
 capabilities.textDocument.codeLens = { dynamicRegistration = false }
 
@@ -97,7 +100,7 @@ mason_cfg.setup_handlers {
 			opts = servers[server_name]
 		end
 
-		require("lspconfig")[server_name].setup(vim.tbl_deep_extend("force", {
+		lspconfig[server_name].setup(vim.tbl_deep_extend("force", {
 			on_init = on_init,
 			on_attach = on_attach,
 			capabilities = capabilities,

@@ -35,6 +35,8 @@ cmp.setup {
 			winhighlight = "Normal:Pmenu,FloatBorder:Pmenu,CursorLine:PmenuSel,Search:None"
 		}),
 		documentation = cmp.config.window.bordered({
+			max_height = 16,
+			max_width = 60,
 			border = "rounded",
 			winhighlight = "Normal:Pmenu,FloatBorder:Pmenu,CursorLine:PmenuSel,Search:None"
 		})
@@ -58,11 +60,11 @@ cmp.setup {
 	sources = cmp.config.sources({
 		{ name = "nvim_lua" },
 		{ name = "nvim_lsp" },
-		{ name = "luasnip" },
+		{ name = "luasnip", keyword_length = 2 },
 		{ name = "copilot" },
 	}, {
 		{ name = "path" },
-		{ name = "buffer", keyword_length = 5 },
+		{ name = "buffer", keyword_length = 3 },
 	}),
 	sorting = {
 		priority_weight = 2,
@@ -80,7 +82,26 @@ cmp.setup {
 		},
 	},
 	formatting = {
-		format = lspkind.cmp_format({ mode = "symbol_text", max_width = 50, preset = "default" })
+		fields = { "abbr", "menu", "kind" },
+		format = function(entry, item)
+			local short_name = {
+				nvim_lsp = "LSP",
+				nvim_lua = "nvim"
+			}
+			local menu_name = short_name[entry.source.name] or entry.source.name
+			item.menu = string.format("[%s]", menu_name)
+			return item
+		end,
+		-- format = lspkind.cmp_format {
+		-- 	with_text = true,
+		-- 	menu = {
+		-- 		buffer = "[buf]",
+		-- 		nvim_lsp = "[LSP]",
+		-- 		nvim_lua = "[api]",
+		-- 		path = "[path]",
+		-- 		luasnip = "[snip]",
+		-- 	},
+		-- }
 	},
 	experimental = {
 		ghost_text = false

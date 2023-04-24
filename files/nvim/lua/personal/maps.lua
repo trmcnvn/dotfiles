@@ -23,7 +23,3 @@ M.n("<C-u>", "<C-u>zz")
 -- Floating term
 M.n("<leader>t", function() require("lazy.util").float_term("fish", { border = "single" }) end)
 M.t("<esc>", "<c-\\><c-n>")
--- Buffers
-M.n("<Tab>", "<cmd>bnext<CR>")
-M.n("<S-Tab>", "<cmd>bprev<CR>")
-M.n("<A-w>", "<cmd>bd<CR>")

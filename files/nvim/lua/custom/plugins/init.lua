@@ -4,7 +4,7 @@ return {
 	"ThePrimeagen/harpoon",
 	"folke/zen-mode.nvim",
 	"echasnovski/mini.ai",
-	{ "folke/persistence.nvim",   event = "BufReadPre",    opts = {} },
+	{ "folke/persistence.nvim",   event = "BufReadPre" },
 	{ "luukvbaal/statuscol.nvim", opts = { setopt = true } },
 	"romainl/vim-qf",
 	"windwp/nvim-autopairs",
