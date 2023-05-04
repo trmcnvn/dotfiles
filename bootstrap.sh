@@ -1,4 +1,5 @@
 #!/bin/sh
+
 # homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 eval $(/opt/homebrew/bin/brew shellenv)
@@ -15,7 +16,6 @@ brew_apps=(
   git
   git-crypt
   git-secret
-  go
   gnupg
   helm
   helmfile
@@ -27,7 +27,6 @@ brew_apps=(
   postgresql@14
   redis
   ripgrep
-  rustup-init
   ruby-build
   starship
   tokei
@@ -63,13 +62,39 @@ brew install --cask "${brew_casks[@]}"
 echo $(brew --prefix fish)/bin/fish | sudo tee -a /etc/shells
 chsh -s $(brew --prefix fish)/bin/fish
 
+# dotfiles
+find "$(pwd)/config" -type f -print0 | while IFS= read -r -d '' file; do
+  rel_path="${file#$(pwd)/config}"
+  mkdir -p "$HOME/.config/$(dirname "$rel_path")"
+  ln -sf "$file" "$HOME/.config$rel_path"
+done
+
+find "$(pwd)/home" -type f -print0 | while IFS= read -r -d '' file; do
+  filename=$(basename "$file")
+  ln -sf "$file" "$HOME/$filename"
+done
+
 # asdf
 asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
 asdf plugin add ruby https://github.com/asdf-vm/asdf-ruby.git
+asdf plugin add rust https://github.com/asdf-community/asdf-rust.git
+asdf plugin add zig https://github.com/asdf-community/asdf-zig.git
+asdf plugin add deno https://github.com/asdf-community/asdf-deno.git
+asdf plugin add golang https://github.com/kennyp/asdf-golang.git
+
 asdf install ruby lastest
 asdf install nodejs lts
+asdf install rust latest
+asdf install zig latest
+asdf install deno latest
+asdf install golang latest
+
 asdf global ruby latest
 asdf global nodejs lts
+asdf global zig latest
+asdf global rust latest
+asdf global deno latest
+asdf global golang latest
 
 # defaults
 set +e

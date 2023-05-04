@@ -30,10 +30,11 @@ el.setup {
 		local mode = extensions.gen_mode { format_string = " %s " }
 		return {
 			{ mode,                                                             required = true },
+			{ " " },
 			{ git_branch },
 			{ sections.split,                                                   required = true },
 			{ filetype_icon },
-			{ sections.maximum_width(builtins.file_relative, 0.60),             required = true },
+			{ sections.maximum_width(builtins.file_relative, 0.20),             required = true },
 			{ sections.collapse_builtin { { " " }, { builtins.modified_flag } } },
 			{ sections.split,                                                   required = true },
 			{ diagnostic_display },

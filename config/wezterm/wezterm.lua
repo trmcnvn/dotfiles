@@ -69,8 +69,8 @@ config.font = wezterm.font_with_fallback {
   "JetBrains Mono",
   "JetBrainsMono Nerd Font",
 }
-config.font_size = 16
-config.line_height = 1.1
+config.font_size = 15
+config.line_height = 1
 config.front_end = "WebGpu"
 config.hide_tab_bar_if_only_one_tab = true
 config.hyperlink_rules = {
