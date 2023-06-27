@@ -8,7 +8,7 @@ fish_add_path /opt/homebrew/bin
 # Fish
 set fish_greeting
 set -g theme_color_scheme terminal-dark
-set -g fish_prompt_pwd_dir_length 1
+set -g fish_prompt_pwd_dir_length 3
 set -g theme_display_user yes
 set -g theme_hide_hostname no
 set -g theme_hostname always
@@ -33,7 +33,7 @@ alias gwr="git worktree remove"
 alias gwp="git worktree prune"
 alias ls="lsd"
 alias cat="bat"
-alias lg="lazygit"
+alias lg="gitui"
 alias cd="z"
 alias vim="nvim"
 

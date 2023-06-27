@@ -106,7 +106,7 @@ config.mouse_bindings = {
     action = wezterm.action.OpenLinkAtMouseCursor,
   },
 }
-config.scrollback_lines = 3500
+config.scrollback_lines = 6000
 config.tab_bar_at_bottom = true
 config.text_background_opacity = 1.0
 config.use_fancy_tab_bar = false

@@ -2,9 +2,9 @@ gui:
   authorColors:
     "*": magenta
   promptToReturnFromSubprocess: false
-  showBottomLine: false
+  showBottomLine: true
   showCommandLog: false
-  showListFooter: false
+  showListFooter: true
   skipRewordInEditorWarning: true
   theme:
     selectedLineBgColor:

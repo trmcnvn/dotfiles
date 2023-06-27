@@ -93,6 +93,19 @@ mason_cfg.setup_handlers {
 			tsserver = {
 				cmd = { "typescript-language-server", "--stdio" },
 			},
+			rust_analyzer = {
+				cmd = { vim.fn.expand("$HOME/.asdf/shims/rust-analyzer") },
+				settings = {
+					["rust-analyzer"] = {
+						inlayHints = {
+							chainingHints = { enable = false },
+							closingBraceHints = { enable = false },
+							parameterHints = { enable = false },
+							typeHints = { enable = false }
+						}
+					}
+				}
+			}
 		}
 
 		local opts = {}
@@ -116,7 +129,10 @@ require("null-ls").setup {
 	on_attach = on_attach,
 	sources = {
 		require("null-ls").builtins.diagnostics.eslint_d.with({
-			extra_filetypes = { "svelte" },
+			filetypes = { "javascript", "typescript", "svelte" },
+			condition = function(utils)
+				return utils.root_has_file({ ".eslintrc.cjs", ".eslintrc", ".eslintrc.js" })
+			end,
 		}),
 		require("null-ls").builtins.formatting.prettierd.with({
 			extra_filetypes = { "svelte" },

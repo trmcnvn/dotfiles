@@ -3,7 +3,7 @@ return {
 	{
 		"nvim-neo-tree/neo-tree.nvim",
 		opts = {
-			close_if_last_window = false,
+			close_if_last_window = true,
 			default_component_configs = {
 				indent_size = 2,
 				padding = 1,

@@ -6,4 +6,5 @@ return {
 	},
 	{ "folke/tokyonight.nvim", priority = 1000, name = "tokyonight" },
 	{ "rebelot/kanagawa.nvim", priority = 1000, name = "kanagawa" },
+	{ "morhetz/gruvbox",       priority = 1000, name = "gruvbox" }
 }

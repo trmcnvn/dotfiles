@@ -70,7 +70,7 @@ cmp.setup {
 		priority_weight = 2,
 		comparators = {
 			cmp.config.compare.exact,
-			require("copilot_cmp.comparators").prioritize,
+			-- require("copilot_cmp.comparators").prioritize,
 			cmp.config.compare.offset,
 			cmp.config.compare.score,
 			cmp.config.compare.recently_used,

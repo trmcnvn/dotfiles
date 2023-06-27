@@ -6,6 +6,6 @@ return {
 	{ "hrsh7th/cmp-nvim-lsp" },
 	{ "onsails/lspkind-nvim" },
 	{ "saadparwaiz1/cmp_luasnip", dependencies = { "L3MON4D3/LuaSnip" } },
-	{ "zbirenbaum/copilot.lua",   opts = { suggestion = { enabled = false }, panel = { enabled = false } } },
-	{ "zbirenbaum/copilot-cmp",   opts = {} },
+	-- { "zbirenbaum/copilot.lua",   opts = { suggestion = { enabled = false }, panel = { enabled = false } } },
+	-- { "zbirenbaum/copilot-cmp",   opts = {} },
 }

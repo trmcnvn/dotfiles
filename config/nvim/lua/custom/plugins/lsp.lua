@@ -17,13 +17,12 @@ return {
 				"tailwindcss-language-server",
 				"gopls",
 				"prisma-language-server",
-				"standardrb",
 				"nginx-language-server"
 			}
 		}
 	},
 	"simrat39/inlay-hints.nvim",
-	"j-hui/fidget.nvim",
+	{ "j-hui/fidget.nvim", tag = "legacy" },
 	"folke/neodev.nvim",
 	"jose-elias-alvarez/null-ls.nvim",
 }

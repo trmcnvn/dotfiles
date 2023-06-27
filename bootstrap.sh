@@ -84,7 +84,7 @@ asdf plugin add golang https://github.com/kennyp/asdf-golang.git
 
 asdf install ruby lastest
 asdf install nodejs lts
-asdf install rust latest
+RUST_WITHOUT=rust-docs asdf install rust latest
 asdf install zig latest
 asdf install deno latest
 asdf install golang latest

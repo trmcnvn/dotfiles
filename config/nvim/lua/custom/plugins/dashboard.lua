@@ -4,6 +4,7 @@ return {
 		event = "VimEnter",
 		opts = {
 			theme = "hyper",
+			shortcut_type = "number",
 			config = {
 				week_header = { enable = true },
 				shortcut = {
