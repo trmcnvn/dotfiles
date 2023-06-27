@@ -4,6 +4,7 @@ end
 
 # Homebrew
 fish_add_path /opt/homebrew/bin
+fish_add_path /home/linuxbrew/.linuxbrew/bin
 
 # Fish
 set fish_greeting
@@ -14,7 +15,7 @@ set -g theme_hide_hostname no
 set -g theme_hostname always
 
 # asdf
-source /opt/homebrew/opt/asdf/libexec/asdf.fish
+source $(brew --prefix asdf)/libexec/asdf.fish
 # zoxide
 zoxide init fish | source
 # Starship
@@ -46,15 +47,14 @@ set -gx EDITOR "nvim"
 set -gx PNPM_HOME $HOME/Library/pnpm
 set -gx DOTNET_ROOT "/opt/homebrew/opt/dotnet/libexec"
 set -gx GPG_TTY $(tty)
-set -gx RUBY_CONFIGURE_OPTS "--with-openssl-dir=$(brew --prefix openssl@1.1)"
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx GOPATH $XDG_DATA_HOME/go
-set -gx TERM "wezterm"
+test (uname) = Darwin; and set -gx TERM "wezterm"
 
 set -gx fish_user_paths $PNPM_HOME $fish_user_paths
 set -gx fish_user_paths /usr/local/sbin $fish_user_paths
 set -gx fish_user_paths $HOME/.cargo/bin $fish_user_paths
-set -gx fish_user_paths "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" $fish_user_paths
+test (uname) = Darwin; and set -gx fish_user_paths "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" $fish_user_paths
 set -gx fish_user_paths $HOME/.npm-global/bin $fish_user_paths
 set -ga fish_user_paths $HOME/.nimble/bin
 set -ga fish_user_paths $HOME/.dotnet/tools
