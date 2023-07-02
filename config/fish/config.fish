@@ -16,6 +16,7 @@ set -g theme_hostname always
 
 # asdf
 source $(brew --prefix asdf)/libexec/asdf.fish
+source $HOME/.asdf/plugins/golang/set-env.fish
 # zoxide
 zoxide init fish | source
 # Starship
@@ -34,7 +35,7 @@ alias gwr="git worktree remove"
 alias gwp="git worktree prune"
 alias ls="lsd"
 alias cat="bat"
-alias lg="gitui"
+alias lg="lazygit"
 alias cd="z"
 alias vim="nvim"
 
@@ -48,7 +49,7 @@ set -gx PNPM_HOME $HOME/Library/pnpm
 set -gx DOTNET_ROOT "/opt/homebrew/opt/dotnet/libexec"
 set -gx GPG_TTY $(tty)
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
-set -gx GOPATH $XDG_DATA_HOME/go
+set -gx RUST_WITHOUT=rust-docs
 test (uname) = Darwin; and set -gx TERM "wezterm"
 
 set -gx fish_user_paths $PNPM_HOME $fish_user_paths
