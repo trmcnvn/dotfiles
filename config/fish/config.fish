@@ -16,8 +16,7 @@ set -g theme_hostname always
 
 # asdf
 source $(brew --prefix asdf)/libexec/asdf.fish
-source $HOME/.asdf/plugins/golang/set-env.fish
-# zoxide
+#zoxide
 zoxide init fish | source
 # Starship
 starship init fish | source
@@ -49,7 +48,7 @@ set -gx PNPM_HOME $HOME/Library/pnpm
 set -gx DOTNET_ROOT "/opt/homebrew/opt/dotnet/libexec"
 set -gx GPG_TTY $(tty)
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
-set -gx RUST_WITHOUT=rust-docs
+set -gx RUST_WITHOUT rust-docs
 test (uname) = Darwin; and set -gx TERM "wezterm"
 
 set -gx fish_user_paths $PNPM_HOME $fish_user_paths
