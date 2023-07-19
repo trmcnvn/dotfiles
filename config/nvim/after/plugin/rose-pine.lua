@@ -5,9 +5,9 @@ require("rose-pine").setup {
 	disable_background = false,
 	disable_float_background = false,
 	highlight_groups = {
-		Comment = { fg = "muted", italic = true },
-		Constant = { fg = "gold", italic = true },
-		Keyword = { fg = "pine", italic = true },
+		Comment = { fg = "muted", italic = false },
+		Constant = { fg = "gold", italic = false },
+		Keyword = { fg = "pine", italic = false },
 		ColorColumn = { bg = "rose" },
 		Pmenu = { fg = "highlight_high", bg = "base" },
 		PmenuSel = { fg = "text", bg = "none" },

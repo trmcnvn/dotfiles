@@ -1,26 +1,10 @@
 return {
 	{
-		"glepnir/dashboard-nvim",
+		"goolord/alpha-nvim",
 		event = "VimEnter",
-		opts = {
-			theme = "hyper",
-			shortcut_type = "number",
-			config = {
-				week_header = { enable = true },
-				shortcut = {
-					{
-						desc = "Open last session",
-						group = "@grp",
-						key = "l",
-						action = "lua require(\"persistence\").load({ last = true })"
-					}
-				}
-			},
-			hide = {
-				statusline = true,
-				tabline = true,
-				winbar = true
-			}
-		}
+		dependencies = { "nvim-tree/nvim-web-devicons" },
+		config = function()
+			require("alpha").setup(require("alpha.themes.dashboard").config)
+		end
 	}
 }

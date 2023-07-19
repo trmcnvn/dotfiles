@@ -70,7 +70,7 @@ cmp.setup {
 		priority_weight = 2,
 		comparators = {
 			cmp.config.compare.exact,
-			-- require("copilot_cmp.comparators").prioritize,
+			require("copilot_cmp.comparators").prioritize,
 			cmp.config.compare.offset,
 			cmp.config.compare.score,
 			cmp.config.compare.recently_used,
@@ -92,16 +92,6 @@ cmp.setup {
 			item.menu = string.format("[%s]", menu_name)
 			return item
 		end,
-		-- format = lspkind.cmp_format {
-		-- 	with_text = true,
-		-- 	menu = {
-		-- 		buffer = "[buf]",
-		-- 		nvim_lsp = "[LSP]",
-		-- 		nvim_lua = "[api]",
-		-- 		path = "[path]",
-		-- 		luasnip = "[snip]",
-		-- 	},
-		-- }
 	},
 	experimental = {
 		ghost_text = false
