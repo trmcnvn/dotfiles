@@ -1,9 +1,6 @@
 local ok, mason = pcall(require, "mason")
 if not ok then return end
 
-local ok_cmp, cmp_lsp = pcall(require, "cmp_nvim_lsp")
-if not ok_cmp then return end
-
 local ok_lspconfig, lspconfig = pcall(require, "lspconfig")
 if not ok_lspconfig then return end
 
@@ -28,6 +25,8 @@ local on_attach = function(_, bufnr)
 end
 
 local capabilities = lspconfig.util.default_config.capabilities
+local ok_cmp, cmp_lsp = pcall(require, "cmp_nvim_lsp")
+if not ok_cmp then return end
 vim.tbl_deep_extend("force", capabilities, cmp_lsp.default_capabilities())
 capabilities.textDocument.codeLens = { dynamicRegistration = false }
 
@@ -149,7 +148,7 @@ vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
 		underline = {
 			severity_limit = "Warning"
 		},
-		virtual_text = true,
+		virtual_text = false,
 	}
 )
 

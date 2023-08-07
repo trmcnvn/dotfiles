@@ -104,6 +104,7 @@ osascript -e 'tell application "System Preferences" to quit'
 defaults write -g ApplePressAndHoldEnabled -bool false
 defaults write NSGlobalDomain KeyRepeat -int 2
 defaults write NSGlobalDomain InitialKeyRepeat -int 15
+defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
 # Apple "Dashboard"
 defaults write com.apple.dashboard mcx-disabled -bool true
 # Stupid "smart" characters

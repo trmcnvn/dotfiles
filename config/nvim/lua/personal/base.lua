@@ -49,7 +49,7 @@ vim.opt.laststatus = 3
 vim.opt.expandtab = false
 vim.opt.grepformat = "%f:%l:%c:%m"
 vim.opt.grepprg = "rg --vimgrep"
-vim.opt.scrolloff = 4
+vim.opt.scrolloff = 5
 vim.opt.signcolumn = "yes"
 vim.opt.spelllang = { "en" }
 vim.opt.splitbelow = true
@@ -75,8 +75,8 @@ vim.opt.termguicolors = true
 vim.opt.winblend = 0
 vim.opt.wildoptions = "pum"
 vim.opt.wildmode = "longest:full,full"
-vim.opt.pumblend = 10
-vim.opt.pumheight = 10
+vim.opt.pumblend = 0
+vim.opt.pumheight = 5
 vim.opt.background = "dark"
 vim.opt.writebackup = false
 vim.opt.timeout = true
@@ -117,4 +117,9 @@ vim.api.nvim_create_autocmd({ "FileType" }, {
       set nobuflisted
     ]])
 	end,
+})
+
+-- Stop continuing comments
+vim.api.nvim_create_autocmd("BufEnter", {
+	command = "setlocal formatoptions-=o",
 })

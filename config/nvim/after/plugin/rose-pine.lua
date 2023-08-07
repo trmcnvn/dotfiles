@@ -41,14 +41,14 @@ require("rose-pine").setup {
 		FidgetTitle = { fg = "subtle" },
 		FidgetTask = { fg = "subtle" },
 		-- Express Line
-		ElNormal = { fg = "base", bg = "rose", bold = true },
-		ElInsert = { fg = "base", bg = "foam", bold = true },
-		ElVisual = { fg = "base", bg = "iris", bold = true },
-		ElVisualLine = { fg = "base", bg = "iris", bold = true },
-		ElVisualBlock = { fg = "base", bg = "iris", bold = true },
-		ElReplace = { fg = "base", bg = "love", bold = true },
-		ElTerm = { fg = "base", bg = "pine", bold = true },
-		ElCommand = { fg = "base", bg = "gold", bold = true },
+		ElNormal = { fg = "subtle", bg = "none", bold = false },
+		ElInsert = { fg = "subtle", bg = "none", bold = true },
+		ElVisual = { fg = "subtle", bg = "none", bold = true },
+		ElVisualLine = { fg = "subtle", bg = "none", bold = true },
+		ElVisualBlock = { fg = "subtle", bg = "none", bold = true },
+		ElReplace = { fg = "subtle", bg = "none", bold = true },
+		ElTerm = { fg = "subtle", bg = "none", bold = true },
+		ElCommand = { fg = "subtle", bg = "none", bold = true },
 	}
 }
 
