@@ -17,6 +17,7 @@ M.e("z<left>", "<C-w>h")
 M.e("z<up>", "<C-w>k")
 M.e("z<down>", "<C-w>j")
 M.e("z<right>", "<C-w>l")
+M.n("<leader>ww", "<C-W>p")
 -- Horizontal nav
 M.n("<C-d>", "<C-d>zz")
 M.n("<C-u>", "<C-u>zz")

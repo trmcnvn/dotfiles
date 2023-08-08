@@ -1,10 +1,13 @@
 return {
 	{
 		"rose-pine/neovim",
-		priority = 1000,
+		lazy = true,
 		name = "rose-pine"
 	},
-	{ "folke/tokyonight.nvim", priority = 1000, name = "tokyonight" },
-	{ "rebelot/kanagawa.nvim", priority = 1000, name = "kanagawa" },
-	{ "morhetz/gruvbox",       priority = 1000, name = "gruvbox" }
+	{ "folke/tokyonight.nvim",    lazy = true, name = "tokyonight" },
+	{ "rebelot/kanagawa.nvim",    lazy = true, name = "kanagawa" },
+	{ "morhetz/gruvbox",          lazy = true, name = "gruvbox" },
+	{ "sainnhe/sonokai",          lazy = true, name = "sonokai" },
+	{ "sainnhe/gruvbox-material", lazy = true, name = "gruvbox-material" },
+	{ "catppuccin/nvim",          lazy = true, name = "catppuccin" }
 }

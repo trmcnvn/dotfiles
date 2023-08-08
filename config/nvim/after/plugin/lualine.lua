@@ -1,29 +1,10 @@
 local ok, lualine = pcall(require, "lualine")
 if not ok then return end
 
-local theme = require("lualine.themes.rose-pine")
-local palette = require("rose-pine.palette")
-theme.normal.c.bg = "none"
-theme.insert.c.bg = "none"
-theme.visual.c.bg = "none"
-theme.replace.c.bg = "none"
-theme.command.c.bg = "none"
-theme.inactive = {
-	a = { bg = palette.rose, fg = palette.base, gui = "bold" },
-	b = { bg = palette.overlay, fg = palette.rose },
-	c = { bg = "none", fg = palette.subtle }
-}
-
 local sections = {
 	lualine_a = { "mode" },
 	lualine_b = { "branch" },
-	lualine_c = {
-		{
-			"buffers",
-			symbols = { modified = " [~]", alternate_file = "", directory = "" },
-			max_length = vim.o.columns * 2 / 3
-		}
-	},
+	lualine_c = { { "filename", path = 1 } },
 	lualine_x = {
 		{ require("lazy.status").updates, cond = require("lazy.status").has_updates },
 		{
@@ -46,7 +27,7 @@ local sections = {
 
 lualine.setup {
 	options = {
-		theme = theme,
+		theme = "catppuccin",
 		icons_enabled = true,
 		section_separators = { left = "", right = "" },
 		component_separators = { left = "", right = "" },

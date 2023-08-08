@@ -1,11 +1,10 @@
 local wezterm = require("wezterm")
-local colors = require("lua/rose-pine").colors()
-local window_frame = require("lua/rose-pine").window_frame(wezterm)
+local cattpuccin = require("lua/catppuccin").apply_to_config
 
 local config = wezterm.config_builder()
 
 -- Weeb mode
-local weeb_mode_enabled = false
+local weeb_mode_enabled = true
 
 -- Allow CMD to be used as ALT within nvim
 local nvim_cmd_to_opt = function(opts)
@@ -40,7 +39,7 @@ end
 local wezterm_background = function()
   return {
     {
-      source = { Color = colors.background },
+      source = { Color = "#1e1e2e" },
       height = "100%",
       width = "100%",
       opacity = 1.0
@@ -55,22 +54,23 @@ wezterm.time.call_after(600, function()
   wezterm.reload_configuration()
 end)
 
+-- Theme
+cattpuccin(config, {
+  flavour = "mocha",
+  accent = "lavender"
+})
+
 config.adjust_window_size_when_changing_font_size = false
 config.alternate_buffer_wheel_scroll_speed = 6
 config.audible_bell = "Disabled"
 if weeb_mode_enabled then config.background = wezterm_background() end
 config.check_for_updates = false
-config.colors = colors
 config.font = wezterm.font_with_fallback {
-  "Berkeley Mono",
-  "Cartograph CF",
-  "IBM Plex Mono",
-  "Dank Mono",
   "JetBrains Mono",
   "JetBrainsMono Nerd Font",
 }
-config.font_size = 15
-config.line_height = 1.2
+config.font_size = 16
+config.line_height = 1
 config.front_end = "WebGpu"
 config.hide_tab_bar_if_only_one_tab = true
 config.hyperlink_rules = {
@@ -111,7 +111,6 @@ config.tab_bar_at_bottom = true
 config.text_background_opacity = 1.0
 config.use_fancy_tab_bar = false
 config.window_background_opacity = 1.0
-config.window_frame = window_frame
 config.window_padding = {
   left = 0,
   right = 0,

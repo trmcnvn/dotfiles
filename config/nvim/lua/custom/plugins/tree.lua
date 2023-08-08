@@ -2,6 +2,12 @@ return {
 	"MunifTanjim/nui.nvim",
 	{
 		"nvim-neo-tree/neo-tree.nvim",
+		branch = "v3.x",
+		dependencies = {
+			"nvim-lua/plenary.nvim",
+			"nvim-tree/nvim-web-devicons",
+			"MunifTanjim/nui.nvim",
+		},
 		opts = {
 			close_if_last_window = true,
 			default_component_configs = {
@@ -16,7 +22,9 @@ return {
 				},
 			},
 			filesystem = {
-				follow_current_file = true,
+				follow_current_file = {
+					enabled = true
+				},
 				filtered_items = {
 					hide_dotfiles = false,
 					hide_gitignored = false,
@@ -24,11 +32,13 @@ return {
 				}
 			},
 			buffers = {
-				follow_current_file = true,
+				follow_current_file = {
+					enabled = true
+				},
 			}
 		},
 		keys = {
-			{ "<leader>b", "<cmd>Neotree toggle show<cr>", desc = "Neotree" }
+			{ "<leader>b", "<cmd>Neotree toggle focus<cr>", desc = "Neotree" }
 		}
 	}
 }

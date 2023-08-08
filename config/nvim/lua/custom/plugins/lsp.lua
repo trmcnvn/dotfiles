@@ -22,7 +22,7 @@ return {
 		}
 	},
 	"simrat39/inlay-hints.nvim",
-	{ "j-hui/fidget.nvim", tag = "legacy" },
+	{ "j-hui/fidget.nvim", tag = "legacy", opts = { window = { blend = 0 } } },
 	"folke/neodev.nvim",
 	"jose-elias-alvarez/null-ls.nvim",
 }

@@ -10,6 +10,7 @@ return {
 	"windwp/nvim-autopairs",
 	"windwp/nvim-ts-autotag",
 	"Saecki/crates.nvim",
-	-- { "nvim-lualine/lualine.nvim", event = "VeryLazy" }
-	"tjdevries/express_line.nvim",
+	{ "lukas-reineke/indent-blankline.nvim", opts = { show_current_context = false, show_current_context_start = false } },
+	{ "nvim-lualine/lualine.nvim",           event = "VeryLazy" }
+	-- "tjdevries/express_line.nvim",
 }
