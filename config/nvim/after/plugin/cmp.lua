@@ -16,6 +16,11 @@ local has_words_before = function()
 	return col ~= 0 and vim.api.nvim_buf_get_text(0, line - 1, 0, line - 1, col, {})[1]:match("^%s*$") == nil
 end
 
+local cmp_autopairs_ok, cmp_autopairs = pcall(require, "nvim-autopairs.completion.cmp")
+if cmp_autopairs_ok then
+	cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
+end
+
 cmp.setup {
 	enabled = function()
 		if vim.api.nvim_buf_get_option(0, "buftype") == "prompt" then return false end
@@ -62,6 +67,7 @@ cmp.setup {
 		{ name = "nvim_lsp" },
 		{ name = "luasnip", keyword_length = 2 },
 		{ name = "copilot" },
+		{ name = "crates" }
 	}, {
 		{ name = "path" },
 		{ name = "buffer", keyword_length = 3 },

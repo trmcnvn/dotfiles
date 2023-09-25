@@ -4,9 +4,8 @@ if not ok then return end
 local sections = {
 	lualine_a = { "mode" },
 	lualine_b = { "branch" },
-	lualine_c = { { "filename", path = 1 } },
+	lualine_c = { { "filename", path = 0 } },
 	lualine_x = {
-		{ require("lazy.status").updates, cond = require("lazy.status").has_updates },
 		{
 			"diff",
 			symbols = {
@@ -15,22 +14,24 @@ local sections = {
 				removed = "-",
 			}
 		},
+		{ "encoding" },
+		{ "fileformat" },
+		{ "filetype" }
 	},
 	lualine_y = {
-		{ "progress", separator = " ",                  padding = { left = 1, right = 0 } },
-		{ "location", padding = { left = 0, right = 1 } }
+		{ "progress", padding = { left = 1, right = 1 } },
 	},
 	lualine_z = {
-		{ "datetime", style = "%H:%M" }
+		{ "location", padding = { left = 0, right = 1 } }
 	}
 }
 
 lualine.setup {
 	options = {
-		theme = "catppuccin",
+		theme = "auto",
 		icons_enabled = true,
-		section_separators = { left = "", right = "" },
-		component_separators = { left = "", right = "" },
+		component_separators = { left = '', right = '' },
+		section_separators = { left = '', right = '' },
 		disabled_filetypes = { statusline = { "dashboard" } },
 	},
 	sections = sections,

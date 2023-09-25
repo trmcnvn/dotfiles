@@ -1,16 +1,19 @@
 return {
 	"nvim-lua/plenary.nvim",
 	"tpope/vim-sleuth",
-	"ThePrimeagen/harpoon",
-	"folke/zen-mode.nvim",
-	"echasnovski/mini.ai",
-	{ "folke/persistence.nvim",   event = "BufReadPre" },
-	{ "luukvbaal/statuscol.nvim", opts = { setopt = true } },
+	-- Sessions
+	{ "folke/persistence.nvim", event = "BufReadPre" },
+	-- Quickfix
 	"romainl/vim-qf",
-	"windwp/nvim-autopairs",
+	-- Autopairing
+	{ "windwp/nvim-autopairs",  event = "InsertEnter" },
 	"windwp/nvim-ts-autotag",
-	"Saecki/crates.nvim",
-	{ "lukas-reineke/indent-blankline.nvim", opts = { show_current_context = false, show_current_context_start = false } },
-	{ "nvim-lualine/lualine.nvim",           event = "VeryLazy" }
-	-- "tjdevries/express_line.nvim",
+	-- Rust Crates
+	{
+		"Saecki/crates.nvim",
+		tag = "v0.3.0",
+		dependencies = { "nvim-lua/plenary.nvim" }
+	},
+	-- Bottom bar
+	{ "nvim-lualine/lualine.nvim", event = "VeryLazy" }
 }

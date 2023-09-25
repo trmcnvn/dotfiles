@@ -7,7 +7,7 @@ kanagawa.setup {
 	commentStyle = { italic = true },
 	keywordStyle = { italic = false },
 	statementStyle = { bold = false },
-	terminalColors = true,
+	terminalColors = false,
 	background = {
 		dark = "dragon",
 		light = "lotus"

@@ -21,6 +21,10 @@ vim.g.loaded_rrhelper = 1
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 vim.g.loaded_netrwSettings = 1
+vim.g.loaded_python3_provider = 0
+vim.g.loaded_node_provider = 0
+vim.g.loaded_ruby_provider = 0
+vim.g.loaded_perl_provider = 0
 
 vim.scriptencoding = "utf-8"
 vim.opt.encoding = "utf-8"
@@ -76,13 +80,13 @@ vim.opt.winblend = 0
 vim.opt.wildoptions = "pum"
 vim.opt.wildmode = "longest:full,full"
 vim.opt.pumblend = 0
-vim.opt.pumheight = 5
+vim.opt.pumheight = 10
 vim.opt.background = "dark"
 vim.opt.writebackup = false
 vim.opt.timeout = true
 vim.opt.timeoutlen = 300
 vim.opt.completeopt = "menu,menuone,noselect"
-vim.opt.guicursor = "n-v-c-sm:block,i-ci-ve:ver25,r-cr-o:hor20"
+vim.opt.guicursor = "n-v-c-i:block"
 vim.opt.splitkeep = "cursor"
 
 -- Turn off paste mode when leaving insert

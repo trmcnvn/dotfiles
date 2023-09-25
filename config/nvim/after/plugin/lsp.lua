@@ -35,6 +35,26 @@ local on_init = function(client)
 	client.config.flags.allow_incremental_sync = true
 end
 
+-- efm formatters
+local format_languages = {
+	javascript = {
+		require("efmls-configs.linters.eslint_d"),
+		require("efmls-configs.formatters.prettier_d"),
+	},
+	typescript = {
+		require("efmls-configs.linters.eslint_d"),
+		require("efmls-configs.formatters.prettier_d"),
+	},
+	svelte = {
+		require("efmls-configs.linters.eslint_d"),
+		require("efmls-configs.formatters.prettier_d"),
+	},
+	json = {
+		require("efmls-configs.formatters.prettier_d"),
+	},
+	lua = { require("efmls-configs.formatters.stylua") }
+}
+
 -- LSP Servers
 mason.setup {}
 mason_cfg.setup {}
@@ -89,22 +109,33 @@ mason_cfg.setup_handlers {
 					}
 				}
 			},
-			tsserver = {
-				cmd = { "typescript-language-server", "--stdio" },
-			},
-			rust_analyzer = {
-				cmd = { vim.fn.expand("$HOME/.asdf/shims/rust-analyzer") },
+			-- tsserver = {
+			-- 	cmd = { "typescript-language-server", "--stdio" },
+			-- },
+			-- rust_analyzer = {
+			-- 	cmd = { vim.fn.expand("$HOME/.asdf/shims/rust-analyzer") },
+			-- 	settings = {
+			-- 		["rust-analyzer"] = {
+			-- 			inlayHints = {
+			-- 				chainingHints = { enable = false },
+			-- 				closingBraceHints = { enable = false },
+			-- 				parameterHints = { enable = false },
+			-- 				typeHints = { enable = false }
+			-- 			}
+			-- 		}
+			-- 	}
+			-- }
+			efm = {
 				settings = {
-					["rust-analyzer"] = {
-						inlayHints = {
-							chainingHints = { enable = false },
-							closingBraceHints = { enable = false },
-							parameterHints = { enable = false },
-							typeHints = { enable = false }
-						}
-					}
-				}
-			}
+					languages = format_languages,
+					rootMarkers = { ".git/" }
+				},
+				filetypes = vim.tbl_keys(format_languages),
+				init_options = {
+					documentFormatting = true,
+					documentRangeFormatting = true
+				},
+			},
 		}
 
 		local opts = {}
@@ -123,21 +154,29 @@ mason_cfg.setup_handlers {
 	end,
 }
 
-require("null-ls").setup {
+-- TypeScript
+require("typescript-tools").setup({
 	on_init = on_init,
 	on_attach = on_attach,
-	sources = {
-		require("null-ls").builtins.diagnostics.eslint_d.with({
-			filetypes = { "javascript", "typescript", "svelte" },
-			condition = function(utils)
-				return utils.root_has_file({ ".eslintrc.cjs", ".eslintrc", ".eslintrc.js" })
-			end,
-		}),
-		require("null-ls").builtins.formatting.prettierd.with({
-			extra_filetypes = { "svelte" },
-		})
+	capabilities = capabilities,
+	settings = {
+		expose_as_code_action = { "add_missing_imports" },
 	}
-}
+})
+
+-- Rust
+require("rust-tools").setup({
+	tools = {
+		inlay_hints = {
+			auto = false
+		}
+	},
+	server = {
+		on_init = on_init,
+		on_attach = on_attach,
+		capabilities = capabilities,
+	}
+})
 
 -- LSP Handlers
 vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
@@ -149,6 +188,7 @@ vim.lsp.handlers["textDocument/publishDiagnostics"] = vim.lsp.with(
 			severity_limit = "Warning"
 		},
 		virtual_text = false,
+		update_in_insert = true
 	}
 )
 

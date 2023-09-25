@@ -16,10 +16,12 @@ set -g theme_hostname always
 
 # asdf
 source $(brew --prefix asdf)/libexec/asdf.fish
-#zoxide
+# zoxide
 zoxide init fish | source
 # Starship
 starship init fish | source
+# Opam (OCaml)
+test (uname) = Darwin; and eval $(opam env)
 
 # Aliases
 alias cl=clear
@@ -65,3 +67,7 @@ fish_add_path $HOME/.local/bin
 # Fish functions
 fish_ssh_agent
 
+
+# bun
+set --export BUN_INSTALL "$HOME/.bun"
+set --export PATH $BUN_INSTALL/bin $PATH
