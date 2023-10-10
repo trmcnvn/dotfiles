@@ -14,4 +14,6 @@ return {
 	{ "Yazeed1s/oh-lucy.nvim",           lazy = true, name = "oh-lucy" },
 	{ "embark-theme/vim",                lazy = true, name = "embark" },
 	{ "tiagovla/tokyodark.nvim",         lazy = true, name = "tokyodark" },
+	{ "dracula/vim",                     lazy = true, name = "dracula" },
+	{ "EdenEast/nightfox.nvim",          lazy = true, name = "nightfox" }
 }

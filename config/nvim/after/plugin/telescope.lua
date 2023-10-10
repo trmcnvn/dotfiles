@@ -6,16 +6,17 @@ local builtin = require("telescope.builtin")
 
 telescope.setup {
 	defaults = {
-		prompt_prefix = "  ",
+		prompt_prefix = " ",
 		selection_caret = " ",
 		initial_mode = "insert",
-		file_ignore_patterns = { ".git/", "node_modules/", "%.svg" },
+		file_ignore_patterns = { ".git/", "node_modules", "%.svg" },
 		mappings = {
 			i = {
 				["<Down>"] = actions.move_selection_next,
 				["<Up>"] = actions.move_selection_previous,
 				["<C-j>"] = actions.move_selection_next,
-				["<C-k>"] = actions.move_selection_previous
+				["<C-k>"] = actions.move_selection_previous,
+				["<Escape>"] = actions.close
 			},
 			n = {
 				["q"] = actions.close
@@ -48,11 +49,18 @@ telescope.setup {
 				match_filename    = true
 			}
 		},
+		["ui-select"] = {
+			require("telescope.themes").get_dropdown(),
+			specific_opts = {
+				codeactions = true
+			}
+		}
 	}
 }
 
 telescope.load_extension("zf-native")
 telescope.load_extension("ui-select")
+telescope.load_extension("harpoon")
 
 local function telescope_buffer_dir()
 	return vim.fn.expand("%:p:h")
@@ -78,4 +86,3 @@ M.n("<leader>gr", function() builtin.lsp_references() end)
 M.n("gd", function() builtin.lsp_definitions() end)
 M.n("gt", function() builtin.lsp_type_definitions() end)
 M.n("gi", function() builtin.lsp_implementations() end)
-

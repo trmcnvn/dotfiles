@@ -37,10 +37,3 @@ tree.setup({
 local M = require("utils.keymaps")
 M.n("<leader>b", "<cmd>Neotree float reveal<cr>")
 M.n("<leader>e", "<cmd>Neotree float reveal<cr>")
-
-vim.api.nvim_create_autocmd("VimEnter", {
-	command = "set nornu nonu | Neotree toggle"
-})
-vim.api.nvim_create_autocmd("BufEnter", {
-	command = "set rnu nu"
-})

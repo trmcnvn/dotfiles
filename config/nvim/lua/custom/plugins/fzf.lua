@@ -1,4 +1,4 @@
 return {
-	{ "junegunn/fzf", build = "./install --all" },
+	{ "junegunn/fzf", build = ":lua vim.fn[\"fzf#install\"]()" },
 	"junegunn/fzf.vim"
 }

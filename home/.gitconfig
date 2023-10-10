@@ -32,7 +32,7 @@
 	co = checkout
 	cm = commit
 	br = branch
-	pr = "!f() { git fetch ${1-master} pull/${2}/head:pr-${2}; }; f"
+	pr = "!f() { git fetch ${1-main} pull/${2}/head:pr-${2}; }; f"
 	wip = !git add -A && git commit -m 'wip'
 	undo = !git reset HEAD~1 --mixed
 	amend = !git commit --amend --no-edit

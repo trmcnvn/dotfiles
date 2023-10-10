@@ -1,5 +1,6 @@
 local wezterm = require("wezterm")
 local catppuccin = require("lua/catppuccin").apply_to_config
+local rose = require("lua/rose-pine")
 
 local config = wezterm.config_builder()
 
@@ -11,7 +12,7 @@ local transparent_mode = false
 
 -- Allow CMD to be used as ALT within nvim
 local nvim_cmd_to_opt = function(opts)
-  local keys = { "s", "w", "a" }
+  local keys = { "s", "w", "a", "[", "]", "\\" }
   local map = opts
   for _, key in ipairs(keys) do
     table.insert(map, {
@@ -76,10 +77,13 @@ wezterm.time.call_after(600, function()
 end)
 
 -- Theme
-catppuccin(config, {
-  flavour = "mocha",
-  accent = "surface0"
-})
+config.colors = rose.colors()
+config.window_frame = rose.window_frame(wezterm)
+-- catppuccin(config, {
+--   flavour = "mocha",
+--   accent = "surface0"
+-- })
+-- config.color_scheme = "Tokyo Night"
 
 config.adjust_window_size_when_changing_font_size = false
 config.alternate_buffer_wheel_scroll_speed = 6
@@ -88,6 +92,7 @@ if weeb_mode_enabled then config.background = weeb_background() end
 if transparent_mode then config.background = transparent_backgrund() end
 config.check_for_updates = false
 config.font = wezterm.font_with_fallback {
+  -- "Dank Mono",
   "Berkeley Mono",
   "JetBrains Mono",
   "JetBrainsMono Nerd Font",

@@ -61,12 +61,11 @@ set -gx fish_user_paths $HOME/.npm-global/bin $fish_user_paths
 set -ga fish_user_paths $HOME/.nimble/bin
 set -ga fish_user_paths $HOME/.dotnet/tools
 fish_add_path $CARGO_HOME/bin
-fish_add_path $GOPATH/bin
+fish_add_path $(go env GOPATH)/bin
 fish_add_path $HOME/.local/bin
 
 # Fish functions
 fish_ssh_agent
-
 
 # bun
 set --export BUN_INSTALL "$HOME/.bun"

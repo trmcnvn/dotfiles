@@ -12,7 +12,13 @@ return {
 	{
 		"Saecki/crates.nvim",
 		tag = "v0.3.0",
-		dependencies = { "nvim-lua/plenary.nvim" }
+		dependencies = { "nvim-lua/plenary.nvim" },
+		config = function()
+			require("crates").setup()
+			vim.api.nvim_create_autocmd("BufRead Cargo.toml", {
+				command = "lua require('crates').show()"
+			})
+		end
 	},
 	-- Bottom bar
 	{ "nvim-lualine/lualine.nvim", event = "VeryLazy" }

@@ -159,6 +159,7 @@ require("typescript-tools").setup({
 	on_init = on_init,
 	on_attach = on_attach,
 	capabilities = capabilities,
+	root_dir = lspconfig.util.root_pattern("package.json", "tsconfig.json", "jsconfig.json", ".git", ".gitignore"),
 	settings = {
 		expose_as_code_action = { "add_missing_imports" },
 	}
@@ -166,11 +167,6 @@ require("typescript-tools").setup({
 
 -- Rust
 require("rust-tools").setup({
-	tools = {
-		inlay_hints = {
-			auto = false
-		}
-	},
 	server = {
 		on_init = on_init,
 		on_attach = on_attach,
@@ -217,3 +213,4 @@ local M = require("utils.keymaps")
 M.n("gh", "<cmd>lua vim.lsp.buf.hover()<cr>")
 M.n("gr", "<cmd>lua vim.lsp.buf.rename()<cr>")
 M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>")
+M.n("ca", "<cmd>lua vim.lsp.buf.code_action()<cr>")

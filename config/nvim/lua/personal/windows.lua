@@ -1,1 +1,1 @@
-vim.opt.clipboard:append { "unnamed", "unnamedplus" }
+vim.opt.clipboard:append { "unnamed", "unnamedplus" } -- Access to system clipboard

@@ -46,15 +46,14 @@ brew_casks=(
   discord
   slack
   bitwarden
-  google-chrome
   zoom
   kap
+  loom
   wez/wezterm/wezterm
-  dash
   numi
   iina
   figma
-  textmate
+  firefox-developer-edition
 )
 brew install --cask "${brew_casks[@]}"
 
@@ -63,16 +62,7 @@ echo $(brew --prefix fish)/bin/fish | sudo tee -a /etc/shells
 chsh -s $(brew --prefix fish)/bin/fish
 
 # dotfiles
-find "$(pwd)/config" -type f -print0 | while IFS= read -r -d '' file; do
-  rel_path="${file#$(pwd)/config}"
-  mkdir -p "$HOME/.config/$(dirname "$rel_path")"
-  ln -sf "$file" "$HOME/.config$rel_path"
-done
-
-find "$(pwd)/home" -type f -print0 | while IFS= read -r -d '' file; do
-  filename=$(basename "$file")
-  ln -sf "$file" "$HOME/$filename"
-done
+./sync.sh
 
 # asdf
 asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git

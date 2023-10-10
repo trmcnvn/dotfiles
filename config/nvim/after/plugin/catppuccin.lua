@@ -1,6 +1,6 @@
 require("catppuccin").setup({
 	flavour = "mocha",
-	background = { dark = "mocha" },
+	background = { dark = "mocha", light = "latte" },
 	transparent_background = false,
 	show_end_of_buffer = true,
 	term_colors = false,
@@ -47,7 +47,7 @@ require("catppuccin").setup({
 		},
 	},
 	color_overrides = {
-		all = {
+		mocha = {
 			base = "#191724"
 		}
 	},
@@ -56,4 +56,4 @@ require("catppuccin").setup({
 	end
 })
 
-vim.cmd [[colorscheme catppuccin]]
+-- vim.cmd [[colorscheme catppuccin]]
