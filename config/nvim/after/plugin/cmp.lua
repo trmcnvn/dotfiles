@@ -53,14 +53,7 @@ cmp.setup {
 	},
 	mapping = cmp.mapping.preset.insert({
 		["<C-e>"] = cmp.mapping.close(),
-		["<cr>"] = cmp.mapping.confirm({ behavior = cmp.ConfirmBehavior.Replace, select = false }),
-		["<Tab>"] = vim.schedule_wrap(function(fallback)
-			if cmp.visible() and has_words_before() then
-				cmp.select_next_item({ behavior = cmp.SelectBehavior.Select })
-			else
-				fallback()
-			end
-		end)
+		["<Tab>"] = cmp.mapping.confirm({ behavior = cmp.ConfirmBehavior.Replace, select = false }),
 	}),
 	sources = cmp.config.sources({
 		{ name = "nvim_lua" },

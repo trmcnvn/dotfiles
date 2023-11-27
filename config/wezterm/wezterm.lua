@@ -92,15 +92,20 @@ if weeb_mode_enabled then config.background = weeb_background() end
 if transparent_mode then config.background = transparent_backgrund() end
 config.check_for_updates = false
 config.font = wezterm.font_with_fallback {
-  -- "Dank Mono",
+  -- {
+  --   family = "Monaspace Neon",
+  --   harfbuzz_features = { "calt", "liga", "dlig", "ss01", "ss02", "ss03", "ss04", "ss05", "ss06", "ss07", "ss08" }
+  -- },
   "Berkeley Mono",
   "JetBrains Mono",
   "JetBrainsMono Nerd Font",
 }
-config.font_size = 16
-config.line_height = 1.2
+config.font_size = 15
+config.use_cap_height_to_scale_fallback_fonts = true
+config.line_height = 1
 config.cell_width = 1
 config.freetype_load_target = "Light"
+config.freetype_render_target = "HorizontalLcd"
 config.front_end = "WebGpu"
 config.hide_tab_bar_if_only_one_tab = true
 config.hyperlink_rules = {
@@ -149,5 +154,6 @@ config.window_padding = {
   bottom = 0
 }
 config.window_decorations = "RESIZE|MACOS_FORCE_DISABLE_SHADOW"
+config.animation_fps = 60
 
 return config

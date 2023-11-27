@@ -11,8 +11,9 @@ local sections = {
 			sections = { "error", "warn" },
 			symbols = { error = " ", warn = " " },
 			colored = false,
-			always_visible = true
-		}
+			always_visible = false
+		},
+		{ "filename", path = 1 },
 	},
 	lualine_x = {
 		{
@@ -27,8 +28,7 @@ local sections = {
 				return vim.fn.winwidth(0) > 80
 			end
 		},
-		{ "filename", path = 1 },
-		{ "filetype", icons_enabled = false }
+		{ "filetype", icons_enabled = true }
 	},
 	lualine_y = {
 		{ "location", padding = { left = 0, right = 1 } },
@@ -41,8 +41,8 @@ lualine.setup {
 		theme = "auto",
 		globalstatus = true,
 		icons_enabled = true,
-		component_separators = { left = "", right = "" },
-		section_separators = { left = "", right = "" },
+		component_separators = { left = '', right = '' },
+		section_separators = { left = '', right = '' },
 		always_divide_middle = true
 	},
 	sections = sections,

@@ -167,7 +167,13 @@ require("typescript-tools").setup({
 
 -- Rust
 require("rust-tools").setup({
+	tools = {
+		inlay_hints = {
+			auto = false,
+		}
+	},
 	server = {
+		standalone = false,
 		on_init = on_init,
 		on_attach = on_attach,
 		capabilities = capabilities,

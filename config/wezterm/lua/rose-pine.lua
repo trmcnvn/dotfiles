@@ -79,7 +79,7 @@ function M.window_frame(wezterm) -- (Fancy tab bar only)
     return {
         active_titlebar_bg = palette.base,
         inactive_titlebar_bg = palette.base,
-        font = wezterm.font("Dank Mono"),
+        font = wezterm.font("Berkeley Mono"),
         font_size = 18.0,
     }
 end

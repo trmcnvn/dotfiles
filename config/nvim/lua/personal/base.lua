@@ -140,3 +140,11 @@ vim.api.nvim_create_autocmd({ "FileType" }, {
 vim.api.nvim_create_autocmd("BufWinEnter", {
   command = "setlocal formatoptions-=cro",
 })
+
+-- Sanity
+vim.cmd [[command! W w]]
+vim.cmd [[command! Q q]]
+vim.cmd [[command! Wq wq]]
+
+-- Plugin globals
+vim.g.skip_ts_context_commentstring_module = true

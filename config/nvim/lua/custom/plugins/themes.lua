@@ -15,5 +15,6 @@ return {
 	{ "embark-theme/vim",                lazy = true, name = "embark" },
 	{ "tiagovla/tokyodark.nvim",         lazy = true, name = "tokyodark" },
 	{ "dracula/vim",                     lazy = true, name = "dracula" },
-	{ "EdenEast/nightfox.nvim",          lazy = true, name = "nightfox" }
+	{ "EdenEast/nightfox.nvim",          lazy = true, name = "nightfox" },
+	{ "haxibami/urara.vim",              lazy = true, name = "urara" }
 }
