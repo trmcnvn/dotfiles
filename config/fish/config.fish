@@ -51,7 +51,7 @@ set -gx DOTNET_ROOT "/opt/homebrew/opt/dotnet/libexec"
 set -gx GPG_TTY $(tty)
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx RUST_WITHOUT rust-docs
-test (uname) = Darwin; and set -gx TERM "wezterm"
+test (uname) = Darwin; and set -gx TERM xterm-256color
 
 set -gx fish_user_paths $PNPM_HOME $fish_user_paths
 set -gx fish_user_paths /usr/local/sbin $fish_user_paths

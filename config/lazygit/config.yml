@@ -11,3 +11,5 @@ gui:
       - black
     selectedRangeBgColor:
       - reverse
+git:
+  disableForcePushing: true
