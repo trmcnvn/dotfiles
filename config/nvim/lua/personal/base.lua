@@ -77,7 +77,7 @@ vim.opt.wrap = false     -- Display lines as one long line
 vim.opt.backspace = { "start", "eol", "indent" }
 vim.opt.path:append { "**" }
 vim.opt.wildignore:append { "*/node_modules/*" }
-vim.opt.updatetime = 200     -- Faster completion
+vim.opt.updatetime = 50      -- Faster completion
 vim.opt.ignorecase = true    -- Ignore case in search patterns
 vim.opt.smartcase = true     -- Smart case
 vim.opt.cursorline = true    -- Highlight the current line
@@ -101,6 +101,7 @@ vim.opt.whichwrap:append("<,>,[,],h,l")
 vim.opt.iskeyword:append("-")
 vim.opt.confirm = true
 vim.opt.foldenable = false
+vim.opt.clipboard = "unnamed,unnamedplus"
 
 -- Turn off paste mode when leaving insert
 vim.api.nvim_create_autocmd("InsertLeave", {
@@ -112,18 +113,34 @@ vim.api.nvim_create_autocmd("InsertLeave", {
 vim.opt.formatoptions:append { "r" }
 
 -- Highlight on yank
-local hl_group = vim.api.nvim_create_augroup("YankHighlight", { clear = true })
 vim.api.nvim_create_autocmd("TextYankPost", {
+  group = vim.api.nvim_create_augroup("highlight_yank", { clear = true }),
+  pattern = "*",
   callback = function()
-    vim.highlight.on_yank({ timeout = 200 })
+    vim.highlight.on_yank({ timeout = 200, visual = true })
   end,
-  group = hl_group,
-  pattern = "*"
 })
 
--- Reload files
-local ct_group = vim.api.nvim_create_augroup("CheckTime", { clear = true })
-vim.api.nvim_create_autocmd({ "FocusGained", "TermClose", "TermLeave" }, { group = ct_group, command = "checktime" })
+-- Format on save
+vim.api.nvim_create_autocmd("BufWritePre", {
+  group = vim.api.nvim_create_augroup("format_on_save", { clear = true }),
+  pattern = "*",
+  callback = function()
+    if vim.fn.exists(":Format") > 0 then
+      vim.cmd.Format()
+    end
+  end
+})
+
+-- Edit text
+vim.api.nvim_create_autocmd({ "FileType" }, {
+  group = vim.api.nvim_create_augroup("edit_text", { clear = true }),
+  pattern = { "gitcommit", "markdown", "txt" },
+  callback = function()
+    vim.opt_local.wrap = true
+    vim.opt_local.spell = true
+  end
+})
 
 -- Use 'q' to quit from common plugins
 vim.api.nvim_create_autocmd({ "FileType" }, {
@@ -145,6 +162,3 @@ vim.api.nvim_create_autocmd("BufWinEnter", {
 vim.cmd [[command! W w]]
 vim.cmd [[command! Q q]]
 vim.cmd [[command! Wq wq]]
-
--- Plugin globals
-vim.g.skip_ts_context_commentstring_module = true

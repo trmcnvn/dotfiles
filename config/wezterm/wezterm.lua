@@ -1,14 +1,6 @@
 local wezterm = require("wezterm")
--- local catppuccin = require("lua/catppuccin").apply_to_config
 local rose = require("lua/rose-pine")
-
 local config = wezterm.config_builder()
-
--- Weeb mode
-local weeb_mode_enabled = false
-
--- Transparent mode
-local transparent_mode = false
 
 -- Allow CMD to be used as ALT within nvim
 local nvim_cmd_to_opt = function(opts)
@@ -30,74 +22,18 @@ local nvim_cmd_to_opt = function(opts)
 	return map
 end
 
--- Select a random background image from a directory
-local random_background = function()
-	local images = {}
-	local dir = "/Users/trmcnvn/backgrounds/anime"
-	for file in io.popen("ls " .. dir):lines() do
-		table.insert(images, dir .. "/" .. file)
-	end
-	return images[math.random(#images)]
-end
-
-local weeb_background = function()
-	return {
-		{
-			source = { Color = "#1e1e2e" },
-			height = "100%",
-			width = "100%",
-			opacity = 1.0,
-		},
-		{ source = { File = random_background() }, width = "100%", height = "100%", opacity = 0.1 },
-	}
-end
-
-local transparent_backgrund = function()
-	return {
-		{ source = { Color = "#1e1e2e" }, height = "100%", width = "100%", opacity = 0.9 },
-	}
-end
-if transparent_mode then
-	config.macos_window_background_blur = 20
-end
-
--- Reload the config every 10 minutes
-wezterm.time.call_after(600, function()
-	if not weeb_mode_enabled then
-		return
-	end
-	wezterm.reload_configuration()
-end)
-
 -- Theme
 config.colors = rose.colors()
 config.window_frame = rose.window_frame(wezterm)
--- catppuccin(config, {
---   flavour = "mocha",
---   accent = "surface0"
--- })
--- config.color_scheme = "Tokyo Night"
-
 config.adjust_window_size_when_changing_font_size = false
 config.alternate_buffer_wheel_scroll_speed = 6
 config.audible_bell = "Disabled"
-if weeb_mode_enabled then
-	config.background = weeb_background()
-end
-if transparent_mode then
-	config.background = transparent_backgrund()
-end
 config.check_for_updates = false
 config.font = wezterm.font_with_fallback({
-	-- {
-	--   family = "Monaspace Neon",
-	--   harfbuzz_features = { "calt", "liga", "dlig", "ss01", "ss02", "ss03", "ss04", "ss05", "ss06", "ss07", "ss08" }
-	-- },
 	"Berkeley Mono",
-	"JetBrains Mono",
 	"JetBrainsMono Nerd Font",
 })
-config.font_size = 16
+config.font_size = 18
 config.use_cap_height_to_scale_fallback_fonts = true
 config.line_height = 1
 config.cell_width = 1

@@ -1,13 +1,18 @@
 return {
 	{
 		"rose-pine/neovim",
+		branch = "canary",
 		config = function()
 			require("rose-pine").setup({
 				variant = "main",
 				dark_variant = "main",
-				disable_italics = true,
-				disable_background = false,
-				disable_float_background = false,
+				dim_inactive_windows = false,
+				extend_background_behind_borders = false,
+				styles = {
+					bold = true,
+					italic = false,
+					transparency = false,
+				},
 				highlight_groups = {
 					Comment = { fg = "muted", italic = false },
 					Constant = { fg = "gold", italic = false },
