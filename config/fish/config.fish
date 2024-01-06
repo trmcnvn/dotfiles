@@ -8,19 +8,14 @@ fish_add_path /home/linuxbrew/.linuxbrew/bin
 
 # Fish
 set fish_greeting
-set -g theme_color_scheme terminal-dark
-set -g fish_prompt_pwd_dir_length 3
-set -g theme_display_user yes
-set -g theme_hide_hostname no
-set -g theme_hostname always
 
 # asdf
 source $(brew --prefix asdf)/libexec/asdf.fish
-# zoxide
+# # zoxide
 zoxide init fish | source
-# Starship
+# # Starship
 starship init fish | source
-# Opam (OCaml)
+# # Opam (OCaml)
 test (uname) = Darwin; and eval $(opam env)
 
 # Aliases
@@ -53,13 +48,13 @@ set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx RUST_WITHOUT rust-docs
 test (uname) = Darwin; and set -gx TERM xterm-256color
 
-set -gx fish_user_paths $PNPM_HOME $fish_user_paths
-set -gx fish_user_paths /usr/local/sbin $fish_user_paths
-set -gx fish_user_paths $HOME/.cargo/bin $fish_user_paths
-test (uname) = Darwin; and set -gx fish_user_paths "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" $fish_user_paths
-set -gx fish_user_paths $HOME/.npm-global/bin $fish_user_paths
-set -ga fish_user_paths $HOME/.nimble/bin
-set -ga fish_user_paths $HOME/.dotnet/tools
+fish_add_path $PNPM_HOME
+fish_add_path /usr/local/sbin
+fish_add_path $HOME/.cargo/bin
+test (uname) = Darwin; and fish_add_path "$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
+fish_add_path $HOME/.npm-global/bin
+fish_add_path $HOME/.nimble/bin
+fish_add_path $HOME/.dotnet/bin
 fish_add_path $CARGO_HOME/bin
 fish_add_path $(go env GOPATH)/bin
 fish_add_path $HOME/.local/bin

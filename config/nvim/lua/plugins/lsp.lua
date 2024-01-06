@@ -10,6 +10,10 @@ return {
 			"nvimtools/none-ls.nvim",
 			"folke/neodev.nvim",
 			{ "j-hui/fidget.nvim", tag = "legacy" },
+			{
+				"pmizio/typescript-tools.nvim",
+				dependencies = { "nvim-lua/plenary.nvim" },
+			},
 		},
 		config = function()
 			local null_ls = require("null-ls")
@@ -67,50 +71,12 @@ return {
 			local capabilities = vim.lsp.protocol.make_client_capabilities()
 			local default_capabilities = require("cmp_nvim_lsp").default_capabilities(capabilities)
 
-			-- textDocument/diagnostic support until 0.10.0 is released
-			_timers = {}
-			local function setup_diagnostics(client, buffer)
-				if require("vim.lsp.diagnostic")._enable then
-					return
-				end
-				local diagnostic_handler = function()
-					local params = vim.lsp.util.make_text_document_params(buffer)
-					client.request("textDocument/diagnostic", { textDocument = params }, function(err, result)
-						local diagnostic_items = {}
-						if result then
-							diagnostic_items = result.items
-						end
-						vim.lsp.diagnostic.on_publish_diagnostics(
-							nil,
-							vim.tbl_extend("keep", params, { diagnostics = diagnostic_items }),
-							{ client_id = client.id }
-						)
-					end)
-				end
-				diagnostic_handler() -- to request diagnostics on buffer when first attaching
-				vim.api.nvim_buf_attach(buffer, false, {
-					on_lines = function()
-						if _timers[buffer] then
-							vim.fn.timer_stop(_timers[buffer])
-						end
-						_timers[buffer] = vim.fn.timer_start(200, diagnostic_handler)
-					end,
-					on_detach = function()
-						if _timers[buffer] then
-							vim.fn.timer_stop(_timers[buffer])
-						end
-					end,
-				})
-			end
-
 			local on_attach = function(client, buffer)
 				-- Keybinds
 				M.n("gh", "<cmd>lua vim.lsp.buf.hover()<cr>")
 				M.n("gr", "<cmd>lua vim.lsp.buf.rename()<cr>")
 				M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>")
 				M.n("ca", "<cmd>lua vim.lsp.buf.code_actions()<cr>")
-				-- Remove with Neovim 0.10+
-				setup_diagnostics(client, buffer)
 				vim.api.nvim_buf_create_user_command(buffer, "Format", function(_)
 					vim.lsp.buf.format({ bufnr = buffer, timeout_ms = 3000 })
 				end, { desc = "LSP: Format current buffer with LSP" })
@@ -145,6 +111,15 @@ return {
 							return utils.root_has_file({ ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.json" })
 						end,
 					}),
+				},
+			})
+
+			-- Typescript Tools
+			require("typescript-tools").setup({
+				on_attach = on_attach,
+				capabilities = default_capabilities,
+				settings = {
+					expose_as_code_action = { "add_missing_imports" },
 				},
 			})
 
