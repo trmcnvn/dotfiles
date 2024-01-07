@@ -33,7 +33,7 @@ config.font = wezterm.font_with_fallback({
 	"Berkeley Mono",
 	"JetBrainsMono Nerd Font",
 })
-config.font_size = 18
+config.font_size = 17
 config.use_cap_height_to_scale_fallback_fonts = true
 config.line_height = 1
 config.cell_width = 1
