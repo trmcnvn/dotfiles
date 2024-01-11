@@ -9,6 +9,7 @@ return {
 			"L3MON4D3/LuaSnip",
 			"saadparwaiz1/cmp_luasnip",
 			"onsails/lspkind.nvim",
+			"zbirenbaum/copilot-cmp",
 		},
 		config = function()
 			local cmp = require("cmp")
@@ -38,6 +39,21 @@ return {
 					{ name = "buffer", max_item_count = 5 },
 					{ name = "path", max_item_count = 3 },
 				}),
+				sorting = {
+					priority_weight = 2,
+					comparators = {
+						cmp.config.compare.exact,
+						require("copilot_cmp.comparators").prioritize,
+						cmp.config.compare.offset,
+						cmp.config.compare.score,
+						cmp.config.compare.recently_used,
+						cmp.config.compare.locality,
+						cmp.config.compare.kind,
+						cmp.config.compare.sort_text,
+						cmp.config.compare.length,
+						cmp.config.compare.order,
+					},
+				},
 				formatting = {
 					expandable_indicator = true,
 					format = lspkind.cmp_format({

@@ -33,12 +33,10 @@ config.font = wezterm.font_with_fallback({
 	"Berkeley Mono",
 	"JetBrainsMono Nerd Font",
 })
-config.font_size = 17
+config.font_size = 16
 config.use_cap_height_to_scale_fallback_fonts = true
 config.line_height = 1
 config.cell_width = 1
-config.freetype_load_target = "Light"
-config.freetype_render_target = "HorizontalLcd"
 config.front_end = "WebGpu"
 config.hide_tab_bar_if_only_one_tab = true
 config.hyperlink_rules = {

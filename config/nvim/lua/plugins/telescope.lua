@@ -18,7 +18,7 @@ return {
 					prompt_prefix = "> ",
 					selection_caret = "> ",
 					initial_mode = "insert",
-					file_ignore_patterns = { ".git/", "node_modules", "sorbet" },
+					file_ignore_patterns = { ".git/", "node_modules", "sorbet", "%.svg" },
 					mappings = {
 						i = {
 							["<Down>"] = actions.move_selection_next,
@@ -31,11 +31,14 @@ return {
 							["q"] = actions.close,
 						},
 					},
-					hidden = true,
+					layout_config = {
+						horizontal = { preview_width = 80 },
+						prompt_position = "top",
+					},
 					layout_strategy = "horizontal",
 					sorting_strategy = "ascending",
+					winblend = 0,
 				},
-
 				pickers = {
 					find_files = { theme = "dropdown", previewer = false },
 					live_grep = { theme = "dropdown", previewer = false },
