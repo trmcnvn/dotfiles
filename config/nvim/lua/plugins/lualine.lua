@@ -1,7 +1,7 @@
 return {
 	{
 		"nvim-lualine/lualine.nvim",
-		event = "VeryLazy",
+		event = "ColorScheme",
 		config = function()
 			require("lualine").setup({
 				options = {
