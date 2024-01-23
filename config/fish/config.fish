@@ -1,22 +1,12 @@
-if status is-interactive
-  atuin init fish | source
-end
-
-# Homebrew
 fish_add_path /opt/homebrew/bin
 fish_add_path /home/linuxbrew/.linuxbrew/bin
 
-# Fish
 set fish_greeting
+set -l machine_name (uname)
 
-# asdf
-source $(brew --prefix asdf)/libexec/asdf.fish
-# # zoxide
+source /opt/homebrew/opt/asdf/libexec/asdf.fish
 zoxide init fish | source
-# # Starship
-starship init fish | source
-# # Opam (OCaml)
-test (uname) = Darwin; and eval $(opam env)
+# starship init fish | source
 
 # Aliases
 alias cl=clear
@@ -46,12 +36,12 @@ set -gx DOTNET_ROOT "/opt/homebrew/opt/dotnet/libexec"
 set -gx GPG_TTY $(tty)
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx RUST_WITHOUT rust-docs
-test (uname) = Darwin; and set -gx TERM xterm-256color
+test machine_name = Darwin; and set -gx TERM xterm-256color
 
 fish_add_path $PNPM_HOME
 fish_add_path /usr/local/sbin
 fish_add_path $HOME/.cargo/bin
-test (uname) = Darwin; and fish_add_path "$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
+test machine_name = Darwin; and fish_add_path "$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
 fish_add_path $HOME/.npm-global/bin
 fish_add_path $HOME/.nimble/bin
 fish_add_path $HOME/.dotnet/bin
@@ -65,3 +55,12 @@ fish_ssh_agent
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
+
+# hydro
+set -g hydro_color_pwd "ebbcba"
+set -g hydro_color_git "c4a7e7"
+set -g hydro_color_error "eb6f92"
+set -g hydro_color_prompt "9ccfd8"
+set -g hydro_color_duration "c4a7e7"
+set -g hydro_multiline true
+set -g hydro_symbol_prompt "➜"
