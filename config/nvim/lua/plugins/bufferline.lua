@@ -9,7 +9,7 @@ return {
 		keys = {
 			{ "<Tab>", "<Cmd>BufferLineCycleNext<CR>", desc = "Next tab" },
 			{ "<S-Tab>", "<Cmd>BufferLineCyclePrev<CR>", desc = "Prev tab" },
-			{ "<A-w>", "<Cmd>bdelete<CR>", desc = "Close tab" },
+			-- Deletion is handled by mini.bufremove
 		},
 		config = function()
 			local highlights = require("rose-pine.plugins.bufferline")
@@ -23,6 +23,7 @@ return {
 				}),
 				options = {
 					mode = "buffers",
+					themable = true,
 					style_preset = {
 						bufferline.style_preset.no_italic,
 						bufferline.style_preset.no_bold,

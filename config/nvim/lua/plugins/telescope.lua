@@ -5,7 +5,7 @@ return {
 			"nvim-lua/plenary.nvim",
 			{
 				"nvim-telescope/telescope-fzf-native.nvim",
-				build = "cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build",
+				build = "make",
 				cond = vim.fn.executable("cmake") == 1,
 			},
 			"natecraddock/telescope-zf-native.nvim",
@@ -18,7 +18,16 @@ return {
 					prompt_prefix = "> ",
 					selection_caret = "> ",
 					initial_mode = "insert",
-					file_ignore_patterns = { ".git/", "node_modules", "sorbet", "%.svg" },
+					file_ignore_patterns = {
+						".git",
+						"node_modules",
+						"sorbet",
+						"%.svg",
+						"build",
+						".svelte-kit",
+						".turbo",
+						".ruby-lsp",
+					},
 					mappings = {
 						i = {
 							["<Down>"] = actions.move_selection_next,

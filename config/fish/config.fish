@@ -48,6 +48,7 @@ fish_add_path $HOME/.dotnet/bin
 fish_add_path $CARGO_HOME/bin
 fish_add_path $(go env GOPATH)/bin
 fish_add_path $HOME/.local/bin
+fish_add_path /Applications/Ghostty.app/Contents/MacOS
 
 # Fish functions
 fish_ssh_agent
