@@ -3,7 +3,7 @@
 # Font
 font-family = Berkeley Mono
 window-title-font-family = Berkeley Mono
-font-size = 16
+font-size = 15
 font-thicken = false
 adjust-cell-width = -10%
 adjust-cell-height = 0

@@ -1,5 +1,6 @@
 vim.cmd("autocmd!")
 
+-- Leader Key
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
@@ -51,7 +52,7 @@ vim.opt.undodir = os.getenv("HOME") .. "/.nvim/undodir"
 vim.opt.undolevels = 5000
 vim.opt.showcmd = false
 vim.opt.ruler = false
-vim.opt.cmdheight = 1 -- Space for command line log
+vim.opt.cmdheight = 0 -- Space for command line log
 vim.opt.laststatus = 3
 vim.opt.expandtab = true -- Convert tabs to spaces
 vim.opt.grepformat = "%f:%l:%c:%m"

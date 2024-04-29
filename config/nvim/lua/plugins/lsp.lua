@@ -60,7 +60,9 @@ return {
 						},
 					},
 				},
-				ruby_lsp = {},
+				ruby_lsp = {
+					cmd = { "ruby-lsp --experimental" },
+				},
 				gopls = {},
 				nginx_language_server = {},
 				zls = {},

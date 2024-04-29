@@ -11,7 +11,7 @@ return {
 					legacy_highlights = false,
 				},
 				styles = {
-					bold = true,
+					bold = false,
 					italic = false,
 					transparency = false,
 				},
@@ -76,7 +76,7 @@ return {
 		"craftzdog/solarized-osaka.nvim",
 		config = function()
 			require("solarized-osaka").setup({
-				transparent = true,
+				transparent = false,
 				terminal_cololrs = true,
 				styles = {
 					comments = { italic = false },
@@ -85,72 +85,5 @@ return {
 			})
 		end,
 	},
-	{
-		"rebelot/kanagawa.nvim",
-		config = function()
-			require("kanagawa").setup({
-				transparent = false,
-				theme = "dragon",
-				background = {
-					dark = "dragon",
-					light = "lotus",
-				},
-				colors = {
-					theme = {
-						dragon = {
-							ui = {
-								bg = "#1a1a1a",
-								bg_p2 = "#242424",
-							},
-						},
-						wave = {},
-						all = {
-							ui = {
-								bg_gutter = "none",
-							},
-						},
-					},
-				},
-				overrides = function()
-					local white = "#eae3d4"
-					local orange = "#fbb570"
-					local yellow = "#f4d68d"
-					local pink = "#dfc1df"
-					return {
-						["@comment"] = { fg = "#686868" },
-						["@number"] = { fg = "#94c2e5" },
-						["@number.float"] = { fg = "#94c2e5" },
-						["@function"] = { fg = yellow },
-						["@function.call"] = { fg = yellow },
-						["@function.builtin"] = { fg = yellow },
-						["@keyword.import.zig"] = { fg = yellow },
-						["@string.escape"] = { fg = orange },
-						["@keyword"] = { fg = orange },
-						["@keyword.return"] = { fg = orange },
-						["@keyword.operator"] = { fg = orange },
-						["@operator"] = { fg = orange },
-						["@string"] = { fg = "#c7ca69" },
-						["@type"] = { fg = white },
-						["@boolean"] = { fg = white },
-						["@constant"] = { fg = white },
-						["@variable"] = { fg = white },
-						["@lsp.type.variable"] = { fg = white },
-						["@variable.zig"] = { fg = white },
-						["@variable.member"] = { fg = white },
-						["@lsp.type.property.zig"] = { fg = white },
-						["@lsp.type.property.lua"] = { fg = white },
-						["@lsp.type.namespace"] = { fg = white },
-						["@punctuation.bracket"] = { fg = white },
-						["@punctuation.delimiter"] = { fg = white },
-						["@lsp.type.parameter"] = { fg = pink },
-						["@lsp.type.type.zig"] = { fg = "none" },
-						["@variable.parameter"] = { fg = white },
-						["rustKeyword"] = { fg = orange },
-						["rustStorage"] = { fg = orange },
-						CursorLineNr = { fg = "none" },
-					}
-				end,
-			})
-		end,
-	},
+	{ "tjdevries/colorbuddy.nvim" },
 }
