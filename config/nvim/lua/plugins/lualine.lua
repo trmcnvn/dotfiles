@@ -43,7 +43,7 @@ return {
 					},
 					lualine_z = { "progress" },
 				},
-				extensions = { "neo-tree", "lazy", "quickfix" },
+				extensions = { "lazy", "quickfix" },
 			})
 		end,
 	},

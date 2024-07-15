@@ -34,11 +34,11 @@ config.font = wezterm.font_with_fallback({
 	--   family = "Monaspace Neon",
 	--   harfbuzz_features = { "calt", "liga", "dlig", "ss01", "ss02", "ss03", "ss04", "ss05", "ss06", "ss07", "ss08" },
 	-- },
-	-- "Berkeley Mono",
-	"BerkeleyMono Nerd Font Mono",
+	"Berkeley Mono",
+	-- "BerkeleyMono Nerd Font Mono",
 	-- "JetBrainsMono Nerd Font",
 })
-config.font_size = 16
+config.font_size = 15
 config.use_cap_height_to_scale_fallback_fonts = true
 config.line_height = 1
 config.cell_width = 1

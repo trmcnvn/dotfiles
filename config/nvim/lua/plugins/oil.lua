@@ -5,6 +5,8 @@ return {
 		dependencies = { "nvim-tree/nvim-web-devicons" },
 		config = function()
 			require("oil").setup({
+				default_file_explorer = true,
+				delete_to_trash = true,
 				keymaps = {
 					["<CR>"] = "actions.select",
 					["q"] = "actions.close",
@@ -15,6 +17,12 @@ return {
 					["g."] = "actions.toggle_hidden",
 				},
 				use_default_keymaps = false,
+				float = {
+					max_width = 42,
+					override = function(conf)
+						return vim.tbl_extend("force", conf, { row = 2, col = 2 })
+					end,
+				},
 			})
 
 			local M = require("utils.keymaps")

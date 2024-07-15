@@ -6,7 +6,6 @@ set -l machine_name (uname)
 
 source /opt/homebrew/opt/asdf/libexec/asdf.fish
 zoxide init fish | source
-# starship init fish | source
 
 # Aliases
 alias cl=clear

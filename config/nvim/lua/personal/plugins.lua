@@ -12,8 +12,9 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.runtimepath:prepend(lazypath)
 
-require("lazy").setup("plugins", {
-	debug = false,
+require("lazy").setup({
+	spec = { import = "plugins" },
+	checker = { enabled = true },
 	performance = {
 		cache = { enabled = true },
 	},

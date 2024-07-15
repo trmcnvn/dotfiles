@@ -7,6 +7,7 @@ return {
 				suggestion = { enabled = false },
 				panel = { enabled = false },
 			})
+			vim.cmd([[Copilot disable]])
 		end,
 	},
 	{
@@ -15,6 +16,15 @@ return {
 		dependencies = { "zbirenbaum/copilot.lua" },
 		config = function()
 			require("copilot_cmp").setup()
+		end,
+	},
+	{
+		"supermaven-inc/supermaven-nvim",
+		config = function()
+			require("supermaven-nvim").setup({
+				disable_inline_completion = true,
+				disable_keymaps = true,
+			})
 		end,
 	},
 }

@@ -14,7 +14,6 @@ brew_apps=(
   fish
   gh
   git
-  git-crypt
   git-secret
   gnupg
   helm
@@ -24,11 +23,10 @@ brew_apps=(
   kustomize
   lazygit
   overmind
-  postgresql@14
+  postgresql@16
   redis
   ripgrep
   ruby-build
-  starship
   tokei
   zoxide
   fzf
@@ -37,19 +35,15 @@ brew_apps=(
 )
 brew install "${brew_apps[@]}"
 brew tap homebrew/cask-versions
-brew tap wez/wezterm
 brew_casks=(
   raycast
-  ticktick
   linear-linear
   notion
   discord
-  slack
   bitwarden
   zoom
   kap
   loom
-  wez/wezterm/wezterm
   numi
   iina
   figma
@@ -113,14 +107,18 @@ defaults write NSGlobalDomain AppleInterfaceStyle -string "Dark"
 defaults write NSGlobalDomain AppleAquaColorVariant -int 6
 defaults write NSGlobalDomain AppleHighlightColor -string "0.847059 0.847059 0.862745"
 defaults write com.apple.menuextra.battery ShowPercent -bool true
-defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 1
-defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+# Allow easy drag
+defaults write -g NSWindowShouldDragOnGesture YES
 # Finder
+defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
 defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
 defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
 defaults write com.apple.finder _FXSortFoldersFirst -bool true
 defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
 defaults write com.apple.finder CreateDesktop false
+defaults write com.apple.finder WarnOnEmptyTrash -bool false
+defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 1
 # Photos
 defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
 # Chrome
@@ -140,6 +138,7 @@ defaults write com.apple.dock static-only -bool true
 # Screencapture
 defaults write com.apple.screencapture disable-shadow -bool true
 defaults write com.apple.screencapture location ~/Downloads
+# Kill default apps
 for app in "Activity Monitor" "Address Book" "Calendar" "Contacts" "cfprefsd" \
 	"Dock" "Finder" "Mail" "Messages" "Safari" "SystemUIServer" \
 	"Terminal" "Photos"; do

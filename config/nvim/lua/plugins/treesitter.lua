@@ -5,7 +5,14 @@ return {
 		event = { "BufReadPost", "BufNewFile" },
 		dependencies = {
 			"nvim-treesitter/nvim-treesitter-textobjects",
-			"nvim-treesitter/nvim-treesitter-context",
+			{
+				"nvim-treesitter/nvim-treesitter-context",
+				config = function()
+					require("treesitter-context").setup({
+						max_lines = 1,
+					})
+				end,
+			},
 		},
 		config = function()
 			require("nvim-treesitter.configs").setup({
@@ -26,6 +33,7 @@ return {
 					"rust",
 					"vim",
 					"graphql",
+					"zig",
 				},
 				sync_install = false,
 				highlight = {

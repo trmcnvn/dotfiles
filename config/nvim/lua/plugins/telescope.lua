@@ -8,7 +8,6 @@ return {
 				build = "make",
 				cond = vim.fn.executable("cmake") == 1,
 			},
-			"natecraddock/telescope-zf-native.nvim",
 		},
 		config = function()
 			local actions = require("telescope.actions")
@@ -27,6 +26,8 @@ return {
 						".svelte-kit",
 						".turbo",
 						".ruby-lsp",
+						"Gemfile.lock",
+						"pnpm-lock.yaml",
 					},
 					mappings = {
 						i = {
@@ -49,29 +50,18 @@ return {
 					winblend = 0,
 				},
 				pickers = {
-					find_files = { theme = "dropdown", previewer = false },
+					find_files = {
+						theme = "dropdown",
+						previewer = false,
+						find_command = { "rg", "--files", "--glob", "!**/.git/*", "-L" },
+					},
 					live_grep = { theme = "dropdown", previewer = false },
 					buffers = { theme = "dropdown", previewer = false },
 					oldfiles = { theme = "dropdown", previewer = false },
 				},
-				extensions = {
-					["zf-native"] = {
-						file = {
-							enable = true,
-							highlight_results = true,
-							match_filename = true,
-						},
-						generic = {
-							enable = true,
-							highlight_results = true,
-							match_filename = true,
-						},
-					},
-				},
 			})
 
 			pcall(require("telescope").load_extension, "fzf")
-			pcall(require("telescope").load_extension, "zf-native")
 			pcall(require("telescope").load_extension, "harpoon")
 
 			local M = require("utils.keymaps")
