@@ -1,9 +1,7 @@
 gui:
-  authorColors:
-    "*": magenta
   promptToReturnFromSubprocess: false
   showBottomLine: true
-  showCommandLog: false
+  showCommandLog: true
   showListFooter: true
   skipRewordInEditorWarning: true
   theme:

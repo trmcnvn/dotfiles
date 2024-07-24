@@ -1,17 +1,24 @@
 # vi:ft=ghostty
 
 # Font
-font-family = Berkeley Mono
+font-family = MonoLisa
+font-style = Regular
+font-style-italic = Regular Italic
+font-style-bold = Bold
+font-style-bold-italic = Bold Italic
+font-feature = zero
+font-feature = ss04
 font-size = 15
 font-thicken = true
-adjust-cell-width = 0
-adjust-cell-height = 10%
+adjust-cell-width = -10%
+adjust-cell-height = 0
 
 # Cursor
 shell-integration-features = no-cursor
 cursor-style-blink = false
 
 # Window
+window-title-font-family = Berkeley Mono
 window-vsync = true
 window-save-state = never
 window-padding-x = 0
@@ -29,9 +36,9 @@ quit-after-last-window-closed = true
 confirm-close-surface = false
 
 # Theme
-theme = rose-pine
-selection-foreground = #e0def4
-selection-background = #403d52
+theme = ChallengerDeep
+#selection-foreground = #e0def4
+#selection-background = #403d52
 
 # Keybinds
 keybind = cmd+enter=new_split:right

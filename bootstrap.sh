@@ -22,11 +22,9 @@ brew_apps=(
   jq
   kustomize
   lazygit
-  overmind
   postgresql@16
   redis
   ripgrep
-  ruby-build
   tokei
   zoxide
   fzf
@@ -37,16 +35,11 @@ brew install "${brew_apps[@]}"
 brew tap homebrew/cask-versions
 brew_casks=(
   raycast
-  linear-linear
-  notion
   discord
   bitwarden
-  zoom
   kap
-  loom
   numi
   iina
-  figma
   firefox-developer-edition
 )
 brew install --cask "${brew_casks[@]}"
@@ -66,18 +59,16 @@ asdf plugin add zig https://github.com/asdf-community/asdf-zig.git
 asdf plugin add deno https://github.com/asdf-community/asdf-deno.git
 asdf plugin add golang https://github.com/kennyp/asdf-golang.git
 
-asdf install ruby lastest
+ASDF_RUBY_BUILD_VERSION=master asdf install ruby lastest
 asdf install nodejs lts
 RUST_WITHOUT=rust-docs asdf install rust latest
 asdf install zig latest
-asdf install deno latest
 asdf install golang latest
 
 asdf global ruby latest
 asdf global nodejs lts
 asdf global zig latest
 asdf global rust latest
-asdf global deno latest
 asdf global golang latest
 
 # defaults
