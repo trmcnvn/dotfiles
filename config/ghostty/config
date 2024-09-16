@@ -7,22 +7,28 @@ font-style-italic = Regular Italic
 font-style-bold = Bold
 font-style-bold-italic = Bold Italic
 font-feature = zero
-font-feature = ss04
+# font-feature = ss01
+# font-feature = ss02
+# font-feature = ss03
+# font-feature = ss04
+# font-feature = ss05
 font-size = 15
 font-thicken = true
-adjust-cell-width = -10%
-adjust-cell-height = 0
+adjust-cell-width = -5%
+adjust-cell-height = 0%
 
 # Cursor
 shell-integration-features = no-cursor
 cursor-style-blink = false
 
 # Window
-window-title-font-family = Berkeley Mono
+window-title-font-family = MonoLisa
 window-vsync = true
 window-save-state = never
+window-padding-color = background
+window-padding-balance = true
 window-padding-x = 0
-window-padding-y = 1
+window-padding-y = 0
 window-colorspace = display-p3
 macos-option-as-alt = true
 macos-window-shadow = false
@@ -36,9 +42,9 @@ quit-after-last-window-closed = true
 confirm-close-surface = false
 
 # Theme
-theme = ChallengerDeep
-#selection-foreground = #e0def4
-#selection-background = #403d52
+theme = rose-pine
+selection-foreground = #e0def4
+selection-background = #403d52
 
 # Keybinds
 keybind = cmd+enter=new_split:right

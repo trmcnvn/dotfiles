@@ -1,6 +1,7 @@
 return {
 	{
 		"rose-pine/neovim",
+		lazy = true,
 		config = function()
 			require("rose-pine").setup({
 				variant = "main",
@@ -53,17 +54,46 @@ return {
 					FidgetTask = { fg = "subtle" },
 				},
 			})
-			-- vim.cmd.colorscheme("rose-pine")
+			vim.cmd.colorscheme("rose-pine-main")
 		end,
 	},
 	{
-		"challenger-deep-theme/vim",
+		"catppuccin/nvim",
 		config = function()
-			vim.g.challenger_deep_terminal_italics = 1
-			vim.cmd.colorscheme("challenger_deep")
-			vim.cmd([[highlight LineNr guibg=#1e1c31 guifg=#565575]])
-			vim.cmd([[highlight TreesitterContext guibg=#100E23]])
-			vim.cmd([[highlight NormalFloat guibg=#1e1c31]])
+			require("catppuccin").setup({
+				integrations = {
+					cmp = true,
+					fidget = true,
+					harpoon = true,
+					mason = true,
+					native_lsp = { enabled = true },
+					telescope = true,
+					treesitter = true,
+					treesitter_context = true,
+				},
+			})
+		end,
+	},
+	{
+		"folke/tokyonight.nvim",
+		config = function()
+			require("tokyonight").setup({})
+		end,
+	},
+	{
+		"f-person/auto-dark-mode.nvim",
+		priority = 1000,
+		config = function()
+			require("auto-dark-mode").setup({
+				set_dark_mode = function()
+					vim.opt.background = "dark"
+					vim.cmd.colorscheme("rose-pine-main")
+				end,
+				set_light_mode = function()
+					vim.opt.background = "light"
+					vim.cmd.colorscheme("rose-pine-dawn")
+				end,
+			})
 		end,
 	},
 }

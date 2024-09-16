@@ -2,12 +2,14 @@ return {
 	{
 		"nvim-telescope/telescope.nvim",
 		dependencies = {
-			"nvim-lua/plenary.nvim",
+			{ "nvim-lua/plenary.nvim", lazy = true },
 			{
 				"nvim-telescope/telescope-fzf-native.nvim",
 				build = "make",
 				cond = vim.fn.executable("cmake") == 1,
 			},
+			"nvim-telescope/telescope-ui-select.nvim",
+			"ThePrimeagen/harpoon",
 		},
 		config = function()
 			local actions = require("telescope.actions")
@@ -59,10 +61,16 @@ return {
 					buffers = { theme = "dropdown", previewer = false },
 					oldfiles = { theme = "dropdown", previewer = false },
 				},
+				extensions = {
+					["ui-select"] = {
+						require("telescope.themes").get_dropdown({}),
+					},
+				},
 			})
 
 			pcall(require("telescope").load_extension, "fzf")
 			pcall(require("telescope").load_extension, "harpoon")
+			pcall(require("telescope").load_extension, "ui-select")
 
 			local M = require("utils.keymaps")
 			M.n("<leader>f", function()

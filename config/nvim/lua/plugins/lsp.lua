@@ -12,7 +12,7 @@ return {
 			{ "j-hui/fidget.nvim", tag = "legacy" },
 			{
 				"pmizio/typescript-tools.nvim",
-				dependencies = { "nvim-lua/plenary.nvim" },
+				dependencies = { { "nvim-lua/plenary.nvim", lazy = true } },
 			},
 			{
 				"mrcjkb/rustaceanvim",
@@ -33,6 +33,8 @@ return {
 				lua_ls = {
 					settings = {
 						Lua = {
+							diagnostics = { globals = { "vim " } },
+							completion = { callSnippet = { "Replace" } },
 							workspace = { checkThirdParty = false },
 							telemetry = { enabled = false },
 						},

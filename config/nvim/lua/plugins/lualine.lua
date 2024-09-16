@@ -6,44 +6,39 @@ return {
 			require("lualine").setup({
 				options = {
 					theme = "auto",
-					globalstatus = false,
-					component_separators = { left = "", right = "" },
-					section_separators = { left = "", right = "" },
+					icons_enabled = true,
+					globalstatus = true,
+					component_separators = "", --{ left = "", right = "" },
+					section_separators = { left = "", right = "" }, --{ left = "", right = "" },
+					disabled_filetypes = { statusline = {}, winbar = {} },
+					ignore_focus = {},
+					always_divide_middle = true,
+					refresh = {
+						statusline = 1000,
+						tabline = 1000,
+						winbar = 1000,
+					},
 				},
 				sections = {
-					lualine_b = { "branch" },
-					lualine_c = {
-						{
-							"diagnostics",
-							sources = { "nvim_diagnostic" },
-							sections = { "error", "warn" },
-							symbols = { error = " ", warn = " " },
-							colored = false,
-							always_visible = false,
-						},
-						{ "filename", path = 1 },
-					},
-					lualine_x = {
-						{
-							"diff",
-							colored = false,
-							symbols = {
-								added = " ",
-								modified = " ",
-								removed = " ",
-							},
-							cond = function()
-								return vim.fn.winwidth(0) > 80
-							end,
-						},
-						{ "filetype", icons_enabled = true },
-					},
-					lualine_y = {
-						{ "location", padding = { left = 0, right = 1 } },
-					},
-					lualine_z = { "progress" },
+					lualine_a = { "mode" },
+					lualine_b = { "branch", "diff" },
+					lualine_c = { { "filename", path = 1 } },
+					lualine_x = {},
+					lualine_y = { "os.date('%a %b %d %H:%M')" },
+					lualine_z = {},
 				},
-				extensions = { "lazy", "quickfix" },
+				inactive_sections = {
+					lualine_a = {},
+					lualine_b = {},
+					lualine_c = {},
+					lualine_x = { "location" },
+					lualine_y = {},
+					lualine_z = {},
+				},
+				tabline = {},
+				winbar = {},
+				inactive_winbar = {},
+				extensions = {},
 			})
 		end,
 	},
