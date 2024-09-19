@@ -14,7 +14,7 @@
 	ff = false
 	conflictstyle = diff3
 [pull]
-	rebase = false
+	rebase = true
 	default = current
 [push]
 	default = current
