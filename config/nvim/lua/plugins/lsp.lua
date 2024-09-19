@@ -11,10 +11,6 @@ return {
 			"folke/neodev.nvim",
 			{ "j-hui/fidget.nvim", tag = "legacy" },
 			{
-				"pmizio/typescript-tools.nvim",
-				dependencies = { { "nvim-lua/plenary.nvim", lazy = true } },
-			},
-			{
 				"mrcjkb/rustaceanvim",
 				ft = { "rust" },
 			},
@@ -68,7 +64,7 @@ return {
 				gopls = {},
 				nginx_language_server = {},
 				zls = {},
-				eslint = {},
+				vtsls = {},
 			}
 
 			local default_handlers = {
@@ -108,15 +104,6 @@ return {
 				format_on_save = {
 					timeout = 500,
 					lsp_fallback = true,
-				},
-			})
-
-			-- Typescript Tools
-			require("typescript-tools").setup({
-				on_attach = on_attach,
-				capabilities = default_capabilities,
-				settings = {
-					expose_as_code_action = { "add_missing_imports" },
 				},
 			})
 
