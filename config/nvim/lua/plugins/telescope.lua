@@ -3,19 +3,23 @@ return {
 		"nvim-telescope/telescope.nvim",
 		dependencies = {
 			{ "nvim-lua/plenary.nvim", lazy = true },
-			{
-				"nvim-telescope/telescope-fzf-native.nvim",
-				build = "make",
-				cond = vim.fn.executable("cmake") == 1,
-			},
+			"natecraddock/telescope-zf-native.nvim",
 			"nvim-telescope/telescope-ui-select.nvim",
-			"ThePrimeagen/harpoon",
 		},
 		config = function()
 			local actions = require("telescope.actions")
 			local builtin = require("telescope.builtin")
 			require("telescope").setup({
 				defaults = {
+					vimgrep_arguments = {
+						"rg",
+						"--color=never",
+						"--no-heading",
+						"--with-filename",
+						"--line-number",
+						"--column",
+						"--smart-case",
+					},
 					prompt_prefix = "> ",
 					selection_caret = "> ",
 					initial_mode = "insert",
@@ -62,14 +66,14 @@ return {
 					oldfiles = { theme = "dropdown", previewer = false },
 				},
 				extensions = {
+					["zf-native"] = {},
 					["ui-select"] = {
 						require("telescope.themes").get_dropdown({}),
 					},
 				},
 			})
 
-			pcall(require("telescope").load_extension, "fzf")
-			pcall(require("telescope").load_extension, "harpoon")
+			pcall(require("telescope").load_extension, "zf-native")
 			pcall(require("telescope").load_extension, "ui-select")
 
 			local M = require("utils.keymaps")

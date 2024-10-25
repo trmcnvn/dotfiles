@@ -14,6 +14,7 @@ return {
 				"mrcjkb/rustaceanvim",
 				ft = { "rust" },
 			},
+			-- "SmiteshP/nvim-navic",
 		},
 		config = function()
 			local M = require("utils.keymaps")
@@ -25,11 +26,23 @@ return {
 				},
 			})
 			require("mason-lspconfig").setup()
+
+			-- Attempt to load a newly installed LSP
+			local mr = require("mason-registry")
+			mr:on("package:install:success", function()
+				vim.defer_fn(function()
+					require("lazy.core.handler.event").trigger({
+						event = "FileType",
+						buf = vim.api.nvim_get_current_buf(),
+					})
+				end, 100)
+			end)
+
 			local servers = {
 				lua_ls = {
 					settings = {
 						Lua = {
-							diagnostics = { globals = { "vim " } },
+							diagnostics = { globals = { "vim", "MiniIcons" } },
 							completion = { callSnippet = { "Replace" } },
 							workspace = { checkThirdParty = false },
 							telemetry = { enabled = false },
@@ -74,11 +87,15 @@ return {
 
 			local capabilities = vim.lsp.protocol.make_client_capabilities()
 			local default_capabilities = require("cmp_nvim_lsp").default_capabilities(capabilities)
+			-- local navic = require("nvim-navic")
 
-			local on_attach = function(client, buffer)
+			local on_attach = function()
+				-- if client.server_capabilities.documentSymbolProvider then
+				-- navic.attach(client, buffer)
+				-- end
 				-- Keybinds
 				M.n("gh", "<cmd>lua vim.lsp.buf.hover()<cr>")
-				M.n("gr", "<cmd>lua vim.lsp.buf.rename()<cr>")
+				M.n("gn", "<cmd>lua vim.lsp.buf.rename()<cr>")
 				M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>")
 				M.n("ca", "<cmd>lua vim.lsp.buf.code_action()<cr>")
 			end

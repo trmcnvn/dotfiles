@@ -1,9 +1,24 @@
 return {
 	{
-		"lewis6991/gitsigns.nvim",
+		"echasnovski/mini.diff",
 		event = "VeryLazy",
-		config = function()
-			require("gitsigns").setup({})
-		end,
+		keys = {
+			{
+				"<leader>go",
+				function()
+					require("mini.diff").toggle_overlay(0)
+				end,
+			},
+		},
+		opts = {
+			view = {
+				style = "sign",
+				signs = {
+					add = "▎",
+					change = "▎",
+					delete = "",
+				},
+			},
+		},
 	},
 }

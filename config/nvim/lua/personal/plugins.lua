@@ -13,6 +13,7 @@ end
 vim.opt.runtimepath:prepend(lazypath)
 
 require("lazy").setup({
+	rocks = { enabled = false },
 	spec = { import = "plugins" },
 	performance = {
 		cache = { enabled = true },

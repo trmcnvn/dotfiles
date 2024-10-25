@@ -4,15 +4,7 @@ return {
 		build = ":TSUpdate",
 		event = { "BufReadPost", "BufNewFile" },
 		dependencies = {
-			"nvim-treesitter/nvim-treesitter-textobjects",
-			{
-				"nvim-treesitter/nvim-treesitter-context",
-				config = function()
-					require("treesitter-context").setup({
-						max_lines = 1,
-					})
-				end,
-			},
+			"nvim-treesitter/nvim-treesitter-refactor",
 		},
 		config = function()
 			require("nvim-treesitter.configs").setup({
@@ -39,56 +31,20 @@ return {
 				highlight = {
 					enable = true,
 					additional_vim_regex_highlighting = false,
-					disable = function(_, bufnr)
-						local max_fs = 256 * 1024
-						local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(bufnr))
-						if ok and stats and stats.size > max_fs then
-							return true
-						end
+					disable = function(_, buf)
+						return vim.b[buf].big
 					end,
 				},
 				indent = { enable = true },
-				textobjects = {
-					select = {
+				refactor = {
+					highlight_definitions = { enable = false },
+					highlight_current_scope = { enable = false },
+					smart_rename = {
 						enable = true,
-						lookahead = false,
-						keymaps = {
-							["aa"] = "@parameter.outer",
-							["ia"] = "@parameter.inner",
-							["af"] = "@function.outer",
-							["if"] = "@function.inner",
-							["ac"] = "@class.outer",
-							["ic"] = "@class.inner",
-						},
-					},
-					move = {
-						enable = true,
-						set_jumps = true,
-						goto_next_start = {
-							["]m"] = "@function.outer",
-							["]]"] = "@class.outer",
-						},
-						goto_next_end = {
-							["]M"] = "@function.outer",
-							["]["] = "@class.outer",
-						},
-						goto_previous_start = {
-							["[m"] = "@function.outer",
-							["[["] = "@class.outer",
-						},
-						goto_previous_end = {
-							["[M"] = "@function.outer",
-							["[]"] = "@class.outer",
-						},
-					},
-					swap = {
-						enable = true,
-						swap_next = {
-							["<leader>a"] = "@parameter.inner",
-						},
-						swap_previous = {
-							["<leader>A"] = "@parameter.inner",
-						},
+						disable = function(_, buf)
+							return vim.b[buf].big
+						end,
+						keymaps = { smart_rename = "gn" },
 					},
 				},
 			})

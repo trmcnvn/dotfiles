@@ -1,20 +1,15 @@
 return {
 	{
 		"rose-pine/neovim",
-		lazy = true,
 		config = function()
 			require("rose-pine").setup({
 				variant = "main",
 				dark_variant = "main",
-				dim_inactive_windows = false,
-				extend_background_behind_borders = false,
 				enable = {
 					legacy_highlights = false,
 				},
 				styles = {
-					bold = false,
 					italic = false,
-					transparency = false,
 				},
 				highlight_groups = {
 					Comment = { fg = "muted", italic = false },
@@ -23,17 +18,20 @@ return {
 					ColorColumn = { bg = "rose" },
 					Pmenu = { fg = "highlight_high", bg = "base" },
 					PmenuSel = { fg = "text", bg = "none" },
+					NormalFloat = { bg = "base" },
 					FloatBorder = { fg = "highlight_high" },
+					FloatTitle = { bg = "base" },
 					CursorLine = { bg = "highlight_low" },
-					StatusLine = { fg = "subtle", bg = "none" },
 					MatchParen = { bold = true, underline = true },
-					-- Telescope
+					-- Search
+					CurSearch = { fg = "base", bg = "leaf", inherit = false },
+					Search = { fg = "text", bg = "leaf", blend = 20, inherit = false },
+					-- Telescope (Transparent)
 					TelescopeBorder = { fg = "highlight_high", bg = "none" },
 					TelescopeNormal = { bg = "none" },
-					TelescopePromptNormal = { bg = "none" },
-					TelescopePromptPrefix = { fg = "foam" },
+					TelescopePromptNormal = { bg = "base" },
 					TelescopeResultsNormal = { fg = "subtle", bg = "none" },
-					TelescopeSelection = { fg = "text", bg = "none" },
+					TelescopeSelection = { fg = "text", bg = "base" },
 					TelescopeSelectionCaret = { fg = "rose", bg = "rose" },
 					-- nvim-cmp
 					CmpItemAbbrMatchFuzzy = { fg = "foam", bold = true },
@@ -78,6 +76,18 @@ return {
 		"folke/tokyonight.nvim",
 		config = function()
 			require("tokyonight").setup({})
+		end,
+	},
+	{
+		"metalelf0/jellybeans-nvim",
+		dependencies = { "rktjmp/lush.nvim" },
+		config = function()
+			-- local lush = require("lush")
+			-- local jellybeans = require("lush_theme.jellybeans-nvim")
+			-- local spec = lush.extends({ jellybeans }).with(function()
+			-- 	return {}
+			-- end)
+			-- lush(spec)
 		end,
 	},
 	{

@@ -5,16 +5,16 @@ return {
 		opts = {
 			file = {
 				[".gitkeep"] = { glyph = "󰊢", hl = "MiniIconsGrey" },
+				[".keep"] = { glyph = "󰊢", hl = "MiniIconsGrey" },
 			},
 			filetype = {
 				dotenv = { glyph = "", hl = "MiniIconsYellow" },
 			},
 		},
-		init = function()
-			package.preload["nvim-web-devicons"] = function()
-				require("mini.icons").mock_nvim_web_devicons()
-				return package.loaded["nvim-web-devicons"]
-			end
+		config = function()
+			require("mini.icons").setup()
+			MiniIcons.mock_nvim_web_devicons()
+			MiniIcons.tweak_lsp_kind()
 		end,
 	},
 }

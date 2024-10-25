@@ -1,18 +1,14 @@
 # vi:ft=ghostty
 
 # Font
-font-family = MonoLisa
-font-style = Regular
-font-style-italic = Regular Italic
-font-style-bold = Bold
-font-style-bold-italic = Bold Italic
-font-feature = zero
-# font-feature = ss01
-# font-feature = ss02
-# font-feature = ss03
+font-family = Berkeley Mono
+# font-style = Regular
+# font-style-italic = Regular Italic
+# font-style-bold = Bold
+# font-style-bold-italic = Bold Italic
+# font-feature = zero
 # font-feature = ss04
-# font-feature = ss05
-font-size = 15
+font-size = 14
 font-thicken = true
 adjust-cell-width = -5%
 adjust-cell-height = 0%
@@ -20,9 +16,11 @@ adjust-cell-height = 0%
 # Cursor
 shell-integration-features = no-cursor
 cursor-style-blink = false
+mouse-hide-while-typing = false
+mouse-shift-capture = false
 
 # Window
-window-title-font-family = MonoLisa
+window-title-font-family = Berkeley Mono
 window-vsync = true
 window-save-state = never
 window-padding-color = background
@@ -32,8 +30,6 @@ window-padding-y = 0
 window-colorspace = display-p3
 macos-option-as-alt = true
 macos-window-shadow = false
-#background-opacity = 0.96
-#background-blur-radius = 20
 
 # Functionality
 clipboard-read = allow
