@@ -10,9 +10,10 @@ return {
 				},
 				styles = {
 					italic = false,
+					transparency = true,
 				},
 				highlight_groups = {
-					Comment = { fg = "muted", italic = false },
+					Comment = { fg = "muted", italic = true },
 					Constant = { fg = "gold", italic = false },
 					Keyword = { fg = "pine", italic = false },
 					ColorColumn = { bg = "rose" },
@@ -52,7 +53,6 @@ return {
 					FidgetTask = { fg = "subtle" },
 				},
 			})
-			vim.cmd.colorscheme("rose-pine-main")
 		end,
 	},
 	{
@@ -76,18 +76,6 @@ return {
 		"folke/tokyonight.nvim",
 		config = function()
 			require("tokyonight").setup({})
-		end,
-	},
-	{
-		"metalelf0/jellybeans-nvim",
-		dependencies = { "rktjmp/lush.nvim" },
-		config = function()
-			-- local lush = require("lush")
-			-- local jellybeans = require("lush_theme.jellybeans-nvim")
-			-- local spec = lush.extends({ jellybeans }).with(function()
-			-- 	return {}
-			-- end)
-			-- lush(spec)
 		end,
 	},
 	{

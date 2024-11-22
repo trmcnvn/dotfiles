@@ -14,9 +14,11 @@ return {
 		end,
 		config = function()
 			vim.o.laststatus = vim.g.lualine_laststatus
+			local rp_theme = require("lualine.themes.rose-pine")
+			rp_theme.normal.c.bg = "none"
 			require("lualine").setup({
 				options = {
-					theme = "auto",
+					theme = rp_theme,
 					globalstatus = true,
 					component_separators = "", --{ left = "", right = "" },
 					section_separators = { left = "", right = "" }, --{ left = "", right = "" },
@@ -24,7 +26,7 @@ return {
 					ignore_focus = {},
 					always_divide_middle = true,
 					refresh = {
-						statusline = 1000,
+						statusline = 100,
 						tabline = 1000,
 						winbar = 1000,
 					},

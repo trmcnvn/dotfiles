@@ -19,6 +19,14 @@ return {
 		config = function()
 			local M = require("utils.keymaps")
 
+			-- UI Customization
+			require("lspconfig.ui.windows").default_options.border = "rounded"
+			vim.diagnostic.config({
+				float = {
+					border = "rounded",
+				},
+			})
+
 			require("neodev").setup()
 			require("mason").setup({
 				ui = {
@@ -72,7 +80,12 @@ return {
 					},
 				},
 				ruby_lsp = {
-					cmd = { "ruby-lsp --experimental" },
+					mason = false,
+					cmd = { vim.fn.expand("~/.asdf/shims/ruby-lsp") },
+					init_options = {
+						formatter = "rubocop",
+						linters = { "rubocop" },
+					},
 				},
 				gopls = {},
 				nginx_language_server = {},
@@ -107,6 +120,9 @@ return {
 					handlers = vim.tbl_deep_extend("force", {}, default_handlers, config.handlers or {}),
 					on_attach = on_attach,
 					settings = config.settings,
+					cmd = config.cmd,
+					init_options = config.init_options,
+					mason = config.mason or true,
 				})
 			end
 
@@ -131,14 +147,6 @@ return {
 					capabilities = default_capabilities,
 				},
 			}
-
-			require("lspconfig.ui.windows").default_options.border = "rounded"
-
-			vim.diagnostic.config({
-				float = {
-					border = "rounded",
-				},
-			})
 		end,
 	},
 }

@@ -40,7 +40,7 @@ brew_casks=(
   kap
   numi
   iina
-  firefox-developer-edition
+  google-chrome
 )
 brew install --cask "${brew_casks[@]}"
 

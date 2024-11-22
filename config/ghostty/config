@@ -2,24 +2,25 @@
 
 # Font
 font-family = Berkeley Mono
-# font-style = Regular
-# font-style-italic = Regular Italic
-# font-style-bold = Bold
-# font-style-bold-italic = Bold Italic
-# font-feature = zero
-# font-feature = ss04
-font-size = 14
+font-style = Regular
+font-style-italic = Italic
+font-style-bold = Bold
+font-style-bold-italic = Bold Italic
+font-size = 15
 font-thicken = true
+font-synthetic-style = false
 adjust-cell-width = -5%
 adjust-cell-height = 0%
 
 # Cursor
-shell-integration-features = no-cursor
+shell-integration = fish
+shell-integration-features = no-cursor,sudo,title
 cursor-style-blink = false
 mouse-hide-while-typing = false
 mouse-shift-capture = false
 
 # Window
+window-inherit-font-size = false
 window-title-font-family = Berkeley Mono
 window-vsync = true
 window-save-state = never
@@ -30,14 +31,22 @@ window-padding-y = 0
 window-colorspace = display-p3
 macos-option-as-alt = true
 macos-window-shadow = false
+macos-titlebar-proxy-icon = hidden
+macos-titlebar-style = tabs
+title = Ghostty
 
 # Functionality
 clipboard-read = allow
+clipboard-write = allow
 clipboard-paste-protection = false
 quit-after-last-window-closed = true
 confirm-close-surface = false
 
 # Theme
+background-opacity = 0.95
+background-blur-radius = 20
+unfocused-split-opacity = 0.75
+
 cursor-color = #524f67 
 cursor-text = #e0def4
 
