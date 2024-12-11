@@ -9,7 +9,7 @@ return {
 			"hrsh7th/cmp-nvim-lsp",
 			"stevearc/conform.nvim",
 			"folke/neodev.nvim",
-			{ "j-hui/fidget.nvim", tag = "legacy" },
+			{ "j-hui/fidget.nvim", tag = false },
 			{
 				"mrcjkb/rustaceanvim",
 				ft = { "rust" },

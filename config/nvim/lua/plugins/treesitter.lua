@@ -17,6 +17,7 @@ return {
 					"json",
 					"yaml",
 					"css",
+					"regex",
 					"lua",
 					"html",
 					"svelte",

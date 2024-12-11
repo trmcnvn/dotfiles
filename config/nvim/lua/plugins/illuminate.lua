@@ -1,7 +1,7 @@
 return {
 	{
-		-- "RRethy/vim-illuminate",
-		-- lazy = true,
+		"RRethy/vim-illuminate",
+		lazy = true,
 		-- config = function()
 		-- 	require("illuminate").configure({
 		-- 		under_cursor = false,
@@ -9,10 +9,8 @@ return {
 		-- 			"DressingSelect",
 		-- 			"Outline",
 		-- 			"TelescopePrompt",
-		-- 			"alpha",
 		-- 			"harpoon",
 		-- 			"toggleterm",
-		-- 			"neo-tree",
 		-- 		},
 		-- 	})
 		-- end,

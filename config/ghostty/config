@@ -28,7 +28,7 @@ window-padding-color = background
 window-padding-balance = true
 window-padding-x = 0
 window-padding-y = 0
-window-colorspace = display-p3
+window-colorspace = srgb
 macos-option-as-alt = true
 macos-window-shadow = false
 macos-titlebar-proxy-icon = hidden
@@ -46,40 +46,7 @@ confirm-close-surface = false
 background-opacity = 0.95
 background-blur-radius = 20
 unfocused-split-opacity = 0.75
-
-cursor-color = #524f67 
-cursor-text = #e0def4
-
-background = #191724
-foreground = #e0def4
-
-selection-foreground = #e0def4
-selection-background = #403d52
-
-# black
-palette = 0=#26233a
-palette = 8=#6e6a86
-# red
-palette = 1=#eb6f92
-palette = 9=#eb6f92
-# green
-palette = 2=#31748f
-palette = 10=#31748f
-# yellow
-palette = 3=#f6c177
-palette = 11=#f6c177
-# blue
-palette = 4=#9ccfd8
-palette = 12=#9ccfd8
-# purple
-palette = 5=#c4a7e7 
-palette = 13=#c4a7e7
-# aqua
-palette = 6=#ebbcba
-palette = 14=#ebbcba
-# white
-palette = 7=#e0def4
-palette = 15=#e0def4
+theme = rose-pine
 
 # Keybinds
 keybind = cmd+enter=new_split:right
