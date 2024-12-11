@@ -6,7 +6,6 @@ return {
 		dependencies = {
 			"williamboman/mason.nvim",
 			"williamboman/mason-lspconfig.nvim",
-			"hrsh7th/cmp-nvim-lsp",
 			"stevearc/conform.nvim",
 			"folke/neodev.nvim",
 			{ "j-hui/fidget.nvim", tag = false },
@@ -14,7 +13,7 @@ return {
 				"mrcjkb/rustaceanvim",
 				ft = { "rust" },
 			},
-			-- "SmiteshP/nvim-navic",
+			"saghen/blink.cmp",
 		},
 		config = function()
 			local M = require("utils.keymaps")
@@ -99,14 +98,9 @@ return {
 			}
 
 			local capabilities = vim.lsp.protocol.make_client_capabilities()
-			local default_capabilities = require("cmp_nvim_lsp").default_capabilities(capabilities)
-			-- local navic = require("nvim-navic")
+			local default_capabilities = require("blink.cmp").get_lsp_capabilities(capabilities)
 
 			local on_attach = function()
-				-- if client.server_capabilities.documentSymbolProvider then
-				-- navic.attach(client, buffer)
-				-- end
-				-- Keybinds
 				M.n("gh", "<cmd>lua vim.lsp.buf.hover()<cr>")
 				M.n("gn", "<cmd>lua vim.lsp.buf.rename()<cr>")
 				M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>")
