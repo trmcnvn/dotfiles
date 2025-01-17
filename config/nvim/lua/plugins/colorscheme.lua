@@ -79,6 +79,19 @@ return {
 		end,
 	},
 	{
+		"datsfilipe/vesper.nvim",
+		opts = {
+			transparent = true,
+		},
+	},
+	{
+		"olivercederborg/poimandres.nvim",
+		opts = {
+			disable_background = true,
+			disable_float_background = true,
+		},
+	},
+	{
 		"f-person/auto-dark-mode.nvim",
 		priority = 1000,
 		config = function()
