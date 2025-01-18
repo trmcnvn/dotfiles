@@ -3,29 +3,25 @@
 # Ghostty
 auto-update-channel = tip
 
-# Font
+# Font (Ghostty handles Nerdfonts)
 font-family = Berkeley Mono
 font-style = Regular
 font-style-italic = Italic
 font-style-bold = Bold
 font-style-bold-italic = Bold Italic
 font-size = 15
-font-thicken = false
+font-thicken = true
 font-synthetic-style = false
 adjust-cell-width = -5%
-adjust-cell-height = 0%
+adjust-cell-height = 5%
 
 # Cursor
-shell-integration = fish
-shell-integration-features = no-cursor,sudo,title
 cursor-style-blink = false
 mouse-hide-while-typing = false
-mouse-shift-capture = false
 
 # Window
-window-inherit-font-size = false
+window-inherit-font-size = true
 window-title-font-family = Berkeley Mono
-window-vsync = true
 window-save-state = never
 window-padding-color = background
 window-padding-balance = true
@@ -36,9 +32,11 @@ macos-option-as-alt = true
 macos-window-shadow = false
 macos-titlebar-proxy-icon = hidden
 macos-titlebar-style = tabs
-title = Ghostty
+title = Ghostty 👻
 
 # Functionality
+shell-integration = fish
+shell-integration-features = no-cursor,sudo,title
 clipboard-read = allow
 clipboard-write = allow
 clipboard-paste-protection = false
@@ -46,6 +44,7 @@ quit-after-last-window-closed = true
 confirm-close-surface = false
 
 # Theme
+theme = rose-pine-custom
 macos-icon = custom-style
 macos-icon-frame = plastic 
 macos-icon-ghost-color = #ebbcba
@@ -53,7 +52,6 @@ macos-icon-screen-color = #31748f
 background-opacity = 0.95
 background-blur-radius = 20
 unfocused-split-opacity = 0.75
-theme = rose-pine-custom
 
 # Keybinds
 keybind = cmd+enter=new_split:right

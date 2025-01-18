@@ -5,7 +5,8 @@ return {
 		dependencies = {
 			"rafamadriz/friendly-snippets",
 		},
-		version = "v0.10.0",
+		version = "*",
+		build = "cargo build --release",
 		opts = {
 			keymap = { preset = "super-tab" },
 		},
