@@ -92,13 +92,23 @@ return {
 		},
 	},
 	{
+		"WTFox/jellybeans.nvim",
+		opts = {
+			transparent = true,
+			on_highlights = function(hl, c)
+				hl.NormalFloat = { bg = "#151515" }
+				hl.FloatTitle = { bg = "#151515" }
+			end,
+		},
+	},
+	{
 		"f-person/auto-dark-mode.nvim",
 		priority = 1000,
 		config = function()
 			require("auto-dark-mode").setup({
 				set_dark_mode = function()
 					vim.opt.background = "dark"
-					vim.cmd.colorscheme("rose-pine-main")
+					vim.cmd.colorscheme("jellybeans")
 				end,
 				set_light_mode = function()
 					vim.opt.background = "light"

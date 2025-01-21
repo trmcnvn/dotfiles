@@ -27,6 +27,7 @@ return {
 					"vim",
 					"graphql",
 					"zig",
+					"just",
 				},
 				sync_install = false,
 				highlight = {
