@@ -64,3 +64,6 @@ set -g hydro_color_prompt "9ccfd8"
 set -g hydro_color_duration "c4a7e7"
 set -g hydro_multiline true
 set -g hydro_symbol_prompt "➜"
+
+# jj
+jj util completion fish | source
