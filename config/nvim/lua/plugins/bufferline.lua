@@ -17,6 +17,16 @@ return {
 						bufferline.style_preset.no_italic,
 						bufferline.style_preset.no_bold,
 					},
+					name_formatter = function(buf)
+						if buf.name == "[No Name]" then
+							return "[Untitled]"
+						end
+						return buf.name
+					end,
+					get_element_icon = function(element)
+						local icon, hl = MiniIcons.get("filetype", element.filetype)
+						return icon, hl
+					end,
 				},
 			})
 		end,
