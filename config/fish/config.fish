@@ -35,6 +35,7 @@ set -gx DOTNET_ROOT "/opt/homebrew/opt/dotnet/libexec"
 set -gx GPG_TTY $(tty)
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx RUST_WITHOUT rust-docs
+set -gx JJ_CONFIG $XDG_CONFIG_HOME/jj/config.toml
 test machine_name = Darwin; and set -gx TERM xterm-256color
 
 fish_add_path $PNPM_HOME

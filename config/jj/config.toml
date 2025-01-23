@@ -1,0 +1,13 @@
+[user]
+name = "trmcnvn"
+email = "hello@trmcnvn.dev"
+
+[ui]
+default-command = "log"
+
+[git]
+sign-on-push = true
+
+[signing]
+backend = "ssh"
+key = "~/.ssh/id_rsa.pub"

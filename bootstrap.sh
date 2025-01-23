@@ -15,6 +15,7 @@ brew_apps=(
   gh
   git
   git-secret
+  jj
   gnupg
   helm
   helmfile
