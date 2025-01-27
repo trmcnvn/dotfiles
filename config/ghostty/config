@@ -44,7 +44,7 @@ quit-after-last-window-closed = true
 confirm-close-surface = false
 
 # Theme
-theme = jellybeans-dark
+theme = rose-pine-custom
 macos-icon = custom-style
 macos-icon-frame = plastic 
 macos-icon-ghost-color = #e8e8d3

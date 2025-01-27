@@ -16,7 +16,7 @@ return {
 			vim.o.laststatus = vim.g.lualine_laststatus
 			require("lualine").setup({
 				options = {
-					theme = "jellybeans",
+					theme = "rose-pine",
 					globalstatus = true,
 					component_separators = "", --{ left = "", right = "" },
 					section_separators = { left = "", right = "" }, --{ left = "", right = "" },

@@ -9,7 +9,6 @@ return {
 					legacy_highlights = false,
 				},
 				styles = {
-					italic = false,
 					transparency = true,
 				},
 				highlight_groups = {
@@ -34,20 +33,19 @@ return {
 					TelescopeResultsNormal = { fg = "subtle", bg = "none" },
 					TelescopeSelection = { fg = "text", bg = "base" },
 					TelescopeSelectionCaret = { fg = "rose", bg = "rose" },
-					-- nvim-cmp
-					CmpItemAbbrMatchFuzzy = { fg = "foam", bold = true },
-					CmpItemAbbrMatch = { fg = "rose", bold = true },
-					CmpItemAbbrDeprecated = { fg = "subtle", strikethrough = true },
-					CmpItemKindInterface = { fg = "rose" },
-					CmpItemKindVariable = { fg = "rose" },
-					CmpItemKindText = { fg = "rose" },
-					CmpItemKindFunction = { fg = "love" },
-					CmpItemKindMethod = { fg = "love" },
-					CmpItemKindProperty = { fg = "text" },
-					CmpItemKindUnit = { fg = "text" },
-					CmpItemKindKeyword = { fg = "text" },
-					CmpItemKindCopilot = { fg = "gold" },
-					CmpItemKindSupermaven = { fg = "gold" },
+					-- blink.cmp
+					BlinkCmpLabel = { fg = "rose", bold = true },
+					BlinkCmpLabelMatch = { fg = "foam", bold = true },
+					BlinkCmpLabelDeprecated = { fg = "subtle", strikethrough = true },
+					BlinkCmpKindInterface = { fg = "rose" },
+					BlinkCmpKindVariable = { fg = "rose" },
+					BlinkCmpKindText = { fg = "rose" },
+					BlinkCmpKindFunction = { fg = "love" },
+					BlinkCmpKindMethod = { fg = "love" },
+					BlinkCmpKindProperty = { fg = "text" },
+					BlinkCmpKindUnit = { fg = "text" },
+					BlinkCmpKindKeyword = { fg = "text" },
+					BlinkCmpKindCopilot = { fg = "gold" },
 					-- Fidget
 					FidgetTitle = { fg = "subtle" },
 					FidgetTask = { fg = "subtle" },
@@ -56,59 +54,13 @@ return {
 		end,
 	},
 	{
-		"catppuccin/nvim",
-		config = function()
-			require("catppuccin").setup({
-				integrations = {
-					cmp = true,
-					fidget = true,
-					harpoon = true,
-					mason = true,
-					native_lsp = { enabled = true },
-					telescope = true,
-					treesitter = true,
-					treesitter_context = true,
-				},
-			})
-		end,
-	},
-	{
-		"folke/tokyonight.nvim",
-		config = function()
-			require("tokyonight").setup({})
-		end,
-	},
-	{
-		"datsfilipe/vesper.nvim",
-		opts = {
-			transparent = true,
-		},
-	},
-	{
-		"olivercederborg/poimandres.nvim",
-		opts = {
-			disable_background = true,
-			disable_float_background = true,
-		},
-	},
-	{
-		"WTFox/jellybeans.nvim",
-		opts = {
-			transparent = true,
-			on_highlights = function(hl, c)
-				hl.NormalFloat = { bg = "#151515" }
-				hl.FloatTitle = { bg = "#151515" }
-			end,
-		},
-	},
-	{
 		"f-person/auto-dark-mode.nvim",
 		priority = 1000,
 		config = function()
 			require("auto-dark-mode").setup({
 				set_dark_mode = function()
 					vim.opt.background = "dark"
-					vim.cmd.colorscheme("jellybeans")
+					vim.cmd.colorscheme("rose-pine-main")
 				end,
 				set_light_mode = function()
 					vim.opt.background = "light"

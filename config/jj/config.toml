@@ -11,3 +11,4 @@ sign-on-push = true
 [signing]
 backend = "ssh"
 key = "~/.ssh/id_rsa.pub"
+sign-all = true

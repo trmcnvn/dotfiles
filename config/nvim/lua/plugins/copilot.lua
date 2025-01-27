@@ -21,6 +21,10 @@ return {
 			claude = {
 				api_key_name = "cmd:bw get notes ANTHROPIC_API_KEY",
 			},
+			behaviour = {
+				auto_suggestions = false,
+			},
+			hints = { enabled = false },
 		},
 		dependencies = {
 			"nvim-treesitter/nvim-treesitter",
@@ -34,6 +38,7 @@ return {
 					file_types = { "markdown", "Avante" },
 				},
 				ft = { "markdown", "Avante" },
+				latex = { enabled = false },
 			},
 		},
 	},
