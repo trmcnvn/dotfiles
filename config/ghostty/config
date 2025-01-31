@@ -10,10 +10,8 @@ font-style-italic = Italic
 font-style-bold = Bold
 font-style-bold-italic = Bold Italic
 font-size = 15
-font-thicken = true
 font-synthetic-style = false
-adjust-cell-width = -5%
-adjust-cell-height = 5%
+adjust-cell-height = 50%
 
 # Cursor
 cursor-style-blink = false
@@ -25,6 +23,7 @@ window-title-font-family = Berkeley Mono
 window-save-state = never
 window-padding-color = background
 window-padding-balance = true
+window-padding-color = extend-always
 window-padding-x = 0
 window-padding-y = 0
 window-colorspace = display-p3
@@ -44,13 +43,13 @@ quit-after-last-window-closed = true
 confirm-close-surface = false
 
 # Theme
-theme = rose-pine-custom
+theme = light:rose-pine-dawn,dark:rose-pine-custom
 macos-icon = custom-style
 macos-icon-frame = plastic 
 macos-icon-ghost-color = #e8e8d3
 macos-icon-screen-color = #151515
-background-opacity = 0.95
-background-blur-radius = 20
+# background-opacity = 0.95
+# background-blur-radius = 20
 unfocused-split-opacity = 0.75
 
 # Keybinds

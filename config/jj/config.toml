@@ -12,3 +12,6 @@ sign-on-push = true
 backend = "ssh"
 key = "~/.ssh/id_rsa.pub"
 sign-all = true
+
+[snapshot]
+max-new-file-size = 10240000
