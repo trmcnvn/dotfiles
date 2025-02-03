@@ -1,8 +1,5 @@
 vim.cmd("autocmd!")
 
--- Disable update buffering
-vim.opt.termsync = false
-
 -- Leader Key
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
@@ -37,9 +34,9 @@ vim.opt.fileencoding = "utf-8"
 
 -- Line numbers
 vim.opt.nu = true
-vim.wo.number = true
+vim.opt.number = true
 vim.opt.relativenumber = true
-vim.opt.numberwidth = 4
+vim.opt.numberwidth = 2
 
 -- Enable mouse mode
 vim.o.mouse = "a"
@@ -63,11 +60,11 @@ vim.opt.grepprg = "rg --vimgrep --no-heading --smart-case"
 vim.opt.scrolloff = 10
 vim.opt.sidescrolloff = 10
 vim.opt.signcolumn = "yes" -- Always show the sign column
-vim.opt.spelllang = { "en" }
+vim.opt.spelllang = "en"
 vim.opt.splitbelow = true -- Panel splitting
 vim.opt.splitright = true -- Panel splitting
 vim.opt.shell = "fish"
-vim.opt.backupskip = { "/tmp/*", "/private/tmp/*" }
+vim.opt.backupskip:append("/tmp/*,/private/tmp/*")
 vim.opt.inccommand = "nosplit"
 vim.opt.smarttab = true
 vim.opt.breakindent = true
@@ -78,10 +75,10 @@ vim.opt.showtabline = 0 -- Always show tabs
 vim.opt.tabstop = 2 -- Insert 2 spaces for a tab
 vim.opt.softtabstop = 2 -- Number of spaces that <Tab> uses while editing
 vim.opt.wrap = false -- Display lines as one long line
-vim.opt.backspace = { "start", "eol", "indent" }
-vim.opt.path:append({ "**" })
-vim.opt.wildignore:append({ "*/node_modules/*" })
-vim.opt.updatetime = 50 -- Faster completion
+vim.opt.backspace = "start,eol,indent"
+vim.opt.path:append("**")
+vim.opt.wildignore:append("*/node_modules/*")
+vim.opt.updatetime = 250 -- Faster completion
 vim.opt.ignorecase = true -- Ignore case in search patterns
 vim.opt.smartcase = true -- Smart case
 vim.opt.cursorline = true -- Highlight the current line
@@ -94,15 +91,14 @@ vim.opt.pumheight = 10 -- popup menu height
 vim.opt.background = "dark"
 vim.opt.writebackup = false -- If a file is being edited by another program, it is not allowed to be edited
 vim.opt.timeout = true
-vim.opt.timeoutlen = 1000 -- Time to wait for a mapped sequence to complete
-vim.opt.completeopt = { "menuone", "noselect" } -- cmp
+vim.opt.timeoutlen = 400 -- Time to wait for a mapped sequence to complete
+vim.opt.completeopt = "menuone,noselect" -- cmp
 vim.opt.guicursor = "n-v-c-i:block"
 vim.opt.splitkeep = "cursor"
 vim.opt.conceallevel = 0 --`` Markdown
-vim.opt.fillchars.eob = " "
-vim.opt.shortmess:append("c")
-vim.opt.whichwrap:append("<,>,[,],h,l")
-vim.opt.iskeyword:append("-")
+vim.opt.fillchars = "eob: "
+vim.opt.shortmess:append("sI")
+vim.opt.whichwrap:append("<>[]hl")
 vim.opt.confirm = true
 vim.opt.foldenable = false
 vim.opt.clipboard = "unnamed,unnamedplus"
@@ -155,3 +151,10 @@ vim.api.nvim_create_autocmd("BufWinEnter", {
 vim.cmd([[command! W w]])
 vim.cmd([[command! Q q]])
 vim.cmd([[command! Wq wq]])
+
+-- Filetype types
+vim.filetype.add({
+	filename = {
+		["justfile"] = "just",
+	},
+})

@@ -68,3 +68,10 @@ set -g hydro_symbol_prompt "➜"
 
 # jj
 jj util completion fish | source
+
+# pnpm
+set -gx PNPM_HOME "/Users/trmcnvn/Library/pnpm"
+if not string match -q -- $PNPM_HOME $PATH
+  set -gx PATH "$PNPM_HOME" $PATH
+end
+# pnpm end

@@ -24,3 +24,5 @@ M.n("<C-u>", "<C-u>zz")
 M.n("<leader>t", function()
 	require("lazy.util").float_term("fish", { border = "single" })
 end)
+-- Don't overwrite paste
+M.x("p", 'p:let @+=@0<CR>:let @"=@0<CR>')

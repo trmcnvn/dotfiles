@@ -13,6 +13,7 @@ return {
 				defaults = {
 					vimgrep_arguments = {
 						"rg",
+						"-L",
 						"--color=never",
 						"--no-heading",
 						"--with-filename",
@@ -20,9 +21,19 @@ return {
 						"--column",
 						"--smart-case",
 					},
-					prompt_prefix = "> ",
+					prompt_prefix = "   ",
 					selection_caret = "> ",
+					entry_prefix = "  ",
 					initial_mode = "insert",
+					selection_strategy = "reset",
+					layout_strategy = "horizontal",
+					sorting_strategy = "ascending",
+					winblend = 0,
+					path_display = { "truncate" },
+					border = {},
+					borderchars = { "─", "│", "─", "│", "╭", "╮", "╯", "╰" },
+					color_devicons = true,
+					set_env = { ["COLORTERM"] = "truecolor" },
 					file_ignore_patterns = {
 						".git",
 						"node_modules",
@@ -48,12 +59,16 @@ return {
 						},
 					},
 					layout_config = {
-						horizontal = { preview_width = 80 },
-						prompt_position = "top",
+						horizontal = {
+							prompt_position = "top",
+							results_width = 0.8,
+						},
+						vertical = {
+							mirror = false,
+						},
+						width = 0.87,
+						height = 0.80,
 					},
-					layout_strategy = "horizontal",
-					sorting_strategy = "ascending",
-					winblend = 0,
 				},
 				pickers = {
 					find_files = {
@@ -77,31 +92,20 @@ return {
 			pcall(require("telescope").load_extension, "ui-select")
 
 			local M = require("utils.keymaps")
-			M.n("<leader>f", function()
-				builtin.find_files()
-			end)
+			M.n("<leader><leader>", builtin.buffers)
+			M.n("<leader>f", builtin.find_files)
+			M.n("<leader>o", builtin.oldfiles)
 			M.n("<leader>df", function()
 				builtin.find_files({ cwd = "~/code/dotfiles" })
-			end)
-			M.n("<leader>o", function()
-				builtin.oldfiles()
 			end)
 			M.n("<leader>r", function()
 				builtin.live_grep({ previewer = false })
 			end)
 			-- LSP
-			M.n("<leader>gr", function()
-				builtin.lsp_references()
-			end)
-			M.n("gd", function()
-				builtin.lsp_definitions()
-			end)
-			M.n("gt", function()
-				builtin.lsp_type_definitions()
-			end)
-			M.n("gi", function()
-				builtin.lsp_implementations()
-			end)
+			M.n("<leader>gr", builtin.lsp_references)
+			M.n("gd", builtin.lsp_definitions)
+			M.n("gt", builtin.lsp_type_definitions)
+			M.n("gi", builtin.lsp_implementations)
 		end,
 	},
 }

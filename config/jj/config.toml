@@ -3,7 +3,11 @@ name = "trmcnvn"
 email = "hello@trmcnvn.dev"
 
 [ui]
-default-command = "log"
+default-command = ["log", "--no-pager"]
+diff.tool = ["difft", "--color=always", "$left", "$right"]
+log-word-wrap = true
+pager = ":builtin"
+editor = "nvim"
 
 [git]
 sign-on-push = true
@@ -15,3 +19,8 @@ sign-all = true
 
 [snapshot]
 max-new-file-size = 10240000
+
+[template-aliases]
+"format_short_id(id)" = 'id.shortest(12).prefix() ++ "[" ++ id.shortest(12).rest() ++ "]"'
+"format_timestamp(timestamp)" = "timestamp.ago()"
+"format_short_signature(signature)" = "signature"

@@ -10,6 +10,7 @@ return {
 				},
 				styles = {
 					transparency = true,
+					italic = false,
 				},
 				highlight_groups = {
 					Comment = { fg = "muted", italic = true },

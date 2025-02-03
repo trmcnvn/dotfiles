@@ -19,7 +19,7 @@ return {
 					theme = "rose-pine",
 					globalstatus = true,
 					component_separators = "", --{ left = "", right = "" },
-					section_separators = { left = "", right = "" }, --{ left = "", right = "" },
+					section_separators = { left = "", right = "" }, --{ left = "", right = "" },
 					disabled_filetypes = { statusline = { "ministarter" }, winbar = {} },
 					ignore_focus = {},
 					always_divide_middle = true,
@@ -30,20 +30,16 @@ return {
 					},
 				},
 				sections = {
-					lualine_a = { "mode" },
-					lualine_b = { "branch" },
-					lualine_c = {
-						{ "filename", path = 1 },
-						-- {
-						-- 	function()
-						-- 		return require("nvim-navic").get_location()
-						-- 	end,
-						-- 	cond = function()
-						-- 		return package.loaded["nvim-navic"] and require("nvim-navic").is_available()
-						-- 	end,
-						-- },
+					lualine_a = {
+						{
+							"mode",
+							seperator = { left = "" },
+							right_padding = 2,
+						},
 					},
-					lualine_x = {
+					lualine_b = {
+						"branch",
+						{ "filename", path = 1 },
 						{
 							"diff",
 							source = function()
@@ -66,16 +62,26 @@ return {
 							end,
 						},
 					},
+					lualine_c = {},
+					-- {
+					-- 	function()
+					-- 		return require("nvim-navic").get_location()
+					-- 	end,
+					-- 	cond = function()
+					-- 		return package.loaded["nvim-navic"] and require("nvim-navic").is_available()
+					-- 	end,
+					-- },
+					lualine_x = {},
 					lualine_y = { "os.date('%a %b %d %H:%M')" },
-					lualine_z = {},
+					lualine_z = { { "location", seperator = { right = "" }, left_padding = 2 } },
 				},
 				inactive_sections = {
-					lualine_a = {},
+					lualine_a = { { "filename", path = 1 } },
 					lualine_b = {},
 					lualine_c = {},
-					lualine_x = { "location" },
+					lualine_x = {},
 					lualine_y = {},
-					lualine_z = {},
+					lualine_z = { "location" },
 				},
 				tabline = {},
 				winbar = {},

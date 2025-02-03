@@ -32,6 +32,7 @@ return {
 				sync_install = false,
 				highlight = {
 					enable = true,
+					use_languagetree = true,
 					additional_vim_regex_highlighting = false,
 					disable = function(_, buf)
 						return vim.b[buf].big
