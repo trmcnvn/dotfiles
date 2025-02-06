@@ -9,6 +9,9 @@ log-word-wrap = true
 pager = ":builtin"
 editor = "nvim"
 
+[ui.movement]
+edit = true
+
 [git]
 sign-on-push = true
 
