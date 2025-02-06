@@ -49,7 +49,7 @@ return {
 				lua_ls = {
 					settings = {
 						Lua = {
-							diagnostics = { globals = { "vim", "MiniIcons" } },
+							diagnostics = { globals = { "vim", "MiniIcons", "Snacks" } },
 							completion = { callSnippet = { "Replace" } },
 							workspace = { checkThirdParty = false },
 							telemetry = { enabled = false },
