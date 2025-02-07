@@ -27,26 +27,9 @@ return {
 					-- Search
 					CurSearch = { fg = "base", bg = "leaf", inherit = false },
 					Search = { fg = "text", bg = "leaf", blend = 20, inherit = false },
-					-- Telescope (Transparent)
-					TelescopeBorder = { fg = "highlight_high", bg = "none" },
-					TelescopeNormal = { bg = "none" },
-					TelescopePromptNormal = { bg = "base" },
-					TelescopeResultsNormal = { fg = "subtle", bg = "none" },
-					TelescopeSelection = { fg = "text", bg = "base" },
-					TelescopeSelectionCaret = { fg = "rose", bg = "rose" },
 					-- blink.cmp
-					BlinkCmpLabel = { fg = "rose", bold = true },
-					BlinkCmpLabelMatch = { fg = "foam", bold = true },
-					BlinkCmpLabelDeprecated = { fg = "subtle", strikethrough = true },
-					BlinkCmpKindInterface = { fg = "rose" },
-					BlinkCmpKindVariable = { fg = "rose" },
-					BlinkCmpKindText = { fg = "rose" },
-					BlinkCmpKindFunction = { fg = "love" },
-					BlinkCmpKindMethod = { fg = "love" },
-					BlinkCmpKindProperty = { fg = "text" },
-					BlinkCmpKindUnit = { fg = "text" },
-					BlinkCmpKindKeyword = { fg = "text" },
-					BlinkCmpKindCopilot = { fg = "gold" },
+					BlinkCmpLabelMatch = { fg = "rose", bold = true },
+					BlinkCmpMenuSelection = { bg = "overlay" },
 					-- Fidget
 					FidgetTitle = { fg = "subtle" },
 					FidgetTask = { fg = "subtle" },

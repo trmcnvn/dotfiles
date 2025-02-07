@@ -5,14 +5,13 @@ auto-update-channel = tip
 
 # Font (Ghostty handles Nerdfonts)
 font-family = Berkeley Mono
-font-style = Regular
-font-style-italic = Regular Italic
-font-style-bold = Bold
-font-style-bold-italic = Bold Italic
+font-style = SemiCondensed
+font-style-italic = SemiCondensed Oblique
+font-style-bold = Bold SemiCondensed
+font-style-bold-italic = Bold SemiCondensed Oblique
 font-size = 14
 font-synthetic-style = false
 adjust-cell-height = 4
-adjust-cell-width = -1
 adjust-cursor-height = 4
 
 # Cursor

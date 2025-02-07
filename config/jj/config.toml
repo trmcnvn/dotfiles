@@ -3,7 +3,7 @@ name = "trmcnvn"
 email = "hello@trmcnvn.dev"
 
 [ui]
-default-command = ["log", "--no-pager"]
+default-command = ["log", "--no-pager", "-n", "5"]
 diff.tool = ["difft", "--color=always", "$left", "$right"]
 log-word-wrap = true
 pager = ":builtin"

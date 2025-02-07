@@ -20,7 +20,6 @@ return {
 					menu = {
 						border = "rounded",
 						scrollbar = false,
-						winhighlight = "Normal:BlinkCmpMenu,CursorLine:BlinkCmpSelection,Search:PmenuSel",
 						auto_show = function(ctx)
 							return ctx.mode ~= "cmdline" or not vim.tbl_contains({ "/", "?" }, vim.fn.getcmdtype())
 						end,
@@ -30,11 +29,11 @@ return {
 								kind_icon = {
 									ellipsis = false,
 									text = function(ctx)
-										local kind_icon, _, _ = MiniIcons.get("lsp", ctx.kind)
+										local kind_icon, _, _ = Snacks.util.icon(ctx.kind, "lsp")
 										return kind_icon
 									end,
 									highlight = function(ctx)
-										local _, hl, _ = MiniIcons.get("lsp", ctx.kind)
+										local _, hl, _ = Snacks.util.icon(ctx.kind, "lsp")
 										return hl or ("BlinkCmpKind" .. ctx.kind)
 									end,
 								},
