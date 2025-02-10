@@ -39,6 +39,7 @@ return {
 					},
 				},
 			},
+			renamer = { enabled = true },
 			scope = { enabled = true },
 			statuscolumn = { enabled = true },
 			util = { enabled = true },
@@ -46,8 +47,18 @@ return {
 		},
 		keys = {
 			-- Bufdelete
-			{ "<leader>w", "<Cmd>lua Snacks.bufdelete.delete(vim.api.nvim_win_get_buf(0))<CR>" },
-			{ "<D-w>", "<Cmd>lua Snacks.bufdelete.delete(vim.api.nvim_win_get_buf(0))<CR>" },
+			{
+				"<leader>w",
+				function()
+					Snacks.bufdelete()
+				end,
+			},
+			{
+				"<D-w>",
+				function()
+					Snacks.bufdelete()
+				end,
+			},
 			-- Picker
 			{
 				"<leader>f",

@@ -9,7 +9,7 @@ return {
 					legacy_highlights = false,
 				},
 				styles = {
-					transparency = true,
+					transparency = false,
 					italic = false,
 				},
 				highlight_groups = {

@@ -6,7 +6,6 @@ email = "hello@trmcnvn.dev"
 default-command = ["log", "--no-pager", "-n", "5"]
 diff.tool = ["difft", "--color=always", "$left", "$right"]
 log-word-wrap = true
-pager = ":builtin"
 editor = "nvim"
 
 [ui.movement]

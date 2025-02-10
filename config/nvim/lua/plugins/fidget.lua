@@ -1,8 +1,9 @@
 return {
 	{
 		"j-hui/fidget.nvim",
+		lazy = true,
 		tag = false,
-		event = { "BufEnter" },
+		event = { "BufNewFile" },
 		config = function()
 			require("fidget").setup({
 				notification = { window = { winblend = 0 } },

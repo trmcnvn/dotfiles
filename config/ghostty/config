@@ -3,16 +3,30 @@
 # Ghostty
 auto-update-channel = tip
 
-# Font (Ghostty handles Nerdfonts)
-font-family = Berkeley Mono
-font-style = SemiCondensed
-font-style-italic = SemiCondensed Oblique
+# MonoLisa
+# font-family = MonoLisa
+# font-style = Regular
+# font-style-italic = Regular Italic
+# font-style-bold = Bold
+# font-style-bold-italic = Bold Italic
+# font-feature = zero
+# font-feature = ss04
+
+# Berkeley Mono 2
+font-family = TX-02
+font-style = Retina SemiCondensed
+font-style-italic = Retina SemiCondensed Oblique
 font-style-bold = Bold SemiCondensed
 font-style-bold-italic = Bold SemiCondensed Oblique
+adjust-cell-height = 0%
+adjust-cursor-height = 50%
 font-size = 14
+
+# General font settings
+font-thicken = true
+font-thicken-strength = 125
 font-synthetic-style = false
-adjust-cell-height = 4
-adjust-cursor-height = 4
+bold-is-bright = true
 
 # Cursor
 cursor-style-blink = false
@@ -43,7 +57,7 @@ quit-after-last-window-closed = true
 confirm-close-surface = false
 
 # Theme
-theme = rose-pine-custom
+theme = "light:rose-pine-dawn,dark:rose-pine-custom"
 macos-icon = custom-style
 macos-icon-frame = plastic 
 macos-icon-ghost-color = #e8e8d3

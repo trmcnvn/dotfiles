@@ -1,7 +1,7 @@
 return {
 	{
 		"zbirenbaum/copilot.lua",
-		event = { "InsertEnter" },
+		event = { "BufNewFile" },
 		config = function()
 			require("copilot").setup({
 				panel = { enabled = false },
@@ -11,10 +11,12 @@ return {
 	},
 	{
 		"yetone/avante.nvim",
-		event = "VeryLazy",
-		lazy = false,
+		lazy = true,
 		version = false,
 		build = "make",
+		keys = {
+			{ "<leader>aa", "<cmd>AvanteToggle<CR>" },
+		},
 		opts = {
 			provider = "claude",
 			auto_suggestions_provider = "claude",

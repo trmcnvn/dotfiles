@@ -1,7 +1,7 @@
 return {
 	{
 		"echasnovski/mini.diff",
-		event = "VeryLazy",
+		event = "BufNewFile",
 		keys = {
 			{
 				"<leader>go",
