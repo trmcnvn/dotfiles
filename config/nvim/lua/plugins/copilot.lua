@@ -21,12 +21,21 @@ return {
 			provider = "claude",
 			auto_suggestions_provider = "claude",
 			claude = {
+				model = "claude-3-7-sonnet-latest",
 				api_key_name = "cmd:bw get notes ANTHROPIC_API_KEY",
+				temperature = 0,
 			},
 			behaviour = {
 				auto_suggestions = false,
 			},
 			hints = { enabled = false },
+			windows = {
+				width = 40,
+			},
+			file_selector = {
+				provider = "snacks",
+				provider_opts = {},
+			},
 		},
 		dependencies = {
 			"nvim-treesitter/nvim-treesitter",

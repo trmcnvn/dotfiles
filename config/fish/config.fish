@@ -4,7 +4,6 @@ fish_add_path /home/linuxbrew/.linuxbrew/bin
 set fish_greeting
 set -l machine_name (uname)
 
-source /opt/homebrew/opt/asdf/libexec/asdf.fish
 zoxide init fish | source
 
 # Aliases

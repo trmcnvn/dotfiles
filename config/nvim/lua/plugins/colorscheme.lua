@@ -20,7 +20,7 @@ return {
 					Pmenu = { fg = "highlight_high", bg = "base" },
 					PmenuSel = { fg = "text", bg = "none" },
 					NormalFloat = { bg = "base" },
-					FloatBorder = { fg = "highlight_high" },
+					FloatBorder = { bg = "base", fg = "highlight_high" },
 					FloatTitle = { bg = "base" },
 					CursorLine = { bg = "highlight_low" },
 					MatchParen = { bold = true, underline = true },

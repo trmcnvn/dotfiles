@@ -80,7 +80,6 @@ return {
 				},
 				ruby_lsp = {
 					mason = false,
-					cmd = { vim.fn.expand("~/.asdf/shims/ruby-lsp") },
 					init_options = {
 						formatter = "rubocop",
 						linters = { "rubocop" },
@@ -95,6 +94,9 @@ return {
 			local default_handlers = {
 				["textDocument/hover"] = vim.lsp.with(vim.lsp.handlers.hover, { border = "rounded" }),
 				["textDocument/signatureHelp"] = vim.lsp.with(vim.lsp.handlers.signature_help, { border = "rounded" }),
+				["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
+					virtual_text = false,
+				}),
 			}
 
 			local capabilities = vim.lsp.protocol.make_client_capabilities()

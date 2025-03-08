@@ -1,6 +1,17 @@
+"$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
+
 [user]
 name = "trmcnvn"
 email = "hello@trmcnvn.dev"
+
+[aliases]
+ld = ["log", "--template", "builtin_log_detailed"]
+lnm = ["log", "-r", "main@origin.."]
+
+[colors]
+"commit_id prefix" = { bold = false }
+"change_id prefix" = { bold = false }
+"working_copy" = { bold = false }
 
 [ui]
 default-command = ["log", "--no-pager", "-n", "5"]
@@ -11,18 +22,28 @@ editor = "nvim"
 [ui.movement]
 edit = true
 
+[revsets]
+short-prefixes = "(main..@)::"
+
+[revset-alises]
+"immutable_heads()" = "builtin_immutable_heads() | (trunk().. & ~mine())"
+
 [git]
 sign-on-push = true
+push-bookmark-prefix = "trmcnvn/push-"
+private-commits = "description(glob:'wip:*') | description(glob:'private:*')"
 
 [signing]
 backend = "ssh"
 key = "~/.ssh/id_rsa.pub"
-sign-all = true
+behavior = "own"
 
 [snapshot]
-max-new-file-size = 10240000
+max-new-file-size = "10MiB"
 
 [template-aliases]
-"format_short_id(id)" = 'id.shortest(12).prefix() ++ "[" ++ id.shortest(12).rest() ++ "]"'
+"format_short_id(id)" = "id.shortest()"
 "format_timestamp(timestamp)" = "timestamp.ago()"
-"format_short_signature(signature)" = "signature"
+"format_short_signature(signature)" = "signature.email()"
+"format_short_operation_id(id)" = "id.short(12)"
+"format_short_cryptographic_signature(sig)" = 'if(sig, sig.status(), "(no sig)",)'

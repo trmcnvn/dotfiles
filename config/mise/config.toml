@@ -1,0 +1,17 @@
+[tools]
+ruby = "3.4.2"
+nodejs = ["latest", "22.14.0"]
+zig = "latest"
+rust = ["nightly"]
+golang = "1.24.0"
+ocaml = "5.0.0"
+opam = "2.1.5"
+gleam = "1.8.1"
+erlang = "27.2.4"
+
+[settings]
+always_keep_download = false
+always_keep_install = false
+plugin_autoupdate_last_check_duration = "1 week"
+not_found_auto_install = true
+experimental = true

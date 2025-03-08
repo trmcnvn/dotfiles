@@ -4,13 +4,54 @@ return {
 		lazy = false,
 		dependencies = {
 			"rafamadriz/friendly-snippets",
+			"saghen/blink.compat",
 		},
 		version = "*",
 		build = "cargo build --release",
 		config = function()
 			require("blink.cmp").setup({
 				keymap = { preset = "super-tab" },
+				sources = {
+					default = {
+						"lsp",
+						"path",
+						"snippets",
+						"buffer",
+						"avante_commands",
+						"avante_mentions",
+						"avante_files",
+					},
+					providers = {
+						avante_commands = {
+							name = "avante_commands",
+							module = "blink.compat.source",
+							score_offset = 90,
+							opts = {},
+						},
+						avante_files = {
+							name = "avante_files",
+							module = "blink.compat.source",
+							score_offset = 100,
+							opts = {},
+						},
+						avante_mentions = {
+							name = "avante_mentions",
+							module = "blink.compat.source",
+							score_offset = 1000,
+							opts = {},
+						},
+					},
+				},
+				cmdline = { enabled = false },
 				completion = {
+					documentation = {
+						auto_show = true,
+						auto_show_delay_ms = 200,
+						window = {
+							border = "rounded",
+							scrollbar = false,
+						},
+					},
 					ghost_text = {
 						show_with_selection = false,
 					},

@@ -18,6 +18,11 @@ return {
 						},
 					},
 				},
+				formatters = {
+					file = {
+						truncate = 80,
+					},
+				},
 				layout = {
 					preview = false,
 					layout = {

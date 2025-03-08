@@ -11,6 +11,7 @@ auto-update-channel = tip
 # font-style-bold-italic = Bold Italic
 # font-feature = zero
 # font-feature = ss04
+# font-size = 13
 
 # Berkeley Mono 2
 font-family = TX-02
@@ -18,23 +19,20 @@ font-style = Retina SemiCondensed
 font-style-italic = Retina SemiCondensed Oblique
 font-style-bold = Bold SemiCondensed
 font-style-bold-italic = Bold SemiCondensed Oblique
-adjust-cell-height = 0%
-adjust-cursor-height = 50%
-font-size = 14
+font-size = 15
 
 # General font settings
 font-thicken = true
-font-thicken-strength = 125
 font-synthetic-style = false
 bold-is-bright = true
 
 # Cursor
 cursor-style-blink = false
-mouse-hide-while-typing = false
+mouse-hide-while-typing = true
 
 # Window
 window-inherit-font-size = true
-window-title-font-family = Berkeley Mono
+window-title-font-family = TX-02 Retina SemiCondensed
 window-save-state = never
 window-padding-color = background
 window-padding-balance = true
@@ -57,7 +55,7 @@ quit-after-last-window-closed = true
 confirm-close-surface = false
 
 # Theme
-theme = "light:rose-pine-dawn,dark:rose-pine-custom"
+theme = "rose-pine-custom"
 macos-icon = custom-style
 macos-icon-frame = plastic 
 macos-icon-ghost-color = #e8e8d3
