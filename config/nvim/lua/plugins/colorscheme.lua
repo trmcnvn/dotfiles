@@ -7,47 +7,27 @@ return {
 				dark_variant = "main",
 				enable = {
 					legacy_highlights = false,
+					migrations = false,
 				},
 				styles = {
-					transparency = false,
+					transparency = true,
 					italic = false,
 				},
-				highlight_groups = {
-					Comment = { fg = "muted", italic = true },
-					Constant = { fg = "gold", italic = false },
-					Keyword = { fg = "pine", italic = false },
-					ColorColumn = { bg = "rose" },
-					Pmenu = { fg = "highlight_high", bg = "base" },
-					PmenuSel = { fg = "text", bg = "none" },
-					NormalFloat = { bg = "base" },
-					FloatBorder = { bg = "base", fg = "highlight_high" },
-					FloatTitle = { bg = "base" },
-					CursorLine = { bg = "highlight_low" },
-					MatchParen = { bold = true, underline = true },
-					-- Search
-					CurSearch = { fg = "base", bg = "leaf", inherit = false },
-					Search = { fg = "text", bg = "leaf", blend = 20, inherit = false },
-					-- blink.cmp
-					BlinkCmpLabelMatch = { fg = "rose", bold = true },
-					BlinkCmpMenuSelection = { bg = "overlay" },
-					-- Fidget
-					FidgetTitle = { fg = "subtle" },
-					FidgetTask = { fg = "subtle" },
-				},
+				highlight_groups = {},
 			})
 		end,
 	},
 	{
 		"f-person/auto-dark-mode.nvim",
-		priority = 1000,
+		commit = "02ef9553e2a1d6e861bc6955d58ce5883d28a6ad",
 		config = function()
 			require("auto-dark-mode").setup({
 				set_dark_mode = function()
-					vim.opt.background = "dark"
+					vim.api.nvim_set_option_value("background", "dark", {})
 					vim.cmd.colorscheme("rose-pine-main")
 				end,
 				set_light_mode = function()
-					vim.opt.background = "light"
+					vim.api.nvim_set_option_value("background", "light", {})
 					vim.cmd.colorscheme("rose-pine-dawn")
 				end,
 			})

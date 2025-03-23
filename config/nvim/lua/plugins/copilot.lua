@@ -2,10 +2,12 @@ return {
 	{
 		"zbirenbaum/copilot.lua",
 		event = { "BufNewFile" },
+		commit = "825b6a9574584c5f90a4abcdf04ebb98f2c1260a",
 		config = function()
 			require("copilot").setup({
 				panel = { enabled = false },
 				suggestion = { auto_trigger = true },
+				copilot_model = "gpt-4o-copilot",
 			})
 		end,
 	},
@@ -18,12 +20,10 @@ return {
 			{ "<leader>aa", "<cmd>AvanteToggle<CR>" },
 		},
 		opts = {
-			provider = "claude",
-			auto_suggestions_provider = "claude",
-			claude = {
-				model = "claude-3-7-sonnet-latest",
-				api_key_name = "cmd:bw get notes ANTHROPIC_API_KEY",
-				temperature = 0,
+			provider = "copilot",
+			auto_suggestions_provider = "copilot",
+			copilot = {
+				model = "claude-3.7-sonnet",
 			},
 			behaviour = {
 				auto_suggestions = false,
@@ -31,6 +31,7 @@ return {
 			hints = { enabled = false },
 			windows = {
 				width = 40,
+				wrap = true,
 			},
 			file_selector = {
 				provider = "snacks",

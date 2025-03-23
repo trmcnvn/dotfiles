@@ -7,6 +7,8 @@ email = "hello@trmcnvn.dev"
 [aliases]
 ld = ["log", "--template", "builtin_log_detailed"]
 lnm = ["log", "-r", "main@origin.."]
+gf = ["git", "fetch"]
+rm = ["rebase", "-d", "main"]
 
 [colors]
 "commit_id prefix" = { bold = false }
@@ -21,9 +23,6 @@ editor = "nvim"
 
 [ui.movement]
 edit = true
-
-[revsets]
-short-prefixes = "(main..@)::"
 
 [revset-alises]
 "immutable_heads()" = "builtin_immutable_heads() | (trunk().. & ~mine())"

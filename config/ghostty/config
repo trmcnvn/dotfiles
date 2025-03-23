@@ -1,5 +1,3 @@
-# vi:ft=ghostty
-
 # Ghostty
 auto-update-channel = tip
 
@@ -22,9 +20,7 @@ font-style-bold-italic = Bold SemiCondensed Oblique
 font-size = 15
 
 # General font settings
-font-thicken = true
 font-synthetic-style = false
-bold-is-bright = true
 
 # Cursor
 cursor-style-blink = false
@@ -62,7 +58,7 @@ macos-icon-ghost-color = #e8e8d3
 macos-icon-screen-color = #151515
 # background-opacity = 0.95
 # background-blur-radius = 20
-unfocused-split-opacity = 0.75
+unfocused-split-opacity = 0.95
 
 # Keybinds
 keybind = cmd+enter=new_split:right

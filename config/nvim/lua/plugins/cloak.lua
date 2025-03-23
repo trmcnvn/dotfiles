@@ -1,6 +1,13 @@
 return {
 	{
 		"laytan/cloak.nvim",
-		opts = {},
+		opts = {
+			patterns = {
+				{
+					file_pattern = { "*.env", ".env*" },
+					cloak_pattern = "=.+",
+				},
+			},
+		},
 	},
 }

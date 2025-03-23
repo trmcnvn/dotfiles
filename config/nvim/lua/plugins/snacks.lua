@@ -35,7 +35,7 @@ return {
 						box = "vertical",
 						{
 							box = "vertical",
-							border = "rounded",
+							border = "single",
 							title = "{title} {live} {flags}",
 							title_pos = "center",
 							{ win = "input", height = 1, border = "bottom" },
@@ -74,7 +74,9 @@ return {
 			{
 				"<leader>o",
 				function()
-					Snacks.picker.recent()
+					Snacks.picker.recent({
+						filter = { cwd = true },
+					})
 				end,
 			},
 			{

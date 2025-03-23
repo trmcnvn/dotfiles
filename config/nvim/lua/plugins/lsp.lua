@@ -19,17 +19,17 @@ return {
 			local M = require("utils.keymaps")
 
 			-- UI Customization
-			require("lspconfig.ui.windows").default_options.border = "rounded"
+			require("lspconfig.ui.windows").default_options.border = "single"
 			vim.diagnostic.config({
 				float = {
-					border = "rounded",
+					border = "single",
 				},
 			})
 
 			require("neodev").setup()
 			require("mason").setup({
 				ui = {
-					border = "rounded",
+					border = "single",
 				},
 			})
 			require("mason-lspconfig").setup()
@@ -92,8 +92,8 @@ return {
 			}
 
 			local default_handlers = {
-				["textDocument/hover"] = vim.lsp.with(vim.lsp.handlers.hover, { border = "rounded" }),
-				["textDocument/signatureHelp"] = vim.lsp.with(vim.lsp.handlers.signature_help, { border = "rounded" }),
+				["textDocument/hover"] = vim.lsp.with(vim.lsp.handlers.hover, { border = "single" }),
+				["textDocument/signatureHelp"] = vim.lsp.with(vim.lsp.handlers.signature_help, { border = "single" }),
 				["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
 					virtual_text = false,
 				}),

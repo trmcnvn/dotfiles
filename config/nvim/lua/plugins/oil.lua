@@ -26,6 +26,7 @@ return {
 					["g."] = "actions.toggle_hidden",
 				},
 				float = {
+					border = "single",
 					max_width = 42,
 					override = function(conf)
 						return vim.tbl_extend("force", conf, { row = 2, col = 2 })

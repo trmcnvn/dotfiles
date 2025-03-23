@@ -8,6 +8,7 @@ ocaml = "5.0.0"
 opam = "2.1.5"
 gleam = "1.8.1"
 erlang = "27.2.4"
+python = "latest"
 
 [settings]
 always_keep_download = false

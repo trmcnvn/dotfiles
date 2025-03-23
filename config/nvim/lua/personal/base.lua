@@ -57,8 +57,7 @@ vim.opt.laststatus = 3
 vim.opt.expandtab = true -- Convert tabs to spaces
 vim.opt.grepformat = "%f:%l:%c:%m,%f:%l:%m"
 vim.opt.grepprg = "rg --vimgrep --no-heading --smart-case"
-vim.opt.scrolloff = 10
-vim.opt.sidescrolloff = 10
+vim.opt.scrolloff = 8
 vim.opt.signcolumn = "yes" -- Always show the sign column
 vim.opt.spelllang = "en"
 vim.opt.splitbelow = true -- Panel splitting
@@ -100,7 +99,7 @@ vim.opt.fillchars = "eob: "
 vim.opt.shortmess:append("sI")
 vim.opt.whichwrap:append("<>[]hl")
 vim.opt.confirm = true
-vim.opt.foldenable = false
+vim.opt.foldenable = true
 vim.opt.clipboard = "unnamed,unnamedplus"
 
 -- Turn off paste mode when leaving insert

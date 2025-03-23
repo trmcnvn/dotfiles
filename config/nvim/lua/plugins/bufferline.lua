@@ -38,6 +38,9 @@ return {
 						local icon, hl = Snacks.util.icon(element.filetype, "filetype")
 						return icon, hl
 					end,
+					show_buffer_close_icons = false,
+					show_close_icon = false,
+					always_show_bufferline = false,
 				},
 			})
 		end,

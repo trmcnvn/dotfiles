@@ -2,6 +2,7 @@ return {
 	{
 		"saghen/blink.cmp",
 		lazy = false,
+		event = "InsertEnter",
 		dependencies = {
 			"rafamadriz/friendly-snippets",
 			"saghen/blink.compat",
@@ -11,6 +12,16 @@ return {
 		config = function()
 			require("blink.cmp").setup({
 				keymap = { preset = "super-tab" },
+				appearance = {
+					use_nvim_cmp_as_default = true,
+					nerd_font_variant = "mono",
+				},
+				signature = {
+					enabled = false,
+					window = {
+						border = "single",
+					},
+				},
 				sources = {
 					default = {
 						"lsp",
@@ -43,27 +54,24 @@ return {
 					},
 				},
 				cmdline = { enabled = false },
+				term = { enabled = false },
 				completion = {
+					ghost_text = { enabled = false },
 					documentation = {
 						auto_show = true,
-						auto_show_delay_ms = 200,
+						auto_show_delay_ms = 50,
 						window = {
-							border = "rounded",
-							scrollbar = false,
+							border = "single",
 						},
 					},
-					ghost_text = {
-						show_with_selection = false,
-					},
-					trigger = {
-						show_in_snippet = false,
+					trigger = { show_in_snippet = false },
+					list = {
+						selection = {
+							preselect = false,
+						},
 					},
 					menu = {
-						border = "rounded",
-						scrollbar = false,
-						auto_show = function(ctx)
-							return ctx.mode ~= "cmdline" or not vim.tbl_contains({ "/", "?" }, vim.fn.getcmdtype())
-						end,
+						border = "single",
 						draw = {
 							treesitter = { "lsp" },
 							components = {
@@ -71,7 +79,7 @@ return {
 									ellipsis = false,
 									text = function(ctx)
 										local kind_icon, _, _ = Snacks.util.icon(ctx.kind, "lsp")
-										return kind_icon
+										return kind_icon .. ctx.icon_gap
 									end,
 									highlight = function(ctx)
 										local _, hl, _ = Snacks.util.icon(ctx.kind, "lsp")
@@ -84,7 +92,7 @@ return {
 				},
 			})
 
-			-- Copilot
+			-- Copilot, hide suggestions when BlinkCmp menu is open
 			vim.api.nvim_create_autocmd("User", {
 				pattern = "BlinkCmpMenuOpen",
 				callback = function()
