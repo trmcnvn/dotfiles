@@ -4,15 +4,15 @@ return {
 		event = { "BufReadPost" },
 		cmd = { "LspInfo", "LspInstall", "LspUninstall", "Mason" },
 		dependencies = {
-			"williamboman/mason.nvim",
+			{
+				"williamboman/mason.nvim",
+				opts = { ui = { border = "single" } },
+			},
 			"williamboman/mason-lspconfig.nvim",
 			"stevearc/conform.nvim",
-			"folke/neodev.nvim",
+			{ "folke/lazydev.nvim", ft = "lua" },
 			{ "j-hui/fidget.nvim", tag = false },
-			{
-				"mrcjkb/rustaceanvim",
-				ft = { "rust" },
-			},
+			{ "mrcjkb/rustaceanvim", ft = "rust" },
 			"saghen/blink.cmp",
 		},
 		config = function()
@@ -26,14 +26,6 @@ return {
 				},
 			})
 
-			require("neodev").setup()
-			require("mason").setup({
-				ui = {
-					border = "single",
-				},
-			})
-			require("mason-lspconfig").setup()
-
 			-- Attempt to load a newly installed LSP
 			local mr = require("mason-registry")
 			mr:on("package:install:success", function()
@@ -45,13 +37,18 @@ return {
 				end, 100)
 			end)
 
+			-- LSP Configurations
 			local servers = {
 				lua_ls = {
 					settings = {
 						Lua = {
+							runtime = { version = "LuaJIT" },
 							diagnostics = { globals = { "vim", "MiniIcons", "Snacks" } },
 							completion = { callSnippet = { "Replace" } },
-							workspace = { checkThirdParty = false },
+							workspace = {
+								checkThirdParty = false,
+								library = { vim.env.VIMRUNTIME },
+							},
 							telemetry = { enabled = false },
 						},
 					},
@@ -91,14 +88,6 @@ return {
 				vtsls = {},
 			}
 
-			local default_handlers = {
-				["textDocument/hover"] = vim.lsp.with(vim.lsp.handlers.hover, { border = "single" }),
-				["textDocument/signatureHelp"] = vim.lsp.with(vim.lsp.handlers.signature_help, { border = "single" }),
-				["textDocument/publishDiagnostics"] = vim.lsp.with(vim.lsp.diagnostic.on_publish_diagnostics, {
-					virtual_text = false,
-				}),
-			}
-
 			local capabilities = vim.lsp.protocol.make_client_capabilities()
 			local default_capabilities = require("blink.cmp").get_lsp_capabilities(capabilities)
 
@@ -113,7 +102,7 @@ return {
 				require("lspconfig")[name].setup({
 					capabilities = default_capabilities,
 					filetypes = config.filetypes,
-					handlers = vim.tbl_deep_extend("force", {}, default_handlers, config.handlers or {}),
+					handlers = config.handlers or {},
 					on_attach = on_attach,
 					settings = config.settings,
 					cmd = config.cmd,
