@@ -6,12 +6,12 @@ eval $(/opt/homebrew/bin/brew shellenv)
 brew update
 brew upgrade
 brew_apps=(
-  asdf
   bat
   doctl
   docker
   dust
   fish
+  fisher
   gh
   git
   git-secret
@@ -23,6 +23,7 @@ brew_apps=(
   jq
   kustomize
   lazygit
+  mise
   postgresql@16
   redis
   ripgrep
@@ -49,28 +50,11 @@ brew install --cask "${brew_casks[@]}"
 echo $(brew --prefix fish)/bin/fish | sudo tee -a /etc/shells
 chsh -s $(brew --prefix fish)/bin/fish
 
+# fisher
+fisher install trmcnvn/hydro-jj
+
 # dotfiles
 ./sync.sh
-
-# asdf
-asdf plugin add nodejs https://github.com/asdf-vm/asdf-nodejs.git
-asdf plugin add ruby https://github.com/asdf-vm/asdf-ruby.git
-asdf plugin add rust https://github.com/asdf-community/asdf-rust.git
-asdf plugin add zig https://github.com/asdf-community/asdf-zig.git
-asdf plugin add deno https://github.com/asdf-community/asdf-deno.git
-asdf plugin add golang https://github.com/kennyp/asdf-golang.git
-
-ASDF_RUBY_BUILD_VERSION=master asdf install ruby lastest
-asdf install nodejs lts
-RUST_WITHOUT=rust-docs asdf install rust latest
-asdf install zig latest
-asdf install golang latest
-
-asdf global ruby latest
-asdf global nodejs lts
-asdf global zig latest
-asdf global rust latest
-asdf global golang latest
 
 # defaults
 set +e
