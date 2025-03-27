@@ -19,7 +19,6 @@ return {
 	},
 	{
 		"f-person/auto-dark-mode.nvim",
-		commit = "02ef9553e2a1d6e861bc6955d58ce5883d28a6ad",
 		config = function()
 			require("auto-dark-mode").setup({
 				set_dark_mode = function()

@@ -55,13 +55,13 @@ return {
 			{
 				"<leader>w",
 				function()
-					Snacks.bufdelete()
+					Snacks.bufdelete({ buf = vim.api.nvim_get_current_buf() })
 				end,
 			},
 			{
 				"<D-w>",
 				function()
-					Snacks.bufdelete()
+					Snacks.bufdelete({ buf = vim.api.nvim_get_current_buf() })
 				end,
 			},
 			-- Picker

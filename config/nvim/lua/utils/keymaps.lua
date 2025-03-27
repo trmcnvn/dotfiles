@@ -1,16 +1,20 @@
 local M = {}
-local function bind(op, outer_opts)
-	outer_opts = outer_opts or { noremap = true }
+
+-- Create a keymap binding function for a given mode (or modes)
+local function bind(mode, outer_opts)
+	outer_opts = vim.tbl_extend("force", { noremap = true }, outer_opts or {})
+
 	return function(lhs, rhs, opts)
 		opts = vim.tbl_extend("force", outer_opts, opts or {})
-		vim.keymap.set(op, lhs, rhs, opts)
+		vim.keymap.set(mode, lhs, rhs, opts)
 	end
 end
 
-M.n = bind("n")
-M.e = bind("")
-M.v = bind("v")
-M.t = bind("t")
-M.x = bind("x")
+-- Mode-specific binding functions
+M.n = bind("n") -- Normal mode
+M.v = bind("v") -- Visual mode
+M.x = bind("x") -- Visual block mode
+M.t = bind("t") -- Terminal mode
+M.e = bind({ "n", "v" }) -- Normal + Visual modes
 
 return M

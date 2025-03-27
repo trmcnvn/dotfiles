@@ -2,9 +2,8 @@ return {
 	{
 		"nvim-lualine/lualine.nvim",
 		event = "VeryLazy",
-		-- dependencies = { "SmiteshP/nvim-navic" },
 		init = function()
-			-- Hide the statusline until lualine is loaded
+			-- Hide statusline until lualine loads
 			vim.g.lualine_laststatus = vim.o.laststatus
 			if vim.fn.argc(-1) > 0 then
 				vim.o.statusline = " "
@@ -18,28 +17,24 @@ return {
 				options = {
 					theme = "rose-pine",
 					globalstatus = true,
-					component_separators = "", --{ left = "", right = "" },
-					section_separators = { left = "", right = "" }, --{ left = "", right = "" },
+					component_separators = "",
+					section_separators = { left = "█", right = "█" },
 					disabled_filetypes = { statusline = { "ministarter" }, winbar = {} },
 					ignore_focus = {},
 					always_divide_middle = true,
 					refresh = {
-						statusline = 100,
+						statusline = 100, -- Fast refresh for statusline
 						tabline = 1000,
 						winbar = 1000,
 					},
 				},
 				sections = {
 					lualine_a = {
-						{
-							"mode",
-							seperator = { left = "" },
-							right_padding = 2,
-						},
+						{ "mode" },
 					},
 					lualine_b = {
 						"branch",
-						{ "filename", path = 1 },
+						{ "filename", path = 1 }, -- Show relative path
 						{
 							"diff",
 							source = function()
@@ -63,17 +58,9 @@ return {
 						},
 					},
 					lualine_c = {},
-					-- {
-					-- 	function()
-					-- 		return require("nvim-navic").get_location()
-					-- 	end,
-					-- 	cond = function()
-					-- 		return package.loaded["nvim-navic"] and require("nvim-navic").is_available()
-					-- 	end,
-					-- },
 					lualine_x = {},
 					lualine_y = { "os.date('%a %b %d %H:%M')" },
-					lualine_z = { { "location", seperator = { right = "" }, left_padding = 2 } },
+					lualine_z = { { "location" } },
 				},
 				inactive_sections = {
 					lualine_a = { { "filename", path = 1 } },

@@ -1,7 +1,6 @@
 return {
 	{
 		"saghen/blink.cmp",
-		lazy = false,
 		event = "InsertEnter",
 		dependencies = {
 			"rafamadriz/friendly-snippets",
@@ -18,23 +17,15 @@ return {
 				},
 				signature = {
 					enabled = false,
-					window = {
-						border = "single",
-					},
+					window = { border = "single" },
 				},
 				sources = {
-					default = {
-						"lazydev",
-						"lsp",
-						"path",
-						"snippets",
-						"buffer",
-					},
+					default = { "lazydev", "lsp", "path", "snippets", "buffer" },
 					providers = {
 						lazydev = {
 							name = "LazyDev",
 							module = "lazydev.integrations.blink",
-							score_offset = 100,
+							score_offset = 100, -- Boost LazyDev priority
 						},
 					},
 				},
@@ -44,16 +35,12 @@ return {
 					ghost_text = { enabled = false },
 					documentation = {
 						auto_show = true,
-						auto_show_delay_ms = 50,
-						window = {
-							border = "single",
-						},
+						auto_show_delay_ms = 50, -- Fast docs popup
+						window = { border = "single" },
 					},
 					trigger = { show_in_snippet = false },
 					list = {
-						selection = {
-							preselect = false,
-						},
+						selection = { preselect = false },
 					},
 					menu = {
 						border = "single",
@@ -63,12 +50,18 @@ return {
 								kind_icon = {
 									ellipsis = false,
 									text = function(ctx)
-										local kind_icon, _, _ = Snacks.util.icon(ctx.kind, "lsp")
-										return kind_icon .. ctx.icon_gap
+										if Snacks then
+											local icon, _, _ = Snacks.util.icon(ctx.kind, "lsp")
+											return (icon or "?") .. ctx.icon_gap
+										end
+										return "?" .. ctx.icon_gap
 									end,
 									highlight = function(ctx)
-										local _, hl, _ = Snacks.util.icon(ctx.kind, "lsp")
-										return hl or ("BlinkCmpKind" .. ctx.kind)
+										if Snacks then
+											local _, hl, _ = Snacks.util.icon(ctx.kind, "lsp")
+											return hl or ("BlinkCmpKind" .. ctx.kind)
+										end
+										return "BlinkCmpKind" .. ctx.kind
 									end,
 								},
 							},

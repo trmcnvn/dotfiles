@@ -3,9 +3,7 @@ return {
 		"nvim-treesitter/nvim-treesitter",
 		build = ":TSUpdate",
 		event = { "BufReadPost", "BufNewFile" },
-		dependencies = {
-			"nvim-treesitter/nvim-treesitter-refactor",
-		},
+		dependencies = { "nvim-treesitter/nvim-treesitter-refactor" },
 		config = function()
 			require("nvim-treesitter.configs").setup({
 				ensure_installed = {
@@ -36,7 +34,7 @@ return {
 					additional_vim_regex_highlighting = false,
 					disable = function(_, buf)
 						return vim.b[buf].big
-					end,
+					end, -- Disable for big files
 				},
 				indent = { enable = true },
 				refactor = {
@@ -47,7 +45,7 @@ return {
 						disable = function(_, buf)
 							return vim.b[buf].big
 						end,
-						keymaps = { smart_rename = "gn" },
+						keymaps = { smart_rename = "gn" }, -- Matches LSP rename keymap
 					},
 				},
 			})

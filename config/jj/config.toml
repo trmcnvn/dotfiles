@@ -41,7 +41,7 @@ behavior = "own"
 max-new-file-size = "10MiB"
 
 [template-aliases]
-"format_short_id(id)" = "id.shortest()"
+"format_short_id(id)" = "id.shortest(4)"
 "format_timestamp(timestamp)" = "timestamp.ago()"
 "format_short_signature(signature)" = "signature.email()"
 "format_short_operation_id(id)" = "id.short(12)"

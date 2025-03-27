@@ -1,7 +1,7 @@
 return {
 	{
 		"zbirenbaum/copilot.lua",
-		event = { "BufNewFile" },
+		event = { "BufEnter" },
 		config = function()
 			require("copilot").setup({
 				panel = { enabled = false },

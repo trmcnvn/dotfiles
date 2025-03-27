@@ -10,6 +10,7 @@ font-style-bold-italic = Bold Italic
 font-feature = zero
 font-feature = ss04
 font-size = 14
+adjust-cell-width = -5%
 
 # Berkeley Mono 2
 # font-family = TX-02

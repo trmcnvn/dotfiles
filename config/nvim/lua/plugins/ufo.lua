@@ -1,19 +1,17 @@
 return {
 	{
 		"kevinhwang91/nvim-ufo",
-		dependencies = {
-			"kevinhwang91/promise-async",
-		},
+		dependencies = { "kevinhwang91/promise-async" },
 		event = "BufEnter",
 		config = function()
-			vim.o.foldenable = true
-			vim.o.foldcolumn = "0"
-			vim.o.foldlevel = 99
-			vim.o.foldlevelstart = 99
+			vim.opt.foldenable = true
+			vim.opt.foldcolumn = "0"
+			vim.opt.foldlevel = 99
+			vim.opt.foldlevelstart = 99
 
 			local handler = function(virtText, lnum, endLnum, width, truncate)
 				local newVirtText = {}
-				local suffix = (" 󰁂 %d "):format(endLnum - lnum)
+				local suffix = (" 󰁂 %d "):format(endLnum - lnum) -- Folded line count
 				local sufWidth = vim.fn.strdisplaywidth(suffix)
 				local targetWidth = width - sufWidth
 				local curWidth = 0
@@ -27,7 +25,6 @@ return {
 						local hlGroup = chunk[2]
 						table.insert(newVirtText, { chunkText, hlGroup })
 						chunkWidth = vim.fn.strdisplaywidth(chunkText)
-						-- str width returned from truncate() may less than 2nd argument, need padding
 						if curWidth + chunkWidth < targetWidth then
 							suffix = suffix .. (" "):rep(targetWidth - curWidth - chunkWidth)
 						end
@@ -39,9 +36,10 @@ return {
 				return newVirtText
 			end
 
-			--- @diagnostic disable: unused-local
-			require("ufo").setup({
-				provider_selector = function(_bufnr, _filetype, _buftype)
+			local ufo = require("ufo")
+
+			ufo.setup({
+				provider_selector = function()
 					return { "treesitter", "indent" }
 				end,
 				fold_virt_text_handler = handler,
