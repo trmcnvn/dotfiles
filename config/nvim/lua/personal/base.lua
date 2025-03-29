@@ -125,4 +125,9 @@ vim.api.nvim_create_user_command("Q", "q", {})
 vim.api.nvim_create_user_command("Wq", "wq", {})
 
 -- Filetype
-vim.filetype.add({ filename = { ["justfile"] = "just" } })
+vim.filetype.add({
+	filename = {
+		["justfile"] = "just",
+		["*.mjml"] = "html",
+	},
+})

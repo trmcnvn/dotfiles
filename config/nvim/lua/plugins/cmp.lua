@@ -5,6 +5,7 @@ return {
 		dependencies = {
 			"rafamadriz/friendly-snippets",
 			"saghen/blink.compat",
+			"Kaiser-Yang/blink-cmp-avante",
 		},
 		version = "*",
 		build = "cargo build --release",
@@ -20,8 +21,13 @@ return {
 					window = { border = "single" },
 				},
 				sources = {
-					default = { "lazydev", "lsp", "path", "snippets", "buffer" },
+					default = { "avante", "lazydev", "lsp", "path", "snippets", "buffer" },
 					providers = {
+						avante = {
+							module = "blink-cmp-avante",
+							name = "Avante",
+							opts = {},
+						},
 						lazydev = {
 							name = "LazyDev",
 							module = "lazydev.integrations.blink",
