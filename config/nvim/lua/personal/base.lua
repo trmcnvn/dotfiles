@@ -44,7 +44,7 @@ vim.opt.shell = "fish"
 
 -- UI and appearance settings
 vim.opt.number = true
-vim.opt.relativenumber = true
+vim.opt.relativenumber = false
 vim.opt.numberwidth = 2
 vim.opt.signcolumn = "yes"
 vim.opt.cursorline = true
@@ -59,6 +59,7 @@ vim.opt.showtabline = 0
 vim.opt.scrolloff = 8
 vim.opt.title = true
 vim.opt.wrap = false
+vim.opt.winborder = "single"
 
 -- Editing and indentation settings
 vim.opt.autoindent = true

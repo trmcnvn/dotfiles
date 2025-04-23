@@ -10,11 +10,6 @@ lnm = ["log", "-r", "main@origin.."]
 gf = ["git", "fetch"]
 rm = ["rebase", "-d", "main"]
 
-[colors]
-"commit_id prefix" = { bold = false }
-"change_id prefix" = { bold = false }
-"working_copy" = { bold = false }
-
 [ui]
 default-command = ["log", "--no-pager", "-n", "5"]
 diff.tool = ["difft", "--color=always", "$left", "$right"]

@@ -1,12 +1,23 @@
 return {
 	{
 		"zbirenbaum/copilot.lua",
-		event = { "BufEnter" },
+		build = ":Copilot auth",
+		event = { "BufReadPost" },
 		config = function()
 			require("copilot").setup({
 				panel = { enabled = false },
-				suggestion = { auto_trigger = true },
+				suggestion = {
+					auto_trigger = true,
+					hide_during_completion = true,
+				},
+				filetypes = {
+					markdown = true,
+					help = true,
+				},
 				copilot_model = "gpt-4o-copilot",
+				server = {
+					type = "binary",
+				},
 			})
 		end,
 	},

@@ -10,10 +10,35 @@ return {
 					migrations = false,
 				},
 				styles = {
-					transparency = true,
+					transparency = false,
 					italic = false,
 				},
 				highlight_groups = {},
+			})
+		end,
+	},
+	{
+		"catppuccin/nvim",
+		name = "catppuccin",
+		config = function()
+			require("catppuccin").setup({
+				flavour = "mocha",
+				term_colors = true,
+				integrations = {
+					cmp = true,
+					fidget = true,
+					harpoon = true,
+					mason = true,
+					dap = true,
+					dap_ui = true,
+					treesitter = true,
+					ufo = true,
+					render_markdown = true,
+					snacks = {
+						enabled = true,
+						indent_scope_color = "text",
+					},
+				},
 			})
 		end,
 	},

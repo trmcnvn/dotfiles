@@ -2,25 +2,26 @@
 auto-update-channel = tip
 
 # MonoLisa
-font-family = MonoLisa
-font-style = Regular
-font-style-italic = Regular Italic
-font-style-bold = Bold
-font-style-bold-italic = Bold Italic
-font-feature = zero
-font-feature = ss04
-font-size = 14
-adjust-cell-width = -5%
+# font-family = MonoLisa
+# font-style = Regular
+# font-style-italic = Regular Italic
+# font-style-bold = Bold
+# font-style-bold-italic = Bold Italic
+# font-feature = zero
+# font-feature = ss04
+# font-size = 15
+# adjust-cell-width = -5%
 
 # Berkeley Mono 2
-# font-family = TX-02
-# font-style = Retina SemiCondensed
-# font-style-italic = Retina SemiCondensed Oblique
-# font-style-bold = Bold SemiCondensed
-# font-style-bold-italic = Bold SemiCondensed Oblique
-# font-size = 15
+font-family = TX-02
+font-style = Retina SemiCondensed
+font-style-italic = Retina SemiCondensed Oblique
+font-style-bold = Bold SemiCondensed
+font-style-bold-italic = Bold SemiCondensed Oblique
+font-size = 15
 
 # General font settings
+font-thicken = true
 font-synthetic-style = false
 
 # Cursor
@@ -53,6 +54,7 @@ confirm-close-surface = false
 
 # Theme
 theme = "rose-pine-custom"
+
 macos-icon = custom-style
 macos-icon-frame = plastic 
 macos-icon-ghost-color = #e8e8d3

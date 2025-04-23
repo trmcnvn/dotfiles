@@ -2,7 +2,7 @@ return {
 	{
 		"akinsho/bufferline.nvim",
 		event = "Colorscheme",
-		dependencies = { "rose-pine/neovim" },
+		dependencies = { "rose-pine/neovim", "folke/snacks.nvim" },
 		keys = {
 			{ "<Tab>", "<Cmd>BufferLineCycleNext<CR>", desc = "Next buffer" },
 			{ "<S-Tab>", "<Cmd>BufferLineCyclePrev<CR>", desc = "Prev buffer" },
@@ -40,6 +40,13 @@ return {
 					show_buffer_close_icons = false,
 					show_close_icon = false,
 					always_show_bufferline = false,
+					diagnostics = "nvim_lsp",
+					close_command = function(n)
+						Snacks.bufdelete(n)
+					end,
+					right_mouse_command = function(n)
+						Snacks.bufdelete(n)
+					end,
 				},
 			})
 		end,

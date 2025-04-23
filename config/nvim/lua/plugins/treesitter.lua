@@ -1,9 +1,12 @@
 return {
 	{
 		"nvim-treesitter/nvim-treesitter",
+		version = false,
 		build = ":TSUpdate",
-		event = { "BufReadPost", "BufNewFile" },
+		event = {  "VeryLazy" },
+		lazy = vim.fn.argc(-1) == 0,
 		dependencies = { "nvim-treesitter/nvim-treesitter-refactor" },
+		cmd = { "TSUpdateSync", "TSUpdate", "TSInstall" },
 		config = function()
 			require("nvim-treesitter.configs").setup({
 				ensure_installed = {
@@ -37,6 +40,41 @@ return {
 					end, -- Disable for big files
 				},
 				indent = { enable = true },
+				incremental_selection = {
+					enable = true,
+					keymaps = {
+						init_selection = "<C-space>",
+						node_incremental = "<C-space>",
+						scope_incremental = false,
+						node_decremental = "<C-backspace>",
+					},
+				},
+				textobjects = {
+					move = {
+						enable = true,
+						set_jumps = true, -- whether to set jumps in the jumplist
+						goto_next_start = {
+							["]f"] = "@function.outer",
+							["]c"] = "@class.outer",
+							["]a"] = "@parameter.inner",
+						},
+						goto_next_end = {
+							["]F"] = "@function.outer",
+							["]C"] = "@class.outer",
+							["]A"] = "@parameter.inner",
+						},
+						goto_previous_start = {
+							["[f"] = "@function.outer",
+							["[c"] = "@class.outer",
+							["[a"] = "@parameter.inner",
+						},
+						goto_previous_end = {
+							["[F"] = "@function.outer",
+							["[C"] = "@class.outer",
+							["[A"] = "@parameter.inner",
+						},
+					},
+				},
 				refactor = {
 					highlight_definitions = { enable = false },
 					highlight_current_scope = { enable = false },

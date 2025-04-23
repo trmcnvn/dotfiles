@@ -7,9 +7,15 @@ return {
 			bigfile = { enabled = true },
 			bufdelete = { enabled = true },
 			dashboard = { enabled = true },
+			indent = {
+				enabled = true,
+				animate = { enabled = false },
+				scope = { enabled = false },
+			},
 			input = { enabled = true },
 			layout = { enabled = true },
 			notify = { enabled = true },
+			notifier = { enabled = true },
 			picker = {
 				win = {
 					input = {
@@ -49,8 +55,22 @@ return {
 			statuscolumn = { enabled = true },
 			util = { enabled = true },
 			win = { enabled = true },
+			words = { enabled = true },
 		},
 		keys = {
+			-- Notifier
+			{
+				"<leader>n",
+				function()
+					Snacks.picker.notifications()
+				end,
+			},
+			{
+				"<leader>un",
+				function()
+					Snacks.notifier.hide()
+				end,
+			},
 			-- Bufdelete
 			{
 				"<leader>w",
@@ -119,6 +139,13 @@ return {
 				"<leader>O",
 				function()
 					Snacks.picker.lsp_symbols()
+				end,
+			},
+			-- Misc
+			{
+				"<leader>ln",
+				function()
+					Snacks.toggle.option("relativenumber"):toggle()
 				end,
 			},
 		},

@@ -60,3 +60,9 @@ end, { desc = "Quick replace word under cursor" })
 
 -- Open link under cursor
 M.n("gx", ":sil !open <cWORD><CR>", { silent = true, desc = "Open URL under cursor" })
+
+-- LSP
+M.n("gh", '<cmd>lua vim.lsp.buf.hover({ border = "single" })<cr>')
+M.n("gn", "<cmd>lua vim.lsp.buf.rename()<cr>")
+M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>")
+M.n("ca", "<cmd>lua vim.lsp.buf.code_action()<cr>")

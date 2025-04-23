@@ -17,7 +17,7 @@ local function jj_revision()
 	local output = vim.fn.system(
 		string.format(
 			[[jj log --revisions @ --no-graph --ignore-working-copy --color=never --limit 1 --template "%s"]],
-			"separate(' ', change_id.shortest(4), bookmarks)"
+			"separate(' ', change_id.shortest(6), bookmarks)"
 		)
 	)
 
@@ -25,7 +25,7 @@ local function jj_revision()
 	if vim.v.shell_error ~= 0 then
 		jj_cache.value = "jj error"
 	else
-		jj_cache.value = "@" .. output:gsub("\n$", "")
+		jj_cache.value = output:gsub("\n$", "")
 	end
 	jj_cache.last_update = current_time
 
@@ -50,10 +50,10 @@ return {
 			require("lualine").setup({
 				options = {
 					theme = "rose-pine",
-					globalstatus = true,
+					globalstatus = vim.o.laststatus == 3,
 					component_separators = "",
-					section_separators = { left = "█", right = "█" },
-					disabled_filetypes = { statusline = { "ministarter" }, winbar = {} },
+					section_separators = { left = "", right = "" },
+					disabled_filetypes = { statusline = { "snacks_dashboard" }, winbar = {} },
 					ignore_focus = {},
 					always_divide_middle = true,
 					refresh = {
@@ -63,29 +63,21 @@ return {
 					},
 				},
 				sections = {
-					lualine_a = {
-						{ "mode" },
-					},
+					lualine_a = { "mode" },
 					lualine_b = {
 						{
 							jj_revision,
-							icon = "",
+							icon = "@",
 							cond = function()
 								return vim.fn.executable("jj") == 1
 							end,
 						},
+					},
+					lualine_c = {
 						{ "filename", path = 1 }, -- Show relative path
 						{
 							"diff",
 							source = function()
-								local gitsigns = vim.b.gitsigns_status_dict
-								if gitsigns then
-									return {
-										added = gitsigns.added,
-										modified = gitsigns.changed,
-										removed = gitsigns.removed,
-									}
-								end
 								local minidiff = vim.b.minidiff_summary
 								if minidiff then
 									return {
@@ -97,10 +89,18 @@ return {
 							end,
 						},
 					},
-					lualine_c = {},
-					lualine_x = {},
-					lualine_y = { "os.date('%a %b %d %H:%M')" },
-					lualine_z = { { "location" } },
+					lualine_x = {
+						{ "filetype", separator = "" },
+					},
+					lualine_y = {
+						{ "progress", separator = " ", padding = { left = 1, right = 0 } },
+						{ "location", padding = { left = 0, right = 1 } },
+					},
+					lualine_z = {
+						function()
+							return " " .. os.date("%R")
+						end,
+					},
 				},
 				inactive_sections = {
 					lualine_a = { { "filename", path = 1 } },
