@@ -7,25 +7,38 @@ email = "hello@trmcnvn.dev"
 [aliases]
 ld = ["log", "--template", "builtin_log_detailed"]
 lnm = ["log", "-r", "main@origin.."]
-gf = ["git", "fetch"]
-rm = ["rebase", "-d", "main"]
+sync = ["git", "fetch", "--all-remotes"]
+push = ["git", "push"]
+
+# Move the closest bookmark to the current commit. This is useful when
+# working on a named branch, creating a bunch of commits, and then needing
+# to update the bookmark before pushing.
+tug = ["bookmark", "move", "--from", "closest_bookmark(@-)", "--to", "@-"]
+
+# Rebase the current branch onto the trunk.
+retrunk = ["rebase", "--skip-emptied", "-d", "trunk()"]
 
 [ui]
 default-command = ["log", "--no-pager", "-n", "5"]
-diff.tool = ["difft", "--color=always", "$left", "$right"]
-log-word-wrap = true
-editor = "nvim"
+diff-formatter = ["difft", "--color=always", "$left", "$right"]
 
-[ui.movement]
-edit = true
-
-[revset-alises]
+[revset-aliases]
 "immutable_heads()" = "builtin_immutable_heads() | (trunk().. & ~mine())"
+"closest_bookmark(to)" = "heads(::to & bookmarks())"
+"fork_history(to, from)" = "fork_point(to | from)..@"
+
+[template-aliases]
+"format_short_id(id)" = "id.shortest(4)"
+"format_timestamp(timestamp)" = "timestamp.ago()"
+"format_short_signature(signature)" = "signature.email()"
+"format_short_operation_id(id)" = "id.short(12)"
+"format_short_cryptographic_signature(sig)" = 'if(sig, sig.status(), "(no sig)",)'
 
 [git]
 sign-on-push = true
-push-bookmark-prefix = "trmcnvn/push-"
 private-commits = "description(glob:'wip:*') | description(glob:'private:*')"
+write-change-id-header = true
+track-default-bookmark-on-clone = true
 
 [signing]
 backend = "ssh"
@@ -34,10 +47,3 @@ behavior = "own"
 
 [snapshot]
 max-new-file-size = "10MiB"
-
-[template-aliases]
-"format_short_id(id)" = "id.shortest(4)"
-"format_timestamp(timestamp)" = "timestamp.ago()"
-"format_short_signature(signature)" = "signature.email()"
-"format_short_operation_id(id)" = "id.short(12)"
-"format_short_cryptographic_signature(sig)" = 'if(sig, sig.status(), "(no sig)",)'

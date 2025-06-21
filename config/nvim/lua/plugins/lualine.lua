@@ -17,15 +17,18 @@ local function jj_revision()
 	local output = vim.fn.system(
 		string.format(
 			[[jj log --revisions @ --no-graph --ignore-working-copy --color=never --limit 1 --template "%s"]],
-			"separate(' ', change_id.shortest(6), bookmarks)"
+			"change_id.shortest(6)"
 		)
 	)
+
+	local closest_bookmark =
+		vim.fn.system("jj log -r 'heads(::@- & bookmarks())' --no-graph --color=never --limit=1 --template 'bookmarks'")
 
 	-- Handle errors and cleanup
 	if vim.v.shell_error ~= 0 then
 		jj_cache.value = "jj error"
 	else
-		jj_cache.value = output:gsub("\n$", "")
+		jj_cache.value = output:gsub("\n$", "") .. " " .. closest_bookmark:gsub("\n$", "")
 	end
 	jj_cache.last_update = current_time
 

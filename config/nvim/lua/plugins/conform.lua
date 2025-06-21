@@ -1,6 +1,8 @@
 return {
 	{
 		"stevearc/conform.nvim",
+		event = { "BufWritePre" },
+		cmd = "ConformInfo",
 		config = function()
 			require("conform").setup({
 				notify_on_error = false,

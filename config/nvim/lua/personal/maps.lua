@@ -17,22 +17,45 @@ M.n("j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true, desc = "Move
 M.n("<down>", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true, desc = "Arrow down with wrap" })
 M.n("<up>", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true, desc = "Arrow up with wrap" })
 
--- Editing
+-- Editing and text manipulation
 M.n("<D-a>", function()
 	vim.api.nvim_command("normal! ggVG")
 end, { desc = "Select all" })
 M.n("<D-s>", "<cmd>w!<CR>", { desc = "Force save" })
 M.n("U", "<C-r>", { desc = "Redo" })
-M.x("p", 'p:let @+=@0<CR>:let @"=@0<CR>', { silent = true, desc = "Paste without overwriting register" })
+M.x("p", '"_dP', { desc = "Paste without overwriting register" })
 
 -- Buffer and window management
 M.n("te", "<cmd>enew<CR>", { desc = "New buffer" })
+M.n("<leader>bn", "<cmd>bnext<CR>", { desc = "Next buffer" })
+M.n("<leader>bp", "<cmd>bprevious<CR>", { desc = "Previous buffer" })
+M.n("<leader>bd", "<cmd>bdelete<CR>", { desc = "Delete buffer" })
+M.n("<leader>ba", "<cmd>%bd|e#<CR>", { desc = "Delete all buffers except current" })
+
+-- Window management
 M.n("zv", "<cmd>vsplit<CR>", { desc = "Vertical split" })
 M.n("zh", "<cmd>split<CR>", { desc = "Horizontal split" })
 M.e("z<left>", "<C-w>h", { desc = "Move to left window" })
 M.e("z<up>", "<C-w>k", { desc = "Move to upper window" })
 M.e("z<down>", "<C-w>j", { desc = "Move to lower window" })
 M.e("z<right>", "<C-w>l", { desc = "Move to right window" })
+
+-- Line movement
+M.n("<A-j>", ":m .+1<CR>==", { desc = "Move line down" })
+M.n("<A-k>", ":m .-2<CR>==", { desc = "Move line up" })
+M.v("<A-j>", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })
+M.v("<A-k>", ":m '<-2<CR>gv=gv", { desc = "Move selection up" })
+
+-- Indentation
+M.v("<", "<gv", { desc = "Indent left and reselect" })
+M.v(">", ">gv", { desc = "Indent right and reselect" })
+
+-- Quick save/quit
+M.n("<leader>q", "<cmd>q<CR>", { desc = "Quit" })
+M.n("<leader>x", "<cmd>x<CR>", { desc = "Save and quit" })
+
+-- Clear search highlighting
+M.n("<Esc>", "<cmd>nohlsearch<CR>", { desc = "Clear search highlighting" })
 
 -- Navigation with centering
 map_with_center("n", "<C-d>", "<C-d>", { desc = "Scroll down and center" })
@@ -45,7 +68,8 @@ map_with_center("n", "gd", "gd", { desc = "Go to definition and center" })
 
 -- Terminal
 M.n("<leader>t", function()
-	require("lazy.util").float_term("fish", { border = "single" })
+	local shell = vim.o.shell or "bash"
+	require("lazy.util").float_term(shell, { border = "single" })
 end, { desc = "Open floating terminal" })
 
 -- Quick search/replace
@@ -53,16 +77,39 @@ M.n("S", function()
 	local current_word = vim.fn.expand("<cword>")
 	vim.ui.input({ prompt = "Replace '" .. current_word .. "' with: ", default = current_word }, function(input)
 		if input then
-			vim.cmd(string.format("%%s/%s/%s/gI", current_word, input))
+			-- Escape special regex characters
+			local escaped_word = vim.fn.escape(current_word, "/\\")
+			local escaped_input = vim.fn.escape(input, "/\\")
+			vim.cmd(string.format("%%s/%s/%s/gI", escaped_word, escaped_input))
 		end
 	end)
 end, { desc = "Quick replace word under cursor" })
 
 -- Open link under cursor
-M.n("gx", ":sil !open <cWORD><CR>", { silent = true, desc = "Open URL under cursor" })
+M.n("gx", function()
+	local url = vim.fn.expand("<cWORD>")
+	local cmd
+	if vim.fn.has("mac") == 1 then
+		cmd = "open"
+	elseif vim.fn.has("unix") == 1 then
+		cmd = "xdg-open"
+	elseif vim.fn.has("win32") == 1 then
+		cmd = "start"
+	else
+		vim.notify("Unsupported platform for opening URLs", vim.log.levels.ERROR)
+		return
+	end
+	vim.fn.system(cmd .. " " .. vim.fn.shellescape(url))
+end, { desc = "Open URL under cursor" })
 
 -- LSP
-M.n("gh", '<cmd>lua vim.lsp.buf.hover({ border = "single" })<cr>')
-M.n("gn", "<cmd>lua vim.lsp.buf.rename()<cr>")
-M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>")
-M.n("ca", "<cmd>lua vim.lsp.buf.code_action()<cr>")
+M.n("gh", '<cmd>lua vim.lsp.buf.hover({ border = "single" })<cr>', { desc = "Show hover information" })
+M.n("gn", "<cmd>lua vim.lsp.buf.rename()<cr>", { desc = "Rename symbol" })
+M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>", { desc = "Show diagnostic float" })
+M.n("ca", "<cmd>lua vim.lsp.buf.code_action()<cr>", { desc = "Code actions" })
+M.n("gD", "<cmd>lua vim.lsp.buf.declaration()<cr>", { desc = "Go to declaration" })
+M.n("gi", "<cmd>lua vim.lsp.buf.implementation()<cr>", { desc = "Go to implementation" })
+M.n("gr", "<cmd>lua vim.lsp.buf.references()<cr>", { desc = "Show references" })
+M.n("K", "<cmd>lua vim.lsp.buf.signature_help()<cr>", { desc = "Signature help" })
+M.n("[d", "<cmd>lua vim.diagnostic.goto_prev()<cr>", { desc = "Previous diagnostic" })
+M.n("]d", "<cmd>lua vim.diagnostic.goto_next()<cr>", { desc = "Next diagnostic" })

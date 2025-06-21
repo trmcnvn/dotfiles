@@ -11,7 +11,7 @@ return {
 		keys = function()
 			local keys = {
 				{
-					"<leader>H",
+					"<leader>\\",
 					function()
 						require("harpoon"):list():add()
 					end,
@@ -23,15 +23,19 @@ return {
 						harpoon.ui:toggle_quick_menu(harpoon:list())
 					end,
 				},
-			}
-			for i = 1, 5 do
-				table.insert(keys, {
-					"<leader>" .. i,
+				{
+					"<leader>[",
 					function()
-						require("harpoon"):list():select(i)
+						require("harpoon"):list():prev()
 					end,
-				})
-			end
+				},
+				{
+					"<leader>]",
+					function()
+						require("harpoon"):list():next()
+					end,
+				},
+			}
 			return keys
 		end,
 	},

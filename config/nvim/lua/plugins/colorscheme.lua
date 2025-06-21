@@ -10,8 +10,8 @@ return {
 					migrations = false,
 				},
 				styles = {
-					transparency = false,
-					italic = false,
+					transparency = true,
+					italic = true,
 				},
 				highlight_groups = {},
 			})
