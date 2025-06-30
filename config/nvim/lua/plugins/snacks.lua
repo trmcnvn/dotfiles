@@ -1,9 +1,8 @@
 return {
 	{
 		"folke/snacks.nvim",
-		priority = 1000,
-		lazy = false,
-		opts = {
+	priority = 1000,
+	event = "VimEnter",		opts = {
 			bigfile = { enabled = true },
 			bufdelete = { enabled = true },
 			dashboard = { enabled = true },

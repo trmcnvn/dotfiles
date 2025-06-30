@@ -2,7 +2,7 @@ return {
 	{
 		"kevinhwang91/nvim-ufo",
 		dependencies = { "kevinhwang91/promise-async" },
-		event = "BufEnter",
+		event = "BufReadPost",
 		config = function()
 			vim.opt.foldenable = true
 			vim.opt.foldcolumn = "0"

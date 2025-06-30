@@ -38,7 +38,7 @@ end
 return {
 	{
 		"nvim-lualine/lualine.nvim",
-		event = "VeryLazy",
+		event = "UIEnter",
 		init = function()
 			-- Hide statusline until lualine loads
 			vim.g.lualine_laststatus = vim.o.laststatus

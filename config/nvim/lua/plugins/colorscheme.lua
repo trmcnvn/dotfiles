@@ -20,6 +20,7 @@ return {
 	{
 		"catppuccin/nvim",
 		name = "catppuccin",
+		lazy = true,
 		config = function()
 			require("catppuccin").setup({
 				flavour = "mocha",
@@ -44,6 +45,7 @@ return {
 	},
 	{
 		"f-person/auto-dark-mode.nvim",
+		event = "VeryLazy",
 		config = function()
 			require("auto-dark-mode").setup({
 				set_dark_mode = function()

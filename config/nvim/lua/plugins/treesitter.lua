@@ -3,7 +3,7 @@ return {
 		"nvim-treesitter/nvim-treesitter",
 		version = false,
 		build = ":TSUpdate",
-		event = {  "VeryLazy" },
+		event = "BufReadPost",
 		lazy = vim.fn.argc(-1) == 0,
 		dependencies = { 
 		"nvim-treesitter/nvim-treesitter-refactor",

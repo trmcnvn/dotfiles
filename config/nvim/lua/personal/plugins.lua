@@ -26,6 +26,21 @@ require("lazy").setup({
 		cache = {
 			enabled = true, -- Enable caching for faster startup
 		},
+		reset_packpath = true, -- Reset packpath to improve startup time
+		rtp = {
+			reset = true, -- Reset runtime path to default + plugins
+			paths = {}, -- Add any custom paths here
+			disabled_plugins = {
+				"gzip",
+				"matchit",
+				"matchparen", 
+				"netrwPlugin",
+				"tarPlugin",
+				"tohtml",
+				"tutor",
+				"zipPlugin",
+			},
+		},
 	},
 	checker = {
 		enabled = false,
