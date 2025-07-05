@@ -18,7 +18,7 @@ font-style = Retina SemiCondensed
 font-style-italic = Retina SemiCondensed Oblique
 font-style-bold = Bold SemiCondensed
 font-style-bold-italic = Bold SemiCondensed Oblique
-font-size = 15
+font-size = 14
 
 # General font settings
 font-thicken = true
@@ -54,7 +54,6 @@ confirm-close-surface = false
 
 # Theme
 theme = "rose-pine-custom"
-
 macos-icon = official
 background-opacity = 0.98
 # background-blur-radius = 20
