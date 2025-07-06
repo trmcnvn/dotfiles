@@ -9,13 +9,15 @@ fish_add_path -g \
     $HOME/.npm-global/bin \
     $HOME/.nimble/bin \
     $HOME/.dotnet/bin \
-    $(go env GOPATH)/bin
+    $(go env GOPATH)/bin \
+    $HOME/.local/share/mise/shims
 
 # OS-specific paths
 if test $machine_name = Darwin
     fish_add_path -g \
         "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" \
         /Applications/Ghostty.app/Contents/MacOS
+    set -gx DOTNET_ROOT /opt/homebrew/opt/dotnet/libexec
 end
 
 # Environment Variables
@@ -26,7 +28,6 @@ set -gx XDG_STATE_HOME $HOME/.local/state
 set -gx EDITOR nvim
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx PNPM_HOME $HOME/Library/pnpm
-set -gx DOTNET_ROOT /opt/homebrew/opt/dotnet/libexec
 set -gx GPG_TTY (tty)
 set -gx RUST_WITHOUT rust-docs
 set -gx JJ_CONFIG $XDG_CONFIG_HOME/jj/config.toml
@@ -82,4 +83,3 @@ set -g hydro_symbol_jj_conflict "💥"
 set -g hydro_symbol_jj_divergent "🚧"
 set -g hydro_symbol_jj_hidden "👻"
 set -g hydro_symbol_jj_immutable "🔒"
-alias claude="/Users/trmcnvn/.claude/local/claude"

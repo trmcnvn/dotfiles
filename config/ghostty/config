@@ -1,4 +1,5 @@
 # Ghostty
+command = fish
 auto-update-channel = tip
 
 # MonoLisa
@@ -34,8 +35,8 @@ window-title-font-family = TX-02 Retina SemiCondensed
 window-save-state = never
 window-padding-color = background
 window-padding-balance = true
-window-padding-x = 16
-window-padding-y = 14
+window-padding-x = 0
+window-padding-y = 0
 window-colorspace = display-p3
 macos-option-as-alt = true
 macos-window-shadow = false
@@ -60,9 +61,12 @@ background-opacity = 0.98
 unfocused-split-opacity = 0.95
 
 # Keybinds
-keybind = cmd+enter=new_split:right
-keybind = cmd+ctrl+enter=new_split:down
+keybind = opt+enter=new_split:right
+keybind = opt+ctrl+enter=new_split:down
 keybind = super+w=unbind
 keybind = super+a=unbind
 keybind = super+s=unbind
 keybind = shift+enter=text:\n
+keybind = ctrl+c=copy_to_clipboard
+keybind = ctrl+v=paste_from_clipboard
+keybind = f11=toggle_fullscreen
