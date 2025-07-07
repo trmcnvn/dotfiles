@@ -10,7 +10,8 @@ fish_add_path -g \
     $HOME/.nimble/bin \
     $HOME/.dotnet/bin \
     $(go env GOPATH)/bin \
-    $HOME/.local/share/mise/shims
+    $HOME/.local/share/mise/shims \
+    $HOME/.bun/bin
 
 # OS-specific paths
 if test $machine_name = Darwin
