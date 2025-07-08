@@ -4,7 +4,7 @@
   min-height: 0;
   font-family: TX-02;
   font-weight: normal;
-  font-size: 20px;
+  font-size: 14px;
 }
 
 #workspaces {
@@ -22,8 +22,7 @@
 #network,
 #bluetooth,
 #pulseaudio,
-#clock,
-#custom-power-menu {
+#clock {
   min-width: 12px;
   margin-right: 13px;
 }

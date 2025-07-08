@@ -4,5 +4,7 @@
   "IS_MINIMIZED": false,
   "offloadAdmControls": false,
   "BACKGROUND_COLOR": "#000000",
-  "chromiumSwitches": {}
+  "chromiumSwitches": {},
+  "OPEN_ON_STARTUP": false,
+  "MINIMIZE_TO_TRAY": false
 }

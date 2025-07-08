@@ -14,8 +14,7 @@
       "network",
       "pulseaudio",
       "cpu",
-      "memory",
-      "custom/power-menu"
+      "memory"
     ],
     "hyprland/workspaces": {
       "on-click": "activate",
@@ -71,7 +70,7 @@
       "tooltip-format-disconnected": "Disconnected",
       "interval": 3,
       "nospacing": 1,
-      "on-click": "ghostty -e impala"
+      "on-click": "ghostty --class=Impala -e impala"
     },
     "bluetooth": {
       "format": "",
@@ -89,9 +88,4 @@
       "on-click-right": "pamixer -t",
       "ignored-sinks": ["Easy Effects Sink"]
     },
-    "custom/power-menu": {
-      "format": "󰐥",
-      "on-click": "~/.local/share/omarchy/bin/omarchy-power-menu",
-      "tooltip": false
-    }
 }

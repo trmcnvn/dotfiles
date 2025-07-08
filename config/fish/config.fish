@@ -1,3 +1,6 @@
+# Mise
+mise activate fish | source
+
 # Path Configuration
 set -l machine_name (uname)
 fish_add_path -g \
@@ -10,7 +13,6 @@ fish_add_path -g \
     $HOME/.nimble/bin \
     $HOME/.dotnet/bin \
     $(go env GOPATH)/bin \
-    $HOME/.local/share/mise/shims \
     $HOME/.bun/bin
 
 # OS-specific paths
