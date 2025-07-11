@@ -65,7 +65,7 @@ return {
 					end,
 				},
 				center = { "recording" },
-				right = { "diagnostics", "progress" },
+				right = { "diagnostics", "filetype_lsp", "progress" },
 			},
 		},
 	},
