@@ -76,12 +76,12 @@ return {
 				formatting = {
 					expandable_indicator = true,
 					format = function(entry, item)
-						local color_item = require("nvim-highlight-colors").format(entry, { kind = item.kind })
+						-- local color_item = require("nvim-highlight-colors").format(entry, { kind = item.kind })
 						item = format_item_with_lspkind(entry, item)
-						if color_item.abbr_hl_group then
-							item.kind_hl_group = color_item.abbr_hl_group
-							item.kind = color_item.kind
-						end
+						-- if color_item.abbr_hl_group then
+						-- 	item.kind_hl_group = color_item.abbr_hl_group
+						-- 	item.kind = color_item.kind
+						-- end
 						return item
 					end,
 				},

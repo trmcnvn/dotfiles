@@ -36,88 +36,88 @@ local function jj_revision()
 end
 
 return {
-	{
-		"nvim-lualine/lualine.nvim",
-		event = "UIEnter",
-		init = function()
-			-- Hide statusline until lualine loads
-			vim.g.lualine_laststatus = vim.o.laststatus
-			if vim.fn.argc(-1) > 0 then
-				vim.o.statusline = " "
-			else
-				vim.o.laststatus = 0
-			end
-		end,
-		config = function()
-			vim.o.laststatus = vim.g.lualine_laststatus
-			require("lualine").setup({
-				options = {
-					theme = "rose-pine",
-					globalstatus = vim.o.laststatus == 3,
-					component_separators = "",
-					section_separators = { left = "", right = "" },
-					disabled_filetypes = { statusline = { "snacks_dashboard" }, winbar = {} },
-					ignore_focus = {},
-					always_divide_middle = true,
-					refresh = {
-						statusline = 100, -- Fast refresh for statusline
-						tabline = 1000,
-						winbar = 1000,
-					},
-				},
-				sections = {
-					lualine_a = { "mode" },
-					lualine_b = {
-						{
-							jj_revision,
-							icon = "@",
-							cond = function()
-								return vim.fn.executable("jj") == 1
-							end,
-						},
-					},
-					lualine_c = {
-						{ "filename", path = 1 }, -- Show relative path
-						{
-							"diff",
-							source = function()
-								local minidiff = vim.b.minidiff_summary
-								if minidiff then
-									return {
-										added = minidiff.add,
-										modified = minidiff.change,
-										removed = minidiff.delete,
-									}
-								end
-							end,
-						},
-					},
-					lualine_x = {
-						{ "filetype", separator = "" },
-					},
-					lualine_y = {
-						{ "progress", separator = " ", padding = { left = 1, right = 0 } },
-						{ "location", padding = { left = 0, right = 1 } },
-					},
-					lualine_z = {
-						function()
-							return " " .. os.date("%R")
-						end,
-					},
-				},
-				inactive_sections = {
-					lualine_a = { { "filename", path = 1 } },
-					lualine_b = {},
-					lualine_c = {},
-					lualine_x = {},
-					lualine_y = {},
-					lualine_z = { "location" },
-				},
-				tabline = {},
-				winbar = {},
-				inactive_winbar = {},
-				extensions = {},
-			})
-		end,
-	},
+	-- {
+	-- 	"nvim-lualine/lualine.nvim",
+	-- 	event = "UIEnter",
+	-- 	init = function()
+	-- 		-- Hide statusline until lualine loads
+	-- 		vim.g.lualine_laststatus = vim.o.laststatus
+	-- 		if vim.fn.argc(-1) > 0 then
+	-- 			vim.o.statusline = " "
+	-- 		else
+	-- 			vim.o.laststatus = 0
+	-- 		end
+	-- 	end,
+	-- 	config = function()
+	-- 		vim.o.laststatus = vim.g.lualine_laststatus
+	-- 		require("lualine").setup({
+	-- 			options = {
+	-- 				theme = "rose-pine",
+	-- 				globalstatus = vim.o.laststatus == 3,
+	-- 				component_separators = "",
+	-- 				section_separators = { left = "", right = "" },
+	-- 				disabled_filetypes = { statusline = { "snacks_dashboard" }, winbar = {} },
+	-- 				ignore_focus = {},
+	-- 				always_divide_middle = true,
+	-- 				refresh = {
+	-- 					statusline = 100, -- Fast refresh for statusline
+	-- 					tabline = 1000,
+	-- 					winbar = 1000,
+	-- 				},
+	-- 			},
+	-- 			sections = {
+	-- 				lualine_a = { "mode" },
+	-- 				lualine_b = {
+	-- 					{
+	-- 						jj_revision,
+	-- 						icon = "@",
+	-- 						cond = function()
+	-- 							return vim.fn.executable("jj") == 1
+	-- 						end,
+	-- 					},
+	-- 				},
+	-- 				lualine_c = {
+	-- 					{ "filename", path = 1 }, -- Show relative path
+	-- 					{
+	-- 						"diff",
+	-- 						source = function()
+	-- 							local minidiff = vim.b.minidiff_summary
+	-- 							if minidiff then
+	-- 								return {
+	-- 									added = minidiff.add,
+	-- 									modified = minidiff.change,
+	-- 									removed = minidiff.delete,
+	-- 								}
+	-- 							end
+	-- 						end,
+	-- 					},
+	-- 				},
+	-- 				lualine_x = {
+	-- 					{ "filetype", separator = "" },
+	-- 				},
+	-- 				lualine_y = {
+	-- 					{ "progress", separator = " ", padding = { left = 1, right = 0 } },
+	-- 					{ "location", padding = { left = 0, right = 1 } },
+	-- 				},
+	-- 				lualine_z = {
+	-- 					function()
+	-- 						return " " .. os.date("%R")
+	-- 					end,
+	-- 				},
+	-- 			},
+	-- 			inactive_sections = {
+	-- 				lualine_a = { { "filename", path = 1 } },
+	-- 				lualine_b = {},
+	-- 				lualine_c = {},
+	-- 				lualine_x = {},
+	-- 				lualine_y = {},
+	-- 				lualine_z = { "location" },
+	-- 			},
+	-- 			tabline = {},
+	-- 			winbar = {},
+	-- 			inactive_winbar = {},
+	-- 			extensions = {},
+	-- 		})
+	-- 	end,
+	-- },
 }

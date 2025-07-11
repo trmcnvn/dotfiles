@@ -18,32 +18,6 @@ return {
     end,
   },
   {
-    "catppuccin/nvim",
-    name = "catppuccin",
-    lazy = true,
-    config = function()
-      require("catppuccin").setup({
-        flavour = "mocha",
-        term_colors = true,
-        integrations = {
-          cmp = true,
-          fidget = true,
-          harpoon = true,
-          mason = true,
-          dap = true,
-          dap_ui = true,
-          treesitter = true,
-          ufo = true,
-          render_markdown = true,
-          snacks = {
-            enabled = true,
-            indent_scope_color = "text",
-          },
-        },
-      })
-    end,
-  },
-  {
     "f-person/auto-dark-mode.nvim",
     event = "VeryLazy",
     config = function()

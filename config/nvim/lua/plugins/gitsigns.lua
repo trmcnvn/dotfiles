@@ -10,15 +10,5 @@ return {
 				end,
 			},
 		},
-		opts = {
-			view = {
-				style = "sign",
-				signs = {
-					add = "▎",
-					change = "▎",
-					delete = "",
-				},
-			},
-		},
 	},
 }
