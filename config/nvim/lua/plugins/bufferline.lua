@@ -2,23 +2,40 @@ return {
 	{
 		"akinsho/bufferline.nvim",
 		event = "Colorscheme",
-		dependencies = { "rose-pine/neovim", "folke/snacks.nvim" },
 		keys = {
 			{ "<Tab>", "<Cmd>BufferLineCycleNext<CR>", desc = "Next buffer" },
 			{ "<S-Tab>", "<Cmd>BufferLineCyclePrev<CR>", desc = "Prev buffer" },
 		},
 		config = function()
 			local bufferline = require("bufferline")
-			local p = require("rose-pine.palette")
+			-- local p = require("rose-pine.palette")
 
 			bufferline.setup({
 				-- Custom highlights with rose-pine integration
-				highlights = vim.tbl_deep_extend("force", require("rose-pine.plugins.bufferline"), {
-					fill = { bg = p.base },
+				-- highlights = vim.tbl_deep_extend("force", require("rose-pine.plugins.bufferline"), {
+				-- 	fill = { bg = "none" },
+				-- 	buffer_selected = { italic = false },
+				-- 	close_button_selected = { bg = p.surface, fg = p.text },
+				-- 	indicator_selected = { bg = p.surface },
+				-- }),
+				highlights = {
+					fill = { bg = { attribute = "bg", highlight = "Normal" } },
 					buffer_selected = { italic = false },
-					close_button_selected = { bg = p.surface, fg = p.text },
-					indicator_selected = { bg = p.surface },
-				}),
+					diagnostic_selected = { italic = false },
+					hint_selected = { italic = false },
+					hint_diagnostic_selected = { italic = false },
+					info_selected = { italic = false },
+					info_diagnostic_selected = { italic = false },
+					warning_selected = { italic = false },
+					warning_diagnostic_selected = { italic = false },
+					error_selected = { italic = false },
+					error_diagnostic_selected = { italic = false },
+					duplicate_selected = { italic = false },
+					duplicate_visible = { italic = false },
+					pick_selected = { italic = false },
+					pick_visible = { italic = false },
+					pick = { italic = false },
+				},
 
 				-- Bufferline behavior and appearance
 				options = {
