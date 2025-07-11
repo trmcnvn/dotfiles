@@ -54,7 +54,7 @@ quit-after-last-window-closed = true
 confirm-close-surface = true
 
 # Theme
-theme = "rose-pine-custom"
+theme = bloom-faerie-dark
 macos-icon = official
 background-opacity = 0.98
 # background-blur-radius = 20
