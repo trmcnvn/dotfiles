@@ -5,7 +5,7 @@ local jj_cache = {
 	update_interval = 120,
 }
 
-local function jj_revision()
+local function jj_info()
 	local current_time = os.time()
 
 	-- Return cached value if not expired
@@ -26,9 +26,9 @@ local function jj_revision()
 
 	-- Handle errors and cleanup
 	if vim.v.shell_error ~= 0 then
-		jj_cache.value = "jj error"
+		jj_cache.value = nil
 	else
-		jj_cache.value = output:gsub("\n$", "") .. " " .. closest_bookmark:gsub("\n$", "")
+		jj_cache.value = { change_id = output:gsub("\n$", ""), bookmark = closest_bookmark:gsub("\n$", "") }
 	end
 	jj_cache.last_update = current_time
 
@@ -45,8 +45,23 @@ return {
 				left = {
 					"mode",
 					"path",
-					function()
-						return jj_revision()
+					function(active)
+						local slimline = require("slimline")
+						local jj = jj_info()
+						if not jj then
+							return ""
+						end
+
+						local icons = slimline.config.configs["git"].icons
+						local change_id = string.format("%s %s", icons.branch, jj.change_id)
+
+						return slimline.highlights.hl_component(
+							{ primary = change_id, secondary = jj.bookmark },
+							slimline.highlights.hls.components["path"],
+							slimline.get_sep("path"),
+							"right",
+							active
+						)
 					end,
 				},
 				center = { "recording" },
