@@ -1,0 +1,8 @@
+[2025-07-12 04:30:49.694] [info] Using configuration file /home/trmcnvn/.config/waybar/config
+[2025-07-12 04:30:49.695] [info] Discovered appearance 'dark'
+[2025-07-12 04:30:49.695] [info] Using CSS file /home/trmcnvn/.config/waybar/style.css
+[2025-07-12 04:30:49.699] [info] Hyprland IPC starting
+[2025-07-12 04:30:49.699] [info] Loading persistent workspaces from Waybar config
+[2025-07-12 04:30:49.699] [info] Loading persistent workspaces from Hyprland workspace rules
+Fontconfig warning: using without calling FcInit()
+[2025-07-12 04:30:49.820] [info] Bar configured (width: 2752, height: 26) for output: DP-2

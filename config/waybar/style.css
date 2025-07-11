@@ -2,8 +2,9 @@
   border: none;
   border-radius: 0;
   min-height: 0;
-  font-family: TX-02;
+  font-family: MonoLisa;
   font-weight: normal;
+  font-feature-settings: "ss04, zero";
   font-size: 14px;
 }
 

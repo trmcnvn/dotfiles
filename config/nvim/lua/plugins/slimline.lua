@@ -26,7 +26,7 @@ local function jj_info()
 
 	-- Handle errors and cleanup
 	if vim.v.shell_error ~= 0 then
-		jj_cache.value = nil
+		jj_cache.value = {}
 	else
 		jj_cache.value = { change_id = output:gsub("\n$", ""), bookmark = closest_bookmark:gsub("\n$", "") }
 	end
@@ -53,10 +53,10 @@ return {
 						end
 
 						local icons = slimline.config.configs["git"].icons
-						local change_id = string.format("%s %s", icons.branch, jj.change_id)
+						local change_id = string.format("%s %s", icons.branch, jj.change_id or "jj")
 
 						return slimline.highlights.hl_component(
-							{ primary = change_id, secondary = jj.bookmark },
+							{ primary = change_id, secondary = jj.bookmark or "error" },
 							slimline.highlights.hls.components["path"],
 							slimline.get_sep("path"),
 							"right",

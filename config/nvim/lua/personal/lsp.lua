@@ -24,6 +24,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
 	end,
 })
 
+-- LSP Base
+local M = require("utils.capabilities")
+vim.lsp.config("*", M.with_capabilities({}))
+
 -- harper_ls
 vim.lsp.config("harper_ls", {
 	filetypes = { "markdown" },
