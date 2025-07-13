@@ -1,51 +1,28 @@
--- Bootstrap lazy.nvim
-local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not (vim.uv or vim.loop).fs_stat(lazypath) then
-	local lazyrepo = "https://github.com/folke/lazy.nvim.git"
-	local out = vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable", lazyrepo, lazypath })
-	if vim.v.shell_error ~= 0 then
-		vim.api.nvim_echo({
-			{ "Failed to clone lazy.nvim:\n", "ErrorMsg" },
-			{ out, "WarningMsg" },
-			{ "\nPress any key to exit..." },
-		}, true, {})
-		vim.fn.getchar()
-		os.exit(1)
+local plugin_tbl = {}
+local plugin_packs = {}
+local plugin_dir = vim.fn.readdir(vim.fn.stdpath("config") .. "/lua/plugins")
+
+-- Load all plugin files under lua/plugins, instead of having a massive
+-- config file here
+for _, file in ipairs(plugin_dir) do
+	if file:match("%.lua$") then
+		local module_name = "plugins." .. file:gsub("%.lua$", "")
+		local ok, plugin = pcall(require, module_name)
+		if ok and type(plugin) == "table" then
+			table.insert(plugin_tbl, plugin)
+			if type(plugin.pack) == "table" then
+				table.insert(plugin_packs, plugin.pack)
+			end
+		end
 	end
 end
-vim.opt.rtp:prepend(lazypath)
 
--- Setup lazy.nvim
-require("lazy").setup({
-	spec = {
-		import = "plugins", -- Load plugins from lua/plugins/
-	},
-	-- Disable luarocks integration
-	rocks = { enabled = false },
-	performance = {
-		cache = {
-			enabled = true, -- Enable caching for faster startup
-		},
-		reset_packpath = true, -- Reset packpath to improve startup time
-		rtp = {
-			reset = true, -- Reset runtime path to default + plugins
-			paths = {}, -- Add any custom paths here
-			disabled_plugins = {
-				"gzip",
-				"matchit",
-				"matchparen", 
-				"netrwPlugin",
-				"tarPlugin",
-				"tohtml",
-				"tutor",
-				"zipPlugin",
-			},
-		},
-	},
-	checker = {
-		enabled = false,
-	},
-	ui = {
-		border = "single",
-	},
-})
+-- Add each plugin to vim.pack
+vim.pack.add(plugin_packs)
+
+-- Call the config function for each plugin
+for _, plugin in ipairs(plugin_tbl) do
+	if type(plugin.config) == "function" then
+		pcall(plugin.config)
+	end
+end

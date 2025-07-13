@@ -1,7 +1,6 @@
 return {
-	{
-		"folke/persistence.nvim",
-		event = "BufReadPre",
-		opts = {},
-	},
+	pack = { src = "https://github.com/folke/persistence.nvim" },
+	config = function()
+		require("persistence").setup({})
+	end,
 }

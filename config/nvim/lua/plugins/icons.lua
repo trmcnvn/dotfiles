@@ -1,8 +1,7 @@
 return {
-	{
-		"echasnovski/mini.icons",
-		lazy = true,
-		opts = {
+	pack = { src = "https://github.com/echasnovski/mini.icons" },
+	config = function()
+		require("mini.icons").setup({
 			file = {
 				[".gitkeep"] = { glyph = "󰊢", hl = "MiniIconsGrey" },
 				[".keep"] = { glyph = "󰊢", hl = "MiniIconsGrey" },
@@ -10,11 +9,8 @@ return {
 			filetype = {
 				dotenv = { glyph = "", hl = "MiniIconsYellow" },
 			},
-		},
-		config = function()
-			require("mini.icons").setup()
-			MiniIcons.mock_nvim_web_devicons()
-			MiniIcons.tweak_lsp_kind()
-		end,
-	},
+		})
+		MiniIcons.mock_nvim_web_devicons()
+		MiniIcons.tweak_lsp_kind()
+	end,
 }

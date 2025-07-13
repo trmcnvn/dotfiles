@@ -68,8 +68,10 @@ map_with_center("n", "gd", "gd", { desc = "Go to definition and center" })
 
 -- Terminal
 M.n("<leader>t", function()
-	local shell = vim.o.shell or "bash"
-	require("lazy.util").float_term(shell, { border = "single" })
+	vim.cmd.vnew()
+	vim.cmd.term()
+	vim.cmd.wincmd("J")
+	vim.api.nvim_win_set_height(0, 10)
 end, { desc = "Open floating terminal" })
 
 -- Quick search/replace

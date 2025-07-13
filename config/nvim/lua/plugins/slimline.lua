@@ -36,9 +36,9 @@ local function jj_info()
 end
 
 return {
-	{
-		"sschleemilch/slimline.nvim",
-		opts = {
+	pack = { src = "https://github.com/sschleemilch/slimline.nvim" },
+	config = function()
+		require("slimline").setup({
 			bold = true,
 			style = "fg",
 			components = {
@@ -67,6 +67,10 @@ return {
 				center = { "recording" },
 				right = { "diagnostics", "filetype_lsp", "progress" },
 			},
-		},
-	},
+			hl = {
+				base = "StatusLine",
+				primary = "StatusLine",
+			},
+		})
+	end,
 }

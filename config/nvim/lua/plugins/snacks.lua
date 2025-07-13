@@ -1,12 +1,16 @@
 return {
-	{
-		"folke/snacks.nvim",
-		priority = 1000,
-		lazy = false,
-		opts = {
+	pack = { src = "https://github.com/folke/snacks.nvim" },
+	config = function()
+		require("snacks").setup({
 			bigfile = { enabled = true },
 			bufdelete = { enabled = true },
-			dashboard = { enabled = true },
+			dashboard = {
+        enabled = true,
+        sections = {
+          { section = "header" },
+          { section = "keys", gap = 1, padding = 1 }
+        }
+      },
 			input = { enabled = true },
 			layout = { enabled = true },
 			notify = { enabled = true },
@@ -48,98 +52,56 @@ return {
 			rename = { enabled = true },
 			util = { enabled = true },
 			win = { enabled = true },
-		},
-		keys = {
-			-- Notifier
-			{
-				"<leader>n",
-				function()
-					Snacks.picker.notifications()
-				end,
-			},
-			{
-				"<leader>un",
-				function()
-					Snacks.notifier.hide()
-				end,
-			},
-			-- Bufdelete
-			{
-				"<leader>w",
-				function()
-					Snacks.bufdelete({ buf = vim.api.nvim_get_current_buf() })
-				end,
-			},
-			{
-				"<D-w>",
-				function()
-					Snacks.bufdelete({ buf = vim.api.nvim_get_current_buf() })
-				end,
-			},
-			-- Picker
-			{
-				"<leader>f",
-				function()
-					Snacks.picker.files()
-				end,
-			},
-			{
-				"<leader>o",
-				function()
-					Snacks.picker.recent({
-						filter = { cwd = true },
-					})
-				end,
-			},
-			{
-				"<leader>df",
-				function()
-					Snacks.picker.files({ cwd = "~/code/dotfiles" })
-				end,
-			},
-			{
-				"<leader>r",
-				function()
-					Snacks.picker.grep()
-				end,
-			},
-			{
-				"<leader>gr",
-				function()
-					Snacks.picker.lsp_references()
-				end,
-			},
-			{
-				"gd",
-				function()
-					Snacks.picker.lsp_definitions()
-				end,
-			},
-			{
-				"gt",
-				function()
-					Snacks.picker.lsp_type_definitions()
-				end,
-			},
-			{
-				"gi",
-				function()
-					Snacks.picker.lsp_implementations()
-				end,
-			},
-			{
-				"<leader>O",
-				function()
-					Snacks.picker.lsp_symbols()
-				end,
-			},
-			-- Misc
-			{
-				"<leader>ln",
-				function()
-					Snacks.toggle.option("relativenumber"):toggle()
-				end,
-			},
-		},
-	},
+		})
+
+		local M = require("utils.keymaps")
+		-- Notifier
+		M.n("<leader>n", function()
+			Snacks.picker.notifications()
+		end)
+		M.n("<leader>un", function()
+			Snacks.notifier.hide()
+		end)
+		-- Bufdelete
+		M.n("<leader>w", function()
+			Snacks.bufdelete({ buf = vim.api.nvim_get_current_buf() })
+		end)
+		M.n("<D-w>", function()
+			Snacks.bufdelete({ buf = vim.api.nvim_get_current_buf() })
+		end)
+		-- Picker
+		M.n("<leader>f", function()
+			Snacks.picker.files()
+		end)
+		M.n("<leader>o", function()
+			Snacks.picker.recent({
+				filter = { cwd = true },
+			})
+		end)
+		M.n("<leader>df", function()
+			Snacks.picker.files({ cwd = "~/code/dotfiles" })
+		end)
+		M.n("<leader>r", function()
+			Snacks.picker.grep()
+		end)
+		M.n("<leader>gr", function()
+			Snacks.picker.lsp_references()
+		end)
+		M.n("gd", function()
+			Snacks.picker.lsp_definitions()
+		end)
+		M.n("gt", function()
+			Snacks.picker.lsp_type_definitions()
+		end)
+		M.n("gi", function()
+			Snacks.picker.lsp_implementations()
+		end)
+		M.n("<leader>O", function()
+			Snacks.picker.lsp_symbols()
+		end)
+		-- Misc
+		M.n("<leader>ln", function()
+			Snacks.toggle.option("relativenumber"):toggle()
+		end)
+	end,
 }

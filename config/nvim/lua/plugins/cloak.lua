@@ -1,8 +1,7 @@
 return {
-	{
-		"laytan/cloak.nvim",
-		lazy = false,
-		opts = {
+	pack = { src = "https://github.com/laytan/cloak.nvim" },
+	config = function()
+		require("cloak").setup({
 			patterns = {
 				{
 					file_pattern = { "**/.env*" },
@@ -19,6 +18,6 @@ return {
 					replace = "%1 ",
 				},
 			},
-		},
-	},
+		})
+	end,
 }

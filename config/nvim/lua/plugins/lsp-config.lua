@@ -1,3 +1,3 @@
 return {
-  { "neovim/nvim-lspconfig" }
+	pack = { src = "https://github.com/neovim/nvim-lspconfig" },
 }
