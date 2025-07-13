@@ -56,6 +56,7 @@ vim.lsp.config("lua_ls", {
 
 -- ruby_lsp
 vim.lsp.config("ruby_lsp", {
+	mason = false,
 	init_options = {
 		formatter = "rubocop",
 		linters = { "rubocop" },
@@ -89,7 +90,7 @@ vim.lsp.config("ruby_lsp", {
 			local params = vim.lsp.util.make_text_document_params()
 			local showAll = opts.args == "all"
 
-			client.request("rubyLsp/workspace/dependencies", params, function(error, result)
+			client:request("rubyLsp/workspace/dependencies", params, function(error, result)
 				if error then
 					print("Error showing deps: " .. error)
 					return
@@ -118,7 +119,7 @@ vim.lsp.config("ruby_lsp", {
 		-- Force re-index when attaching
 		vim.defer_fn(function()
 			if client.server_capabilities.workspaceSymbolProvider then
-				client.request("workspace/executeCommand", {
+				client:request("workspace/executeCommand", {
 					command = "rubyLsp.reloadProject",
 					arguments = {},
 				})
@@ -126,3 +127,4 @@ vim.lsp.config("ruby_lsp", {
 		end, 1000)
 	end,
 })
+vim.lsp.enable("ruby_lsp") -- Not using Mason install for this one due to issues between Ruby versions
