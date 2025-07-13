@@ -23,9 +23,14 @@
 #network,
 #bluetooth,
 #pulseaudio,
-#clock {
+#clock,
+#tray {
   min-width: 12px;
   margin-right: 13px;
+}
+
+#custom-expand-icon {
+  margin-right: 12px;
 }
 
 tooltip {

@@ -5,12 +5,12 @@ return {
 			bigfile = { enabled = true },
 			bufdelete = { enabled = true },
 			dashboard = {
-        enabled = true,
-        sections = {
-          { section = "header" },
-          { section = "keys", gap = 1, padding = 1 }
-        }
-      },
+				enabled = true,
+				sections = {
+					{ section = "header" },
+					{ section = "keys", gap = 1, padding = 1 },
+				},
+			},
 			input = { enabled = true },
 			layout = { enabled = true },
 			notify = { enabled = true },
@@ -50,6 +50,19 @@ return {
 				},
 			},
 			rename = { enabled = true },
+			terminal = {
+				enabled = true,
+				win = {
+					style = {
+						position = "float",
+						backdrop = 60,
+						height = 0.6,
+						width = 0.6,
+						zindex = 50,
+						border = "single",
+					},
+				},
+			},
 			util = { enabled = true },
 			win = { enabled = true },
 		})
