@@ -138,3 +138,9 @@ vim.filetype.add({
 		["*.mjml"] = "html",
 	},
 })
+
+-- Convenient keymaps for common typos
+vim.keymap.set("c", "W", "w", { desc = "Save file" })
+vim.keymap.set("c", "Q", "q", { desc = "Quit" })
+vim.keymap.set("c", "Wq", "wq", { desc = "Save and quit" })
+vim.keymap.set("c", "WQ", "wq", { desc = "Save and quit" })
