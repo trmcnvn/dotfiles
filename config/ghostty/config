@@ -20,7 +20,7 @@ window-title-font-family = MonoLisa Regular
 # font-style-italic = Retina SemiCondensed Oblique
 # font-style-bold = Bold SemiCondensed
 # font-style-bold-italic = Bold SemiCondensed Oblique
-# font-size = 11
+# font-size = 10
 # window-title-font-family = TX-02 Retina SemiCondensed
 
 # General font settings
@@ -55,6 +55,7 @@ clipboard-write = allow
 clipboard-paste-protection = false
 quit-after-last-window-closed = true
 confirm-close-surface = true
+resize-overlay = never
 
 # Theme
 theme = bloom-faerie-dark
