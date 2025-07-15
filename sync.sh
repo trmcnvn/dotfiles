@@ -7,6 +7,7 @@ find "$(pwd)/config" -type f -print0 | while IFS= read -r -d '' file; do
 done
 
 find "$(pwd)/home" -type f -print0 | while IFS= read -r -d '' file; do
-  filename=$(basename "$file")
-  ln -sf "$file" "$HOME/$filename"
+  rel_path="${file#$(pwd)/home}"
+  mkdir -p "$HOME/$(dirname "$rel_path")"
+  ln -sf "$file" "$HOME$rel_path"
 done

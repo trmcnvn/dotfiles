@@ -2,36 +2,6 @@
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
--- Disable providers first for better startup performance
-local disabled_providers = { "python3", "node", "ruby", "perl" }
-for _, provider in ipairs(disabled_providers) do
-	vim.g["loaded_" .. provider .. "_provider"] = 0
-end
-
--- Disable built-in plugins
-local disabled_plugins = {
-	"gzip",
-	"zip",
-	"zipPlugin",
-	"tar",
-	"tarPlugin",
-	"getscript",
-	"getscriptPlugin",
-	"vimball",
-	"vimballPlugin",
-	"2html_plugin",
-	"matchit",
-	"matchparen",
-	"logiPat",
-	"rrhelper",
-	"netrw",
-	"netrwPlugin",
-	"netrwSettings",
-}
-for _, plugin in ipairs(disabled_plugins) do
-	vim.g["loaded_" .. plugin] = 1
-end
-
 -- File and encoding settings
 vim.opt.encoding = "utf-8"
 vim.opt.fileencoding = "utf-8"
@@ -69,7 +39,7 @@ vim.opt.cmdheight = 1
 vim.opt.laststatus = 3
 vim.opt.showmode = false
 vim.opt.showtabline = 0
-vim.opt.scrolloff = 8
+vim.opt.scrolloff = 3
 vim.opt.title = true
 vim.opt.wrap = false
 vim.opt.fillchars = { eob = " " }
@@ -83,6 +53,8 @@ vim.opt.tabstop = 2
 vim.opt.softtabstop = 2
 vim.opt.smarttab = true
 vim.opt.breakindent = true
+vim.opt.linebreak = true
+vim.opt.showbreak = [[\\]]
 vim.opt.shiftround = true
 vim.opt.clipboard = "unnamed,unnamedplus"
 
@@ -104,7 +76,7 @@ vim.opt.confirm = true
 
 -- Completion and command settings
 vim.opt.wildmode = "longest:full,full"
-vim.opt.pumheight = 10
+vim.opt.pumheight = 4
 
 -- Miscellaneous settings
 vim.opt.mouse = "a"
@@ -114,6 +86,8 @@ vim.opt.timeoutlen = 400
 vim.opt.completeopt = "menuone,noselect"
 vim.opt.spelllang = "en"
 vim.opt.sessionoptions = "buffers,curdir,folds,help,tabpages,winsize,winpos,terminal"
+vim.opt.foldmethod = "expr"
+vim.opt.foldlevel = 99
 
 -- Append to options
 vim.opt.backupskip:append("/tmp/*,/private/tmp/*")
@@ -156,12 +130,6 @@ vim.api.nvim_create_autocmd("FileType", {
 	pattern = { "gitcommit", "markdown", "txt" },
 	callback = enable_text_features,
 })
-
--- Convenient keymaps for common typos
-vim.keymap.set("c", "W", "w", { desc = "Save file" })
-vim.keymap.set("c", "Q", "q", { desc = "Quit" })
-vim.keymap.set("c", "Wq", "wq", { desc = "Save and quit" })
-vim.keymap.set("c", "WQ", "wq", { desc = "Save and quit" })
 
 -- Filetype
 vim.filetype.add({

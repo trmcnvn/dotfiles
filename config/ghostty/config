@@ -3,25 +3,25 @@ command = fish
 auto-update-channel = tip
 
 # MonoLisa
-font-family = MonoLisa
-font-style = Regular
-font-style-italic = Regular Italic
-font-style-bold = Bold
-font-style-bold-italic = Bold Italic
-font-feature = zero
-font-feature = ss04
-font-size = 10
-adjust-cell-width = -5%
-window-title-font-family = MonoLisa Regular
+# font-family = MonoLisa
+# font-style = Regular
+# font-style-italic = Regular Italic
+# font-style-bold = Bold
+# font-style-bold-italic = Bold Italic
+# font-feature = zero
+# font-feature = ss04
+# font-size = 11
+# adjust-cell-width = -5%
+# window-title-font-family = MonoLisa Regular
 
 # Berkeley Mono 2
-# font-family = TX-02
-# font-style = Retina SemiCondensed
-# font-style-italic = Retina SemiCondensed Oblique
-# font-style-bold = Bold SemiCondensed
-# font-style-bold-italic = Bold SemiCondensed Oblique
-# font-size = 10
-# window-title-font-family = TX-02 Retina SemiCondensed
+font-family = TX-02
+font-style = SemiCondensed
+font-style-italic = SemiCondensed Oblique
+font-style-bold = Bold SemiCondensed
+font-style-bold-italic = Bold SemiCondensed Oblique
+font-size = 11
+window-title-font-family = TX-02 SemiCondensed
 
 # General font settings
 font-thicken = true
@@ -58,7 +58,7 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-theme = bloom-faerie-dark
+theme = rose-pine-noir
 macos-icon = official
 background-opacity = 0.98
 # background-blur-radius = 20

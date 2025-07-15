@@ -5,15 +5,8 @@ mise activate fish | source
 set -l machine_name (uname)
 fish_add_path -g \
     /opt/homebrew/bin \
-    /home/linuxbrew/.linuxbrew/bin \
-    /usr/local/sbin \
     $HOME/.local/bin \
-    $HOME/.cargo/bin \
-    $HOME/.npm-global/bin \
-    $HOME/.nimble/bin \
-    $HOME/.dotnet/bin \
-    $(go env GOPATH)/bin \
-    $HOME/.bun/bin
+    $(go env GOPATH)/bin
 
 # OS-specific paths
 if test $machine_name = Darwin
@@ -29,17 +22,13 @@ set -gx XDG_CONFIG_HOME $HOME/.config
 set -gx XDG_DATA_HOME $HOME/.local/share
 set -gx XDG_STATE_HOME $HOME/.local/state
 set -gx EDITOR nvim
-set -gx CARGO_HOME $XDG_DATA_HOME/cargo
-set -gx PNPM_HOME $HOME/Library/pnpm
-set -gx GPG_TTY (tty)
 set -gx RUST_WITHOUT rust-docs
+set -gx CARGO_HOME $XDG_DATA_HOME/cargo
+set -gx GPG_TTY (tty)
 set -gx JJ_CONFIG $XDG_CONFIG_HOME/jj/config.toml
+set -gx RIPGREP_CONFIG_PATH $XDG_CONFIG_HOME/ripgrep/config
+set -gx PNPM_HOME $HOME/.pnpm
 set -gx BUN_INSTALL $HOME/.bun
-
-# OS-specific environment
-if test $machine_name = Darwin
-    set -gx TERM xterm-256color
-end
 
 # Path additions that depend on environment variables
 fish_add_path -g \
@@ -53,21 +42,11 @@ set -U fish_greeting ""  # Universal variable to persist greeting removal
 # Aliases
 alias cl='clear'
 alias ..='cd ..'
-alias ls='lsd'
+alias ls='exa'
 alias cat='bat'
 alias cd='z'
 alias vim='nvim'
-alias lg='lazygit'
-
-# Git Aliases
-alias gbra='git branch'
-alias gdif='git diff --no-prefix'
-alias glog='git log --color --oneline'
-alias gst='git status'
-alias gwl='git worktree list'
-alias gwa='git worktree add'
-alias gwr='git worktree remove'
-alias gwp='git worktree prune'
+alias vi='nvim'
 
 # Initialization
 zoxide init fish | source
