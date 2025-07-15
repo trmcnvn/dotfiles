@@ -1,4 +1,4 @@
 [general]
 copy-command = "wl-copy"
 # next version will support expansion
-output-filename = "/home/trmcnvn/Pictures/%Y-%m-%d_%H:%M:%S_satty.png"
+output-filename = "/home/trmcnvn/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"

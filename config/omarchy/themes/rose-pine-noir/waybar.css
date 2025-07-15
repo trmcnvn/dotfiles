@@ -1,0 +1,6 @@
+@define-color base #1b1a1e;
+@define-color text #e0def4;
+
+@define-color foreground @text;
+@define-color background @base;
+

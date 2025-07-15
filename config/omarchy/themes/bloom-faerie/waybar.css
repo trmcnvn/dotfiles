@@ -1,7 +1,0 @@
-@define-color base            #18191b;
-@define-color text            #c7c8cb;
-
-* { 
-  color: @text;
-  background: @base;
-}

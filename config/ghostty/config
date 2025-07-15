@@ -16,12 +16,14 @@ auto-update-channel = tip
 
 # Berkeley Mono 2
 font-family = TX-02
-font-style = SemiCondensed
-font-style-italic = SemiCondensed Oblique
-font-style-bold = Bold SemiCondensed
-font-style-bold-italic = Bold SemiCondensed Oblique
+font-style = Condensed
+font-style-italic = Condensed Oblique
+font-style-bold = Bold Condensed
+font-style-bold-italic = Bold Condensed Oblique
 font-size = 11
-window-title-font-family = TX-02 SemiCondensed
+font-feature = zero
+adjust-cell-height=2%
+window-title-font-family = TX-02 Condensed
 
 # General font settings
 font-thicken = true
@@ -30,14 +32,15 @@ font-synthetic-style = false
 # Cursor
 cursor-style-blink = false
 mouse-hide-while-typing = true
+mouse-scroll-multiplier = 3
 
 # Window
 window-inherit-font-size = true
 window-save-state = never
 window-padding-color = background
 window-padding-balance = true
-window-padding-x = 0
-window-padding-y = 0
+window-padding-x = 14
+window-padding-y = 14
 window-colorspace = display-p3
 macos-option-as-alt = true
 macos-window-shadow = false
@@ -58,7 +61,7 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-theme = rose-pine-noir
+theme = catppuccin-mocha-custom
 macos-icon = official
 background-opacity = 0.98
 # background-blur-radius = 20
