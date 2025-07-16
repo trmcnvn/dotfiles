@@ -1,8 +1,16 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "theme": "opencode",
-  "model": "anthropic/claude-sonnet-4-20250514",
-  "autoshare": false,
+  "theme": "system",
+  "share": "disabled",
   "autoupdate": false,
-  "theme": "system"
+  "model": "anthropic/claude-opus-4-20250514",
+  "small_model": "openrouter/google/gemini-2.5-flash",
+  "username": "Tom",
+  "mcp": {
+    "postgres-metafy": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/metafy_development"],
+      "enabled": true
+    }
+  }
 }

@@ -2,7 +2,7 @@
   "reload_style_on_change": true,
   "layer": "top",
   "position": "top",
-  "spacing": 4,
+  "spacing": 0,
   "height": 26,
   "modules-left": [
     "hyprland/workspaces"
@@ -12,7 +12,6 @@
   ],
   "modules-right": [
     "group/tray-expander",
-    "bluetooth",
     "network",
     "pulseaudio",
     "cpu",
@@ -22,34 +21,24 @@
     "on-click": "activate",
     "format": "{icon}",
     "format-icons": {
-      "default": "",
-      "1": "1",
-      "2": "2",
-      "3": "3",
-      "4": "4",
-      "5": "5",
-      "6": "6",
-      "7": "7",
-      "8": "8",
-      "9": "9",
-      "active": "󱓻"
+      "1": "󰈹 ",
+      "2": "󰊠 ",
+      "3": " ",
+      "4": "󰓇 ",
+      "5": "󰉋 "
     },
     "persistent-workspaces": {
-      "1": [],
-      "2": [],
-      "3": [],
-      "4": [],
-      "5": []
+      "*": [1,2,3,4,5]
     }
   },
   "cpu": {
     "interval": 5,
-    "format": "󰍛",
-    "on-click": "ghostty -e btop"
+    "format": "󰍛 ",
+    "on-click": "ghostty -e btop +new-window"
   },
   "memory": {
-    "format": "",
-    "on-click": "ghostty -e btop"
+    "format": " ",
+    "on-click": "ghostty -e btop +new-window"
   },  
   "clock": {
     "format": "{:%A %H:%M}",
@@ -62,30 +51,23 @@
     }
   },
   "network": {
-    "format-icons": ["󰤯","󰤟","󰤢","󰤥","󰤨"],
+    "format-icons": ["󰤯 ","󰤟 ","󰤢 ","󰤥 ","󰤨 "],
     "format" : "{icon}",
     "format-wifi" : "{icon}",
-    "format-ethernet" : "󰀂",
-    "format-disconnected" : "󰖪",
+    "format-ethernet" : "󰀂 ",
+    "format-disconnected" : "󰖪 ",
     "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-disconnected": "Disconnected",
+    "tooltip-format": "<span color='#bac2de'>󰕒 </span> {bandwidthUpBytes}  <span color='#bac2de'>󰇚</span> {bandwidthDownBytes}",
     "interval": 3,
-    "nospacing": 1,
-    "on-click": "ghostty --class=Impala -e impala"
-  },
-  "bluetooth": {
-    "format": "",
-    "format-disabled": "󰂲",
-    "format-connected": "",
-    "tooltip-format": "Devices connected: {num_connections}",
-    "on-click": "ghostty -e bluetui"
+    "on-click": "ghostty --class=Impala -e impala +new-window"
   },
   "pulseaudio": {
-    "format": "",
-    "format-muted": "󰝟",
+    "format": " ",
+    "format-muted": "󰝟 ",
     "scroll-step": 5,
-    "on-click": "GTK_THEME=Adwaita-dark pavucontrol",
+    "on-click": "ghostty --class=Wiremix -e wiremix +new-window",
     "tooltip-format": "Playing at {volume}%",
     "on-click-right": "pamixer -t",
     "ignored-sinks": ["Easy Effects Sink"]

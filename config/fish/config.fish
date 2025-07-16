@@ -6,7 +6,8 @@ set -l machine_name (uname)
 fish_add_path -g \
     /opt/homebrew/bin \
     $HOME/.local/bin \
-    $(go env GOPATH)/bin
+    $(go env GOPATH)/bin \
+    $HOME/.local/share/omarchy/bin
 
 # OS-specific paths
 if test $machine_name = Darwin

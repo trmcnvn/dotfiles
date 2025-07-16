@@ -20,7 +20,7 @@ font-style = Condensed
 font-style-italic = Condensed Oblique
 font-style-bold = Bold Condensed
 font-style-bold-italic = Bold Condensed Oblique
-font-size = 11
+font-size = 10
 font-feature = zero
 adjust-cell-height=2%
 window-title-font-family = TX-02 Condensed
@@ -57,6 +57,7 @@ clipboard-read = allow
 clipboard-write = allow
 clipboard-paste-protection = false
 quit-after-last-window-closed = true
+quit-after-last-window-closed-delay = 5m
 confirm-close-surface = true
 resize-overlay = never
 
