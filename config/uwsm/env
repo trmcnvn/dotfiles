@@ -1,0 +1,14 @@
+WEBKIT_DISABLE_DMABUF_RENDERER=1
+nvd_backend=direct
+libva_driver_name=nvidia
+__glx_vendor_library_name=nvidia
+XCURSOR_SIZE=24
+HYPRCURSOR_SIZE=24
+GDK_BACKEND=wayland
+QT_QPA_PLATFORM=wayland
+QT_STYLE_OVERRIDE=kvantum
+SDL_VIDEODRIVER=wayland
+MOZ_ENABLE_WAYLAND=1
+ELECTRON_OZONE_PLATFORM_HINT=wayland
+OZONE_PLATFORM=wayland
+XCOMPOSEFILE=~/.XCompose
