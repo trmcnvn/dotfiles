@@ -43,11 +43,13 @@ set -U fish_greeting ""  # Universal variable to persist greeting removal
 # Aliases
 alias cl='clear'
 alias ..='cd ..'
-alias ls='exa'
 alias cat='bat'
 alias cd='z'
 alias vim='nvim'
 alias vi='nvim'
+alias ls='eza -lh --group-directories-first --icons=auto'
+alias lt='eza --tree --level=2 --long --icons --git'
+alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
 
 # Initialization
 zoxide init fish | source

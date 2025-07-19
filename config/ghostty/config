@@ -56,8 +56,7 @@ shell-integration-features = no-cursor,sudo,title
 clipboard-read = allow
 clipboard-write = allow
 clipboard-paste-protection = false
-quit-after-last-window-closed = true
-quit-after-last-window-closed-delay = 5m
+quit-after-last-window-closed = false
 confirm-close-surface = true
 resize-overlay = never
 
