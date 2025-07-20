@@ -62,7 +62,7 @@ vim.lsp.config("lua_ls", {
 vim.lsp.config("ruby_lsp", {
 	mason = false,
 	init_options = {
-		formatter = "rubocop",
+		formatter = "rubocop_internal",
 		linters = { "rubocop" },
 		indexing = {
 			includedPatterns = { "**/*.rb", "**/*.rake", "**/*.ru" },
