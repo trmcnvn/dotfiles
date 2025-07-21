@@ -3,27 +3,26 @@ command = fish
 auto-update-channel = tip
 
 # MonoLisa
-# font-family = MonoLisa
-# font-style = Regular
-# font-style-italic = Regular Italic
-# font-style-bold = Bold
-# font-style-bold-italic = Bold Italic
-# font-feature = zero
-# font-feature = ss04
-# font-size = 10
-# adjust-cell-width = -5%
-# window-title-font-family = MonoLisa Regular
+font-family = MonoLisa
+font-style = Regular
+font-style-italic = Regular Italic
+font-style-bold = Bold
+font-style-bold-italic = Bold Italic
+font-feature = zero
+font-feature = ss04
+font-size = 10
+window-title-font-family = MonoLisa Regular
 
 # Berkeley Mono 2
-font-family = TX-02
-font-style = Condensed
-font-style-italic = Condensed Oblique
-font-style-bold = Bold Condensed
-font-style-bold-italic = Bold Condensed Oblique
-font-size = 12
-font-feature = zero
-adjust-cell-height=2%
-window-title-font-family = TX-02 Condensed
+# font-family = TX-02
+# font-style = Condensed
+# font-style-italic = Condensed Oblique
+# font-style-bold = Bold Condensed
+# font-style-bold-italic = Bold Condensed Oblique
+# font-size = 12
+# font-feature = zero
+# adjust-cell-height=2%
+# window-title-font-family = TX-02 Condensed
 
 # General font settings
 font-thicken = true
