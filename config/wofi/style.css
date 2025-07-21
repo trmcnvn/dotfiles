@@ -1,7 +1,7 @@
 /* Colors are defined by theme file and can be referenced via @base, @text, @selected-text, and @border */
 
 * {
-  font-family: TX-02, monospace;
+  font-family: MonoLisa, monospace;
   font-size: 18px;
 }
 
