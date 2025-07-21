@@ -79,9 +79,6 @@ return {
 		M.n("<leader>w", function()
 			Snacks.bufdelete({ buf = vim.api.nvim_get_current_buf() })
 		end)
-		M.n("<D-w>", function()
-			Snacks.bufdelete({ buf = vim.api.nvim_get_current_buf() })
-		end)
 		-- Picker
 		M.n("<leader>f", function()
 			Snacks.picker.files()

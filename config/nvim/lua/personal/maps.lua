@@ -18,11 +18,10 @@ M.n("<down>", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true, desc = 
 M.n("<up>", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true, desc = "Arrow up with wrap" })
 
 -- Editing and text manipulation
-M.n("<D-a>", function()
+M.n("<C-a>", function()
 	vim.api.nvim_command("normal! ggVG")
 end, { desc = "Select all" })
-M.n("<D-s>", "<cmd>w!<CR>", { desc = "Force save" })
-M.n("U", "<C-r>", { desc = "Redo" })
+M.n("<C-s>", "<cmd>w!<CR>", { desc = "Force save" })
 M.x("p", '"_dP', { desc = "Paste without overwriting register" })
 
 -- Buffer and window management
@@ -64,7 +63,6 @@ map_with_center("n", "n", "n", { desc = "Next search result and center" })
 map_with_center("n", "N", "N", { desc = "Previous search result and center" })
 map_with_center("n", "G", "G", { desc = "Go to bottom and center" })
 map_with_center("n", "gg", "gg", { desc = "Go to top and center" })
-map_with_center("n", "gd", "gd", { desc = "Go to definition and center" })
 
 -- Terminal
 M.n("<leader>t", function()
@@ -107,8 +105,6 @@ M.n("gn", "<cmd>lua vim.lsp.buf.rename()<cr>", { desc = "Rename symbol" })
 M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>", { desc = "Show diagnostic float" })
 M.n("ca", "<cmd>lua vim.lsp.buf.code_action()<cr>", { desc = "Code actions" })
 M.n("gD", "<cmd>lua vim.lsp.buf.declaration()<cr>", { desc = "Go to declaration" })
-M.n("gi", "<cmd>lua vim.lsp.buf.implementation()<cr>", { desc = "Go to implementation" })
-M.n("gr", "<cmd>lua vim.lsp.buf.references()<cr>", { desc = "Show references" })
 M.n("K", "<cmd>lua vim.lsp.buf.signature_help()<cr>", { desc = "Signature help" })
 M.n("[d", "<cmd>lua vim.diagnostic.goto_prev()<cr>", { desc = "Previous diagnostic" })
 M.n("]d", "<cmd>lua vim.diagnostic.goto_next()<cr>", { desc = "Next diagnostic" })
