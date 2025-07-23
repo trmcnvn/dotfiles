@@ -76,7 +76,7 @@ vim.opt.confirm = true
 
 -- Completion and command settings
 vim.opt.wildmode = "longest:full,full"
-vim.opt.pumheight = 4
+vim.opt.pumheight = 10
 
 -- Miscellaneous settings
 vim.opt.mouse = "a"

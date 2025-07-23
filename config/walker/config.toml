@@ -70,9 +70,9 @@ hidden = true
 weight = 5
 name = "applications"
 placeholder = " Search..."
-prioritize_new = true
+prioritize_new = false
 hide_actions_with_empty_query = true
-context_aware = true
+context_aware = false
 refresh = true
 show_sub_when_single = false
 show_icon_when_single = true
@@ -185,7 +185,7 @@ switcher_only = true
 history = true
 typeahead = true
 show_unqualified = false
-prefix = "."
+prefix = ":"
 
 [builtins.symbols]
 after_copy = ""
@@ -289,3 +289,4 @@ placeholder = "Translation"
 switcher_only = true
 provider = "googlefree"
 hidden = true
+

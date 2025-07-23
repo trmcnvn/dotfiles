@@ -34,11 +34,11 @@
   "cpu": {
     "interval": 5,
     "format": "󰍛 ",
-    "on-click": "ghostty -e btop +new-window"
+    "on-click": "~/.local/bin/ghostty -e btop"
   },
   "memory": {
     "format": " ",
-    "on-click": "ghostty -e btop +new-window"
+    "on-click": "~/.local/bin/ghostty -e btop"
   },  
   "clock": {
     "format": "{:%A %H:%M}",
@@ -61,13 +61,13 @@
     "tooltip-format-disconnected": "Disconnected",
     "tooltip-format": "<span color='#bac2de'>󰕒 </span> {bandwidthUpBytes}  <span color='#bac2de'>󰇚</span> {bandwidthDownBytes}",
     "interval": 3,
-    "on-click": "ghostty --class=Impala -e impala +new-window"
+    "on-click": "~/.local/bin/ghostty --class=Impala -e impala"
   },
   "pulseaudio": {
     "format": " ",
     "format-muted": "󰝟 ",
     "scroll-step": 5,
-    "on-click": "ghostty --class=Wiremix -e wiremix +new-window",
+    "on-click": "~/.local/bin/ghostty --class=Wiremix -e wiremix",
     "tooltip-format": "Playing at {volume}%",
     "on-click-right": "pamixer -t",
     "ignored-sinks": ["Easy Effects Sink"]

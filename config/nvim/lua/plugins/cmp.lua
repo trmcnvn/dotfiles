@@ -2,34 +2,23 @@ return {
 	pack = { src = "https://github.com/hrsh7th/nvim-cmp" },
 	config = function()
 		local cmp = require("cmp")
-		local luasnip = require("luasnip")
 		local format_item_with_lspkind = require("lspkind").cmp_format({
 			mode = "symbol_text",
-			maxwidth = 50,
-			ellipsis_char = "...",
-			menu = {
-				nvim_lsp = "[LSP]",
-				buffer = "[Buffer]",
-				path = "[Path]",
-				luasnip = "[Snippet]",
-				nvim_lsp_signature_help = "[Signature]",
-			},
+			maxwidth = 60,
+			ellipsis_char = "…",
 		})
-
-		luasnip.config.setup({})
-
 		cmp.setup({
 			preselect = cmp.PreselectMode.None,
 			snippet = {
 				expand = function(args)
-					luasnip.lsp_expand(args.body)
+					require("luasnip").lsp_expand(args.body)
 				end,
 			},
 			window = {
-				completion = cmp.config.window.bordered(),
+				completion = cmp.config.window.bordered({ scrollbar = false }),
 				documentation = cmp.config.window.bordered(),
 			},
-			completion = { completeopt = "menu,menuone,noinsert,noselect" },
+			completion = { completeopt = "menu,menuone" },
 			mapping = {
 				["<Tab>"] = cmp.mapping.select_next_item(),
 				["<S-Tab>"] = cmp.mapping.select_prev_item(),
@@ -37,26 +26,25 @@ return {
 				["<C-d>"] = cmp.mapping.scroll_docs(4),
 				["<C-e>"] = cmp.mapping.close(),
 				["<C-Space>"] = cmp.mapping.complete(),
-				["<CR>"] = cmp.mapping.confirm({ select = false }),
+				["<CR>"] = cmp.mapping.confirm({
+					bahavior = cmp.ConfirmBehavior.Insert,
+					select = true,
+				}),
 			},
 			sources = cmp.config.sources({
-				{ name = "nvim_lsp", group_index = 1 },
-				{ name = "buffer", max_item_count = 5, group_index = 2 },
-				{ name = "path", max_item_count = 3, group_index = 3 },
-				{ name = "luasnip", max_item_count = 3, group_index = 5 },
-				{ name = "nvim_lsp_signature_help" },
+				{ name = "nvim_lsp" },
+				{ name = "luasnip" },
+				{ name = "buffer" },
+				{ name = "nvim_lua" },
+				{ name = "async_path" },
 			}),
 			formatting = {
 				expandable_indicator = true,
 				format = function(entry, item)
-					-- local color_item = require("nvim-highlight-colors").format(entry, { kind = item.kind })
 					item = format_item_with_lspkind(entry, item)
-					-- if color_item.abbr_hl_group then
-					-- 	item.kind_hl_group = color_item.abbr_hl_group
-					-- 	item.kind = color_item.kind
-					-- end
 					return item
 				end,
+				fields = { "abbr", "kind", "menu" },
 			},
 			experimental = { ghost_text = false },
 		})
