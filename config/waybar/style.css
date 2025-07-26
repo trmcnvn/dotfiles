@@ -1,13 +1,12 @@
 @import "../omarchy/current/theme/waybar.css";
 
 * {
-  background-color: @background;
+  background-color: transparent;
   border: none;
   border-radius: 0;
   min-height: 0;
-  font-family: MonoLisa, monospace;
-  font-feature-settings: "zero";
-  font-size: 13px;
+  font-family: TX-02, monospace;
+  font-size: 14px;
 }
 
 .modules-left, .modules-center, .modules-right {
@@ -47,14 +46,15 @@
   padding: 0 8px;
 }
 
+window {
+  background-color: @background;
+}
+
 menu, tooltip {
   color: @foreground;
   background-color: @background;
   border: 1px solid @border;
-  border-radius: 8px;
+  border-radius: 0px;
+  padding: 0px;
+  margin: 0px;
 }
-
-tooltip {
-  padding: 5px 10px;
-}
-

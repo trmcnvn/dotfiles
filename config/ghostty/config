@@ -19,7 +19,7 @@ font-style = Condensed
 font-style-italic = Condensed Oblique
 font-style-bold = Bold Condensed
 font-style-bold-italic = Bold Condensed Oblique
-font-size = 12
+font-size = 14
 font-feature = zero
 window-title-font-family = TX-02 Condensed
 
@@ -59,10 +59,11 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-theme = catppuccin-mocha-custom
+# theme = catppuccin-mocha-custom
+theme = vague
 macos-icon = official
 background-opacity = 0.98
-# background-blur-radius = 20
+background-blur-radius = 20
 background-opacity-cells = true
 unfocused-split-opacity = 0.95
 

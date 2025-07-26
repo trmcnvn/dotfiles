@@ -2,7 +2,7 @@
 ruby = "3.4.5"
 nodejs = ["latest", "22.14.0"]
 zig = "latest"
-rust = ["nightly"]
+rust = "latest"
 golang = "1.24.0"
 ocaml = "5.3.0"
 opam = "2.3.0"

@@ -57,8 +57,8 @@ return {
 
 						return slimline.highlights.hl_component(
 							{ primary = change_id, secondary = jj.bookmark or "error" },
-							slimline.highlights.hls.components["path"],
-							slimline.get_sep("path"),
+							slimline.highlights.hls.components["filetype_lsp"],
+							slimline.get_sep("filetype_lsp"),
 							"right",
 							active
 						)
@@ -66,10 +66,6 @@ return {
 				},
 				center = { "recording" },
 				right = { "diagnostics", "filetype_lsp", "progress" },
-			},
-			hl = {
-				base = "StatusLine",
-				primary = "StatusLine",
 			},
 		})
 	end,
