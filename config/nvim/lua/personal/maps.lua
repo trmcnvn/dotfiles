@@ -21,14 +21,12 @@ M.n("<up>", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true, desc = "A
 M.n("<C-a>", function()
 	vim.api.nvim_command("normal! ggVG")
 end, { desc = "Select all" })
-M.n("<C-s>", "<cmd>w!<CR>", { desc = "Force save" })
+M.n("<C-s>", ":write!<CR>", { desc = "Force save" })
+M.n("<leader>s", ":write!<CR>", { desc = "Force save" })
 M.x("p", '"_dP', { desc = "Paste without overwriting register" })
 
 -- Buffer and window management
 M.n("te", "<cmd>enew<CR>", { desc = "New buffer" })
-M.n("<leader>bn", "<cmd>bnext<CR>", { desc = "Next buffer" })
-M.n("<leader>bp", "<cmd>bprevious<CR>", { desc = "Previous buffer" })
-M.n("<leader>bd", "<cmd>bdelete<CR>", { desc = "Delete buffer" })
 M.n("<leader>ba", "<cmd>%bd|e#<CR>", { desc = "Delete all buffers except current" })
 
 -- Window management
@@ -40,18 +38,14 @@ M.e("z<down>", "<C-w>j", { desc = "Move to lower window" })
 M.e("z<right>", "<C-w>l", { desc = "Move to right window" })
 
 -- Line movement
-M.n("<A-j>", ":m .+1<CR>==", { desc = "Move line down" })
-M.n("<A-k>", ":m .-2<CR>==", { desc = "Move line up" })
-M.v("<A-j>", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })
-M.v("<A-k>", ":m '<-2<CR>gv=gv", { desc = "Move selection up" })
+M.n("<A-down>", ":m .+1<CR>==", { desc = "Move line down" })
+M.n("<A-up>", ":m .-2<CR>==", { desc = "Move line up" })
+M.v("<A-down>", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })
+M.v("<A-up>", ":m '<-2<CR>gv=gv", { desc = "Move selection up" })
 
 -- Indentation
 M.v("<", "<gv", { desc = "Indent left and reselect" })
 M.v(">", ">gv", { desc = "Indent right and reselect" })
-
--- Quick save/quit
-M.n("<leader>q", "<cmd>q<CR>", { desc = "Quit" })
-M.n("<leader>x", "<cmd>x<CR>", { desc = "Save and quit" })
 
 -- Clear search highlighting
 M.n("<Esc>", "<cmd>nohlsearch<CR>", { desc = "Clear search highlighting" })
@@ -68,19 +62,6 @@ map_with_center("n", "gg", "gg", { desc = "Go to top and center" })
 M.n("<leader>t", function()
 	Snacks.terminal.toggle()
 end, { desc = "Open floating terminal" })
-
--- Quick search/replace
-M.n("S", function()
-	local current_word = vim.fn.expand("<cword>")
-	vim.ui.input({ prompt = "Replace '" .. current_word .. "' with: ", default = current_word }, function(input)
-		if input then
-			-- Escape special regex characters
-			local escaped_word = vim.fn.escape(current_word, "/\\")
-			local escaped_input = vim.fn.escape(input, "/\\")
-			vim.cmd(string.format("%%s/%s/%s/gI", escaped_word, escaped_input))
-		end
-	end)
-end, { desc = "Quick replace word under cursor" })
 
 -- Open link under cursor
 M.n("gx", function()

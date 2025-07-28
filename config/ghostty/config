@@ -59,8 +59,7 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-# theme = catppuccin-mocha-custom
-theme = vague
+theme = dark:rose-pine,light:rose-pine-dawn
 macos-icon = official
 background-opacity = 0.98
 background-blur-radius = 20

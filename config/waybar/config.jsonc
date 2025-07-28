@@ -37,7 +37,7 @@
     "on-click": "~/.local/bin/ghostty -e btop"
   },
   "memory": {
-    "format": " ",
+    "format": " ",
     "on-click": "~/.local/bin/ghostty -e btop"
   },  
   "clock": {
@@ -46,7 +46,7 @@
     "tooltip-format": "<tt>{calendar}</tt>",
     "calendar": {
       "format": {
-        "today": "<span color='#89b4fa'><b><u>{}</u></b></span>"
+        "today": "<span color='#ebbcba'><b><u>{}</u></b></span>"
       }
     }
   },

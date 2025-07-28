@@ -10,6 +10,6 @@ return {
 				highlights["SlimlineModeOther"] = { bg = colors.bg, fg = "#1c1c24" }
 			end,
 		})
-		vim.cmd.colorscheme("vague")
+		-- vim.cmd.colorscheme("vague")
 	end,
 }

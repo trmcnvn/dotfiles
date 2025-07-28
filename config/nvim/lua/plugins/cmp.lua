@@ -18,7 +18,7 @@ return {
 				completion = cmp.config.window.bordered({ scrollbar = false }),
 				documentation = cmp.config.window.bordered(),
 			},
-			completion = { completeopt = "menu,menuone" },
+			completion = { completeopt = "menu,menuone,noinsert,noselect" },
 			mapping = {
 				["<Tab>"] = cmp.mapping.select_next_item(),
 				["<S-Tab>"] = cmp.mapping.select_prev_item(),

@@ -10,13 +10,10 @@ return {
 				migrations = false,
 			},
 			styles = {
-				transparency = true,
+				transparency = false,
 				italic = false,
 			},
-			highlight_groups = {
-				CursorLine = { bg = "#222325" },
-			},
 		})
-		-- vim.cmd.colorscheme("rose-pine")
+		vim.cmd.colorscheme("rose-pine")
 	end,
 }
