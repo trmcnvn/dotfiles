@@ -53,10 +53,10 @@ return {
 						end
 
 						local icons = slimline.config.configs["git"].icons
-						local change_id = string.format("%s %s", icons.branch, jj.change_id or "jj")
+						local change_id = string.format("%s %s", icons.branch, jj.change_id or "not a jj repo")
 
 						return slimline.highlights.hl_component(
-							{ primary = change_id, secondary = jj.bookmark or "error" },
+							{ primary = change_id, secondary = jj.bookmark or "" },
 							slimline.highlights.hls.components["filetype_lsp"],
 							slimline.get_sep("filetype_lsp"),
 							"right",

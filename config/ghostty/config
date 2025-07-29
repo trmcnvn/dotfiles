@@ -50,7 +50,7 @@ title = Ghostty 👻
 
 # Functionality
 shell-integration = fish
-shell-integration-features = no-cursor,sudo,title
+shell-integration-features = no-cursor,sudo,title,ssh-env,ssh-terminfo
 clipboard-read = allow
 clipboard-write = allow
 clipboard-paste-protection = false
