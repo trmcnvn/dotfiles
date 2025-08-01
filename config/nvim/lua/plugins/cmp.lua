@@ -28,7 +28,7 @@ return {
 				["<C-Space>"] = cmp.mapping.complete(),
 				["<CR>"] = cmp.mapping.confirm({
 					bahavior = cmp.ConfirmBehavior.Insert,
-					select = true,
+					select = false,
 				}),
 			},
 			sources = cmp.config.sources({

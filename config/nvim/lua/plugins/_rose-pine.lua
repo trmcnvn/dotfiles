@@ -9,10 +9,6 @@ return {
 				legacy_highlights = false,
 				migrations = false,
 			},
-			styles = {
-				transparency = false,
-				italic = false,
-			},
 		})
 		vim.cmd.colorscheme("rose-pine")
 	end,

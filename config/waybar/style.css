@@ -6,7 +6,7 @@
   border-radius: 0;
   min-height: 0;
   font-family: TX-02, monospace;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .modules-left, .modules-center, .modules-right {
@@ -63,3 +63,5 @@ menu, tooltip {
   padding: 0px;
   margin: 0px;
 }
+
+

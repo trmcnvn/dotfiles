@@ -42,7 +42,7 @@ on_query_change = ""
 [list]
 dynamic_sub = true
 keyboard_scroll_style = "emacs"
-max_entries = 50
+max_entries = 200
 show_initial_entries = true
 single_click = true
 visibility_threshold = 20
@@ -213,7 +213,7 @@ concurrency = 8
 show_icon_when_single = true
 preview_images = true
 hidden = false
-prefix = '.'
+prefix = "."
 
 [builtins.runner]
 eager_loading = true
@@ -291,4 +291,3 @@ placeholder = "Translation"
 switcher_only = true
 provider = "googlefree"
 hidden = true
-

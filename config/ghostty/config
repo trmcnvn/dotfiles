@@ -1,6 +1,6 @@
 # Ghostty
 auto-update-channel = tip
-config-file = ?config.omarchy
+config-file = ?config.linux
 
 # MonoLisa
 # font-family = MonoLisa
@@ -11,7 +11,6 @@ config-file = ?config.omarchy
 # font-feature = zero
 # font-feature = ss04
 # font-size = 10
-# window-title-font-family = MonoLisa Regular
 
 # Berkeley Mono 2
 font-family = TX-02
@@ -19,9 +18,7 @@ font-style = Condensed
 font-style-italic = Condensed Oblique
 font-style-bold = Bold Condensed
 font-style-bold-italic = Bold Condensed Oblique
-font-size = 13
-font-feature = zero
-window-title-font-family = TX-02 Condensed
+font-size = 14
 
 # General font settings
 font-thicken = true
@@ -62,7 +59,7 @@ resize-overlay = never
 theme = dark:rose-pine,light:rose-pine-dawn
 macos-icon = official
 background-opacity = 0.98
-background-blur-radius = 20
+background-blur = true
 background-opacity-cells = true
 unfocused-split-opacity = 0.95
 
