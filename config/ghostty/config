@@ -1,6 +1,6 @@
 # Ghostty
-command = fish
 auto-update-channel = tip
+config-file = ?config.omarchy
 
 # MonoLisa
 # font-family = MonoLisa
@@ -45,7 +45,7 @@ macos-window-shadow = false
 macos-titlebar-proxy-icon = hidden
 macos-titlebar-style = tabs
 window-theme = ghostty
-window-decoration = false
+window-decoration = true
 title = Ghostty 👻
 
 # Functionality
