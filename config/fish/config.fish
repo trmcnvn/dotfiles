@@ -4,7 +4,6 @@ mise activate fish | source
 # Path Configuration
 set -l machine_name (uname)
 fish_add_path -g \
-    /opt/homebrew/bin \
     $HOME/.local/bin \
     $(go env GOPATH)/bin \
     $HOME/.local/share/omarchy/bin
@@ -12,6 +11,7 @@ fish_add_path -g \
 # OS-specific paths
 if test $machine_name = Darwin
     fish_add_path -g \
+        /opt/homebrew/bin \
         "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" \
         /Applications/Ghostty.app/Contents/MacOS
     set -gx DOTNET_ROOT /opt/homebrew/opt/dotnet/libexec
@@ -23,6 +23,7 @@ set -gx XDG_CONFIG_HOME $HOME/.config
 set -gx XDG_DATA_HOME $HOME/.local/share
 set -gx XDG_STATE_HOME $HOME/.local/state
 set -gx EDITOR nvim
+set -gx SUDO_EDITOR nvim
 set -gx RUST_WITHOUT rust-docs
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx GPG_TTY (tty)
@@ -30,6 +31,7 @@ set -gx JJ_CONFIG $XDG_CONFIG_HOME/jj/config.toml
 set -gx RIPGREP_CONFIG_PATH $XDG_CONFIG_HOME/ripgrep/config
 set -gx PNPM_HOME $HOME/.pnpm
 set -gx BUN_INSTALL $HOME/.bun
+set -gx BAT_THEME ansi
 
 # Path additions that depend on environment variables
 fish_add_path -g \
