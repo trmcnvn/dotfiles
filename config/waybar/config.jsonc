@@ -21,11 +21,8 @@
     "on-click": "activate",
     "format": "{icon}",
     "format-icons": {
-      "1": "󰈹 ",
-      "2": "󰊠 ",
-      "3": " ",
-      "4": "󰓇 ",
-      "5": "󰉋 "
+      "default": "",
+      "active": "󱓻"
     },
     "persistent-workspaces": {
       "*": [1,2,3,4,5]
@@ -92,3 +89,4 @@
     "spacing": 12
   }
 }
+

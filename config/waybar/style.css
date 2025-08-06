@@ -5,8 +5,9 @@
   border: none;
   border-radius: 0;
   min-height: 0;
-  font-family: TX-02, monospace;
-  font-size: 16px;
+  font-family: TX-02;
+  font-weight: 400;
+  font-size: 14px;
 }
 
 .modules-left, .modules-center, .modules-right {
@@ -22,7 +23,9 @@
 
 #workspaces button {
   all: initial;
-  padding: 0px 8px;
+  padding: 0px 6px;
+    margin: 0 1.5px;
+    min-width: 9px;
   color: @border;
 }
 
@@ -43,7 +46,7 @@
 #pulseaudio,
 #clock {
   color: @foreground;
-  padding: 0 8px;
+    margin: 0 7.5px;
 }
 
 #tray {
@@ -63,5 +66,3 @@ menu, tooltip {
   padding: 0px;
   margin: 0px;
 }
-
-
