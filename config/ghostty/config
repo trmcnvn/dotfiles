@@ -1,28 +1,7 @@
 # Ghostty
 auto-update-channel = tip
 config-file = ?config.linux
-
-# MonoLisa
-# font-family = MonoLisa
-# font-style = Regular
-# font-style-italic = Regular Italic
-# font-style-bold = Bold
-# font-style-bold-italic = Bold Italic
-# font-feature = zero
-# font-feature = ss04
-# font-size = 10
-
-# Berkeley Mono 2
-font-family = TX-02
-font-style = Condensed
-font-style-italic = Condensed Oblique
-font-style-bold = Bold Condensed
-font-style-bold-italic = Bold Condensed Oblique
-font-size = 14
-
-# General font settings
-font-thicken = true
-font-synthetic-style = false
+config-file = ?config.fonts
 
 # Cursor
 cursor-style-blink = false

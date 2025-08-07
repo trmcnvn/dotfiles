@@ -3,8 +3,6 @@
   "theme": "system",
   "share": "disabled",
   "autoupdate": false,
-  "model": "anthropic/claude-opus-4-20250514",
-  "small_model": "openrouter/google/gemini-2.5-flash",
   "username": "Tom",
   "mcp": {
     "postgres-metafy": {
