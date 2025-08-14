@@ -2,8 +2,8 @@
 font-family = MonoLisa
 font-style = Regular
 font-style-italic = Regular Italic
-font-style-bold = Bold
-font-style-bold-italic = Bold Italic
+font-style-bold = Regular
+font-style-bold-italic = Regular Italic
 font-feature = zero
 font-feature = ss02
 font-feature = ss04
