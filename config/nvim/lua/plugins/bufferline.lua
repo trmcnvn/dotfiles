@@ -5,7 +5,7 @@ return {
 		bufferline.setup({
 			highlights = {
 				fill = { bg = { attribute = "bg", highlight = "Normal" } },
-				buffer_selected = { italic = false },
+				buffer_selected = { italic = false, bold = false },
 				diagnostic_selected = { italic = false },
 				hint_selected = { italic = false },
 				hint_diagnostic_selected = { italic = false },
