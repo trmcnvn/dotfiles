@@ -3,6 +3,17 @@ auto-update-channel = tip
 config-file = ?config.linux
 config-file = ?config.fonts
 
+
+font-family = MonoLisa
+font-style = Regular
+font-style-italic = Regular Italic
+font-style-bold = Regular
+font-style-bold-italic = Regular Italic
+font-feature = zero
+font-feature = ss02
+font-feature = ss04
+font-size = 12
+
 # Cursor
 cursor-style-blink = false
 mouse-hide-while-typing = true
@@ -35,7 +46,8 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-theme = dark:rose-pine,light:rose-pine-dawn
+#theme = dark:rose-pine,light:rose-pine-dawn
+theme = rose-pine
 macos-icon = official
 background-opacity = 0.98
 background-blur = true
