@@ -132,5 +132,3 @@ vim.lsp.config("ruby_lsp", {
 	end,
 })
 vim.lsp.enable("ruby_lsp") -- Not using Mason install for this one due to issues between Ruby versions
--- herb_ls which isn't available on Mason yet
--- vim.lsp.enable("herb_ls")
