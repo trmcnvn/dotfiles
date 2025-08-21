@@ -41,6 +41,9 @@ return {
 		require("slimline").setup({
 			bold = true,
 			style = "fg",
+			configs = {
+				mode = { verbose = true },
+			},
 			components = {
 				left = {
 					"mode",

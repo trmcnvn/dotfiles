@@ -1,4 +1,3 @@
-- Do not include yourself as a co-author or advertise yourself in commit messages or Pull Request descriptions.
 - Use `fd` instead of `find`
 - Use ripgrep (`rg`) instead of `grep`
 - Leverage `sed` and `awk` for find and replace
