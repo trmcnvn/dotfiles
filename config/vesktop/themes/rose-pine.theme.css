@@ -16,7 +16,7 @@
 body {
     /* font, change to '' for default discord font */
     --font: 'Noto Sans'; /* change to '' for default discord font */
-    --code-font: 'JetBrains Mono'; /* change to '' for default discord font */
+    --code-font: 'MonoLisa'; /* change to '' for default discord font */
     font-weight: 300; /* text font weight. 300 is light, 400 is normal. DOES NOT AFFECT BOLD TEXT */
     letter-spacing: -0.05ch; /* decreases letter spacing for better readability. recommended on monospace fonts.*/
 
@@ -76,7 +76,7 @@ body {
     --ascii-loader: system24; /* off: default, system24: use system24 ascii loader, cats: use cats loader */
 
     /* panel labels */
-    --panel-labels: off; /* off: default, on: add labels to panels */
+    --panel-labels: on; /* off: default, on: add labels to panels */
     --label-color: var(--text-muted); /* color of labels */
     --label-font-weight: 500; /* font weight of labels */
 }
