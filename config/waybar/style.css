@@ -7,9 +7,8 @@
   border: none;
   border-radius: 0;
   min-height: 0;
-  font-family: MonoLisa;
-  font-size: 13px;
-  font-feature-settings: "zero";
+  font-family: JetBrainsMono Nerd Font;
+  font-size: 14px;
 }
 
 .modules-left {
@@ -57,24 +56,6 @@ tooltip {
 
 #clock {
   margin-left: 8.75px;
-}
-
-#group-status-cluster {
-  margin-right: 8.75px;
-}
-
-#custom-status-dnd,
-#custom-status-nightlight, 
-#custom-status-idle {
-  min-width: 12px;
-  margin: 0 2px;
-  font-size: 10px;
-}
-
-#custom-status-dnd.status-dnd,
-#custom-status-nightlight.status-nightlight,
-#custom-status-idle.status-idle {
-  opacity: 1;
 }
 
 .hidden {

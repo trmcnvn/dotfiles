@@ -52,6 +52,7 @@ alias vi='nvim'
 alias ls='eza -lh --group-directories-first --icons=auto'
 alias lt='eza --tree --level=2 --long --icons --git'
 alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
+alias claude="~/.claude/local/claude"
 
 # Initialization
 zoxide init fish | source
@@ -65,7 +66,7 @@ set -g hydro_color_error eb6f92
 set -g hydro_color_prompt 9ccfd8
 set -g hydro_color_duration c4a7e7
 set -g hydro_multiline true
-set -g hydro_symbol_prompt "➜"
+set -g hydro_symbol_prompt "\e[1;38;2;165;214;167m❯\e[1;38;2;255;245;157m❯\e[1;38;2;255;171;145m❯\e[0m"
 set -g hydro_symbol_jj_conflict "💥"
 set -g hydro_symbol_jj_divergent "🚧"
 set -g hydro_symbol_jj_hidden "👻"
