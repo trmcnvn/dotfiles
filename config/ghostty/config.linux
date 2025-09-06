@@ -1,2 +1,2 @@
-command = fish
+command = fish --login --interactive
 window-decoration = false
