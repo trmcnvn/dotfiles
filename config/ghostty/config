@@ -2,8 +2,23 @@
 auto-update-channel = tip
 config-file = ?config.linux
 
-# Font
-config-file = ?config.fonts
+# MonoLisa
+font-family = MonoLisa
+font-style = Regular
+font-style-italic = Regular Italic
+font-style-bold = Regular
+font-style-bold-italic = Regular Italic
+font-feature = zero
+# font-feature = ss02
+# font-feature = ss04
+font-size = 12
+
+# General font settings
+font-thicken = true
+font-synthetic-style = false
+font-feature = -calt
+font-feature = -liga
+font-feature = -dlig
 
 # Cursor
 cursor-style-blink = false

@@ -1,13 +1,13 @@
 # MonoLisa
-font-family = MonoLisa
-font-style = Regular
-font-style-italic = Regular Italic
-font-style-bold = Regular
-font-style-bold-italic = Regular Italic
-font-feature = zero
-font-feature = ss02
-font-feature = ss04
-font-size = 12
+# font-family = MonoLisa
+# font-style = Regular
+# font-style-italic = Regular Italic
+# font-style-bold = Regular
+# font-style-bold-italic = Regular Italic
+# font-feature = zero
+# font-feature = ss02
+# font-feature = ss04
+# font-size = 12
 
 # Berkeley Mono 2
 # font-family = TX-02
@@ -32,10 +32,3 @@ font-size = 12
 # font-style-bold-italic = Bold Italic
 # font-feature = zero
 # font-size = 12
-
-# General font settings
-font-thicken = true
-font-synthetic-style = false
-font-feature = -calt
-font-feature = -liga
-font-feature = -dlig
