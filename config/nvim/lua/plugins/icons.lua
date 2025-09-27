@@ -1,5 +1,5 @@
 return {
-	pack = { src = "https://github.com/echasnovski/mini.icons" },
+	pack = { src = "https://github.com/nvim-mini/mini.icons" },
 	config = function()
 		require("mini.icons").setup({
 			file = {

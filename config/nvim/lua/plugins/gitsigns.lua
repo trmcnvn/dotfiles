@@ -1,5 +1,5 @@
 return {
-	pack = { src = "https://github.com/echasnovski/mini.diff" },
+	pack = { src = "https://github.com/nvim-mini/mini.diff" },
 	config = function()
 		local M = require("utils.keymaps")
 		M.n("<leader>go", function()
