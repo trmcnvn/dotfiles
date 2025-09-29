@@ -25,6 +25,8 @@ vim.api.nvim_create_autocmd("LspAttach", {
 			local win = vim.api.nvim_get_current_win()
 			vim.wo[win][0].foldexpr = "v:lua.vim.lsp.foldexpr()"
 		end
+
+		vim.lsp.inline_completion.enable()
 	end,
 })
 

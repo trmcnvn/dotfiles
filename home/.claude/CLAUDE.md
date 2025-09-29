@@ -1,12 +1,29 @@
 # **Core Principle**
 Always think critically and deeply before acting. Implement only the specific tasks requested with the most concise, maintainable, and elegant solution that minimizes code changes.
 
-## Tool Preferences
-- **Code Modifications**: ALWAYS use ast-grep for any code changes. NEVER use Edit/MultiEdit tools for code files.
-- **File Search**: ALWAYS use fd instead of find. NEVER use find command for file searching.
-- **Text Search**: ALWAYS use ripgrep (rg) instead of grep. NEVER use grep or Grep tool for text searching.
-- **Text Processing**: ALWAYS leverage sed and awk for find/replace operations instead of other text manipulation tools.
-- **Directory Exploration**: ALWAYS use tree to visualize repository structure. NEVER use ls -la or similar for directory exploration.
+## Tool Preferences - CRITICAL REQUIREMENTS
+These are MANDATORY. Violations are unacceptable.
+
+- **Code Modifications**: ONLY use ast-grep for code changes. Edit/MultiEdit tools are FORBIDDEN for code files
+  - If ast-grep cannot handle a change, ASK FIRST before using alternatives
+- **File Search**: ONLY use fd. The find command is FORBIDDEN.
+- **Text Search**: ONLY use ripgrep (rg). The grep command and Grep tool are FORBIDDEN.
+- **Text Processing**: ONLY use sed and awk for find/replace operations.
+- **Directory Exploration**: ONLY use tree. Commands like ls -la are FORBIDDEN for directory exploration.
+
+## Before Every Code Change
+STOP and verify:
+1. Am I using ast-grep? (Required for .ts, .js, .svelte, .tsx, .jsx, etc.)
+2. Am I using fd for file search? (Not find)
+3. Am I using rg for text search? (Not grep/Grep tool)
+
+If NO to any: STOP and use the correct tool.
+
+## Violations
+If you ignore these preferences:
+- STOP immediately when corrected
+- Acknowledge the specific violation
+- Explain what you should have done instead
 
 ## Development Standards
 ### Code Quality
@@ -51,4 +68,3 @@ tree -I 'node_modules|.git' -L 3
 
 **Remember**
 Quality over quantity. Think twice, code once.
-

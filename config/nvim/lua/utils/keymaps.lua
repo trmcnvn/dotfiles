@@ -16,5 +16,7 @@ M.v = bind("v") -- Visual mode
 M.x = bind("x") -- Visual block mode
 M.t = bind("t") -- Terminal mode
 M.e = bind({ "n", "v" }) -- Normal + Visual modes
+M.i = bind("i") -- Insert mode
+M.bind = bind
 
 return M
