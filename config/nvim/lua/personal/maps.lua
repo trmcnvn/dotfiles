@@ -77,10 +77,10 @@ end, { desc = "Open URL under cursor" })
 
 -- LSP
 M.n("gh", '<cmd>lua vim.lsp.buf.hover({ border = "single" })<cr>', { desc = "Show hover information" })
+M.n("gd", "<cmd>lua vim.lsp.buf.definition()<cr>", { desc = "Go to definition" })
 M.n("gn", "<cmd>lua vim.lsp.buf.rename()<cr>", { desc = "Rename symbol" })
 M.n("df", "<cmd>lua vim.diagnostic.open_float()<cr>", { desc = "Show diagnostic float" })
 M.n("ca", "<cmd>lua vim.lsp.buf.code_action()<cr>", { desc = "Code actions" })
-M.n("gD", "<cmd>lua vim.lsp.buf.declaration()<cr>", { desc = "Go to declaration" })
 M.n("K", "<cmd>lua vim.lsp.buf.signature_help()<cr>", { desc = "Signature help" })
 M.n("[d", "<cmd>lua vim.diagnostic.goto_prev()<cr>", { desc = "Previous diagnostic" })
 M.n("]d", "<cmd>lua vim.diagnostic.goto_next()<cr>", { desc = "Next diagnostic" })

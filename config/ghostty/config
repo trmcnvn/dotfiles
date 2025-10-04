@@ -43,8 +43,7 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-#theme = dark:rose-pine,light:rose-pine-dawn
-theme = rose-pine
+theme = catppuccin-mocha
 macos-icon = official
 background-opacity = 0.98
 background-blur = true
