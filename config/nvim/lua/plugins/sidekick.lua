@@ -25,11 +25,7 @@ return {
 		end, { expr = true, desc = "Goto/Apply Next Edit Suggestion" })
 
 		M.bind({ "n", "x", "i", "t" })("<c-.>", function()
-			require("sidekick.cli").focus()
+			require("sidekick.cli").toggle()
 		end, { desc = "Sidekick Focus" })
-
-		M.e("<leader>aa", function()
-			require("sidekick.cli").toggle({ name = "claude", focus = true })
-		end, { desc = "Sidekick Claude Toggle" })
 	end,
 }

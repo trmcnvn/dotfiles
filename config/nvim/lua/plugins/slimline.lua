@@ -39,10 +39,15 @@ return {
 	pack = { src = "https://github.com/sschleemilch/slimline.nvim" },
 	config = function()
 		require("slimline").setup({
-			bold = true,
+			bold = false,
 			style = "fg",
 			configs = {
-				mode = { verbose = true },
+				mode = { verbose = false },
+			},
+			spaces = {
+				components = "",
+				left = "",
+				right = "",
 			},
 			components = {
 				left = {
@@ -67,8 +72,8 @@ return {
 						)
 					end,
 				},
-				center = { "recording" },
-				right = { "diagnostics", "filetype_lsp", "progress" },
+				center = {},
+				right = { "filetype_lsp", "progress" },
 			},
 		})
 	end,

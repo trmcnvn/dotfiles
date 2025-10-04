@@ -6,6 +6,7 @@ vim.diagnostic.config({
 	},
 })
 
+-- Special Features
 vim.api.nvim_create_autocmd("LspAttach", {
 	callback = function(ev)
 		local client = vim.lsp.get_client_by_id(ev.data.client_id)
@@ -26,111 +27,59 @@ vim.api.nvim_create_autocmd("LspAttach", {
 			vim.wo[win][0].foldexpr = "v:lua.vim.lsp.foldexpr()"
 		end
 
-		vim.lsp.inline_completion.enable()
+		-- if client:supports_method("textDocument/inlineCompletion") then
+		-- vim.lsp.inline_completion.enable()
+		-- end
 	end,
 })
-
--- LSP Base
-local M = require("utils.capabilities")
-vim.lsp.config("*", M.with_capabilities({}))
 
 -- harper_ls
-vim.lsp.config("harper_ls", {
-	filetypes = { "markdown" },
-	settings = {
-		["harper-ls"] = {
-			dialect = "Australian",
+vim.lsp.config(
+	"harper_ls",
+	vim.tbl_deep_extend("force", vim.lsp.config.harper_ls or {}, {
+		filetypes = { "markdown" },
+		settings = {
+			["harper-ls"] = {
+				dialect = "Australian",
+			},
 		},
-	},
-})
+	})
+)
 
 -- lua_ls
-vim.lsp.config("lua_ls", {
-	settings = {
-		Lua = {
-			runtime = { version = "LuaJIT" },
-			diagnostics = { globals = { "vim", "MiniIcons", "Snacks" } },
-			completion = { callSnippet = { "Replace" } },
-			workspace = {
-				checkThirdParty = false,
-				library = { vim.env.VIMRUNTIME },
+vim.lsp.config(
+	"lua_ls",
+	vim.tbl_deep_extend("force", vim.lsp.config.lua_ls or {}, {
+		settings = {
+			Lua = {
+				runtime = { version = "LuaJIT" },
+				diagnostics = { globals = { "vim", "MiniIcons", "Snacks" } },
+				workspace = {
+					checkThirdParty = false,
+					library = { vim.api.nvim_get_runtime_file("", true) },
+				},
+				telemetry = { enabled = false },
 			},
-			telemetry = { enabled = false },
 		},
-	},
-})
+	})
+)
 
 -- ruby_lsp
-vim.lsp.config("ruby_lsp", {
-	mason = false,
-	init_options = {
-		formatter = "rubocop_internal",
-		linters = { "rubocop" },
-		indexing = {
-			includedPatterns = { "**/*.rb", "**/*.rake", "**/*.ru" },
-			excludedPatterns = { "**/node_modules/**", "**/vendor/**", "**/tmp/**" },
-		},
-		addonSettings = {
-			["Ruby LSP Rails"] = {
-				enablePendingMigrationsPrompt = false,
+vim.lsp.config(
+	"ruby_lsp",
+	vim.tbl_deep_extend("force", vim.lsp.config.ruby_lsp or {}, {
+		mason = false,
+		init_options = {
+			addonSettings = {
+				["Ruby LSP Rails"] = {
+					enablePendingMigrationsPrompt = false,
+				},
 			},
 		},
-	},
-	settings = {
-		rubyLsp = {
-			enabledFeatures = {
-				diagnostics = true,
-				documentHighlights = true,
-				documentSymbols = true,
-				foldingRanges = true,
-				selectionRanges = true,
-				semanticHighlighting = true,
-				formatting = true,
-				codeActions = true,
-			},
-		},
-	},
-	on_attach = function(client, bufnr)
-		-- rubyLsp/workspace/dependencies
-		vim.api.nvim_buf_create_user_command(bufnr, "ShowRubyDeps", function(opts)
-			local params = vim.lsp.util.make_text_document_params()
-			local showAll = opts.args == "all"
+	})
+)
+vim.lsp.enable("ruby_lsp") -- Ruby LSP is installed by the Gem, not managed by Mason
 
-			client:request("rubyLsp/workspace/dependencies", params, function(error, result)
-				if error then
-					print("Error showing deps: " .. error)
-					return
-				end
-
-				local qf_list = {}
-				for _, item in ipairs(result) do
-					if showAll or item.dependency then
-						table.insert(qf_list, {
-							text = string.format("%s (%s) - %s", item.name, item.version, item.dependency),
-							filename = item.path,
-						})
-					end
-				end
-
-				vim.fn.setqflist(qf_list)
-				vim.cmd("copen")
-			end, bufnr)
-		end, {
-			nargs = "?",
-			complete = function()
-				return { "all" }
-			end,
-		})
-
-		-- Force re-index when attaching
-		vim.defer_fn(function()
-			if client.server_capabilities.workspaceSymbolProvider then
-				client:request("workspace/executeCommand", {
-					command = "rubyLsp.reloadProject",
-					arguments = {},
-				})
-			end
-		end, 1000)
-	end,
-})
-vim.lsp.enable("ruby_lsp") -- Not using Mason install for this one due to issues between Ruby versions
+-- Capabilities
+local M = require("utils.capabilities")
+vim.lsp.config("*", M.with_capabilities({}))

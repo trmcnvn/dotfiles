@@ -58,11 +58,6 @@ map_with_center("n", "N", "N", { desc = "Previous search result and center" })
 map_with_center("n", "G", "G", { desc = "Go to bottom and center" })
 map_with_center("n", "gg", "gg", { desc = "Go to top and center" })
 
--- Terminal
-M.n("<leader>t", function()
-	Snacks.terminal.toggle()
-end, { desc = "Open floating terminal" })
-
 -- Open link under cursor
 M.n("gx", function()
 	local url = vim.fn.expand("<cWORD>")
