@@ -60,6 +60,7 @@ vim.lsp.config(
 						"MiniCompletion",
 						"MiniBufremove",
 						"MiniPick",
+						"MiniDiff",
 					},
 				},
 				workspace = {

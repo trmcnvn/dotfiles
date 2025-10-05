@@ -74,5 +74,11 @@ return {
 		M.n("<leader>df", function()
 			MiniPick.builtin.files({ tool = "rg" }, { source = { cwd = vim.fn.expand("$HOME/code/dotfiles") } })
 		end, { desc = "Dotfiles" })
+
+		-- Diff
+		require("mini.diff").setup()
+		M.n("<leader>go", function()
+			MiniDiff.toggle_overlay(0)
+		end)
 	end,
 }
