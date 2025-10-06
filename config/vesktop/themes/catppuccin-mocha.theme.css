@@ -15,8 +15,8 @@
 
 body {
     /* font, change to '' for default discord font */
-    --font: 'DM Mono'; /* change to '' for default discord font */
-    --code-font: 'DM Mono'; /* change to '' for default discord font */
+    --font: 'Noto Sans'; /* change to '' for default discord font */
+    --code-font: 'Intel One Mono'; /* change to '' for default discord font */
     font-weight: 300; /* text font weight. 300 is light, 400 is normal. DOES NOT AFFECT BOLD TEXT */
     letter-spacing: -0.05ch; /* decreases letter spacing for better readability. recommended on monospace fonts.*/
 
@@ -97,7 +97,7 @@ body {
     --bg-1: #45475a; /* dark buttons when clicked */
     --bg-2: #313244; /* dark buttons */
     --bg-3: #181825; /* spacing, secondary elements */
-    --bg-4: #11111b; /* main background color */
+    --bg-4: #1e1e2e; /* main background color */
     --hover: hsla(235, 15%, 53%, 0.1); /* channels and buttons when hovered */
     --active: hsla(235, 15%, 53%, 0.2); /* channels and buttons when clicked or selected */
     --active-2: hsla(235, 15%, 53%, 0.3); /* extra state for transparent buttons */

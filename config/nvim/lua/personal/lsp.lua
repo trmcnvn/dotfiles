@@ -33,6 +33,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
 	end,
 })
 
+-- Capabilities
+local M = require("utils.capabilities")
+vim.lsp.config("*", M.with_capabilities({}))
+
 -- harper_ls
 vim.lsp.config(
 	"harper_ls",
@@ -88,7 +92,3 @@ vim.lsp.config(
 	})
 )
 vim.lsp.enable("ruby_lsp") -- Ruby LSP is installed by the Gem, not managed by Mason
-
--- Capabilities
-local M = require("utils.capabilities")
-vim.lsp.config("*", M.with_capabilities({}))

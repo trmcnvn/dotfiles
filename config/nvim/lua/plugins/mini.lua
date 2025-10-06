@@ -49,9 +49,6 @@ return {
 		-- Starter (Dashboard)
 		require("mini.starter").setup()
 
-		-- Notify
-		require("mini.notify").setup()
-
 		-- Picker
 		require("mini.pick").setup({
 			window = {
