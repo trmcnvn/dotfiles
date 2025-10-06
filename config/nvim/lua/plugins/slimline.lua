@@ -42,7 +42,7 @@ return {
 			bold = false,
 			style = "fg",
 			configs = {
-				mode = { verbose = false },
+				mode = { verbose = true },
 			},
 			spaces = {
 				components = "",
