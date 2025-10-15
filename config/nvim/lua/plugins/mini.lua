@@ -76,7 +76,13 @@ return {
 		end, { desc = "Dotfiles" })
 
 		-- Diff
-		require("mini.diff").setup()
+		require("mini.diff").setup({
+			mappings = {
+				apply = "",
+				reset = "",
+				textobject = "",
+			},
+		})
 		M.n("<leader>go", function()
 			MiniDiff.toggle_overlay(0)
 		end)

@@ -7,7 +7,12 @@
   "mcp": {
     "postgres-metafy": {
       "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/metafy_development"],
+      "command": ["bunx", "@modelcontextprotocol/server-postgres", "postgresql://localhost/metafy_development"],
+      "enabled": true
+    },
+    "svelte": {
+      "type": "remote",
+      "url": "https://mcp.svelte.dev/mcp",
       "enabled": true
     }
   }
