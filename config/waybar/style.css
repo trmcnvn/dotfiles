@@ -7,7 +7,7 @@
   border: none;
   border-radius: 0;
   min-height: 0;
-  font-family: MonoLisa;
+  font-family: MonoLisa, 'caskaydiamono nerd font';
   font-feature-settings: 'zero';
   font-size: 14px;
 }
