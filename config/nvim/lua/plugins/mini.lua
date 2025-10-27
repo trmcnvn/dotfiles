@@ -49,32 +49,6 @@ return {
 		-- Starter (Dashboard)
 		require("mini.starter").setup()
 
-		-- Picker
-		require("mini.pick").setup({
-			mappings = {
-				choose_marked = "<C-q>",
-			},
-			window = {
-				config = function()
-					local height = math.floor(0.618 * vim.o.lines)
-					local width = math.floor(0.618 * vim.o.columns)
-					return {
-						anchor = "NW",
-						height = height,
-						width = width,
-						row = math.floor(0.5 * (vim.o.lines - height)),
-						col = math.floor(0.5 * (vim.o.columns - width)),
-					}
-				end,
-			},
-		})
-		M.n("<leader>f", "<cmd>Pick files tool='fd'<cr>", { desc = "Find files" })
-		M.n("<leader>r", "<cmd>Pick grep_live tool='rg'<cr>", { desc = "Live search" })
-		M.n("<leader>o", "<cmd>Pick oldfiles<cr>", { desc = "Recent files" })
-		M.n("<leader>df", function()
-			MiniPick.builtin.files({ tool = "fd" }, { source = { cwd = vim.fn.expand("$HOME/code/dotfiles") } })
-		end, { desc = "Dotfiles" })
-
 		-- Diff
 		require("mini.diff").setup({
 			mappings = {

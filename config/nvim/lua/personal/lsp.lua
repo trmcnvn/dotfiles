@@ -57,16 +57,6 @@ vim.lsp.config(
 		settings = {
 			Lua = {
 				runtime = { version = "LuaJIT" },
-				diagnostics = {
-					globals = {
-						"vim",
-						"MiniIcons",
-						"MiniCompletion",
-						"MiniBufremove",
-						"MiniPick",
-						"MiniDiff",
-					},
-				},
 				workspace = {
 					checkThirdParty = false,
 					library = { vim.api.nvim_get_runtime_file("", true) },
