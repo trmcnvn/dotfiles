@@ -30,7 +30,7 @@ return {
 		M.n("<leader>r", "<cmd>FzfLua live_grep_native<cr>", { desc = "live search" })
 		M.n("<leader>o", "<cmd>FzfLua oldfiles<cr>", { desc = "recent files" })
 		M.n("<leader>df", function()
-			FzfLua.files({ cwd = vim.fn.expand("$home/code/dotfiles") })
+			FzfLua.files({ cwd = vim.fn.expand("$HOME/code/dotfiles") })
 		end, { desc = "dotfiles" })
 	end,
 }
