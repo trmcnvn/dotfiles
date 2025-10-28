@@ -1,16 +1,12 @@
 [tools]
-ruby = "3.4.6"
-nodejs = ["latest", "22.14.0"]
+ruby = "3.4.7"
+nodejs = ["latest"]
 zig = "latest"
 rust = "latest"
-golang = "1.24.0"
-ocaml = "5.3.0"
-opam = "2.3.0"
-gleam = "1.10.0"
-erlang = "27.3.3"
-go = "1.24.2"
+go = "latest"
 node = "latest"
 bun = "latest"
+deno = "latest"
 
 [settings]
 always_keep_download = false
