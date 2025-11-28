@@ -9,21 +9,11 @@ vim.opt.backup = false
 vim.opt.swapfile = false
 vim.opt.undofile = true
 
--- Create undodir if it doesn't exist
-local undodir = vim.fn.stdpath("state") .. "/undo"
-if vim.fn.isdirectory(undodir) == 0 then
-	vim.fn.mkdir(undodir, "p")
-end
-vim.opt.undodir = undodir
+vim.opt.undodir = vim.fn.stdpath("state") .. "/undo"
 vim.opt.undolevels = 5000
 vim.opt.history = 1000
 
--- Shell configuration (detect or fallback)
-local shell = vim.env.SHELL or "/bin/bash"
-if vim.fn.executable("fish") == 1 then
-	shell = "fish"
-end
-vim.opt.shell = shell
+vim.opt.shell = "fish"
 
 -- UI and appearance settings
 vim.opt.number = true

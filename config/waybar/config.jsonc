@@ -54,7 +54,7 @@
   },
 
   "cpu": {
-    "interval": 5,
+    "interval": 10,
     "format": "󰍛",
     "on-click": "omarchy-launch-or-focus-tui btop"
   },
@@ -73,7 +73,7 @@
     "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
     "tooltip-format-disconnected": "Disconnected",
-    "interval": 3,
+    "interval": 10,
     "spacing": 1,
     "on-click": "omarchy-launch-wifi"
   },
@@ -89,7 +89,7 @@
     "format-full": "󰂅",
     "tooltip-format-discharging": "{power:>1.0f}W↓ {capacity}%",
     "tooltip-format-charging": "{power:>1.0f}W↑ {capacity}%",
-    "interval": 5,
+    "interval": 60,
     "on-click": "omarchy-menu power",
     "states": {
       "warning": 20,

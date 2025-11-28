@@ -1,5 +1,5 @@
 add_newline = true
-command_timeout = 200
+command_timeout = 100
 format = "[$directory$git_branch$git_status]($style)$character"
 
 [character]
