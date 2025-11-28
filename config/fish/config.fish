@@ -5,7 +5,7 @@ mise activate fish | source
 set -l machine_name (uname)
 fish_add_path -g \
     $HOME/.local/bin \
-    $(go env GOPATH)/bin \
+    $HOME/go/bin \
     $HOME/.local/share/omarchy/bin
 
 # OS-specific paths
@@ -39,9 +39,6 @@ fish_add_path -g \
     $CARGO_HOME/bin \
     $BUN_INSTALL/bin
 
-# General Settings
-set -U fish_greeting ""  # Universal variable to persist greeting removal
-
 # Aliases
 alias cl='clear'
 alias ..='cd ..'
@@ -55,7 +52,6 @@ alias ff="fzf --preview 'bat --style=numbers --color=always {}'"
 
 # Initialization
 zoxide init fish | source
-COMPLETE=fish jj | source
 fish_ssh_agent
 
 # Hydro Prompt Configuration
