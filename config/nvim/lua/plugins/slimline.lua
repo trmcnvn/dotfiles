@@ -39,7 +39,7 @@ return {
 	pack = { src = "https://github.com/sschleemilch/slimline.nvim" },
 	config = function()
 		require("slimline").setup({
-			bold = false,
+			bold = true,
 			style = "fg",
 			configs = {
 				mode = { verbose = true },

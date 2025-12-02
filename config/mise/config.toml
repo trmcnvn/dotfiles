@@ -1,12 +1,11 @@
 [tools]
-ruby = "3.4.7"
-nodejs = ["latest"]
+ruby = "latest"
+nodejs = "latest"
 zig = "latest"
 rust = "latest"
 go = "latest"
 node = "latest"
 bun = "latest"
-deno = "latest"
 
 [settings]
 always_keep_download = false

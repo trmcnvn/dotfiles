@@ -4,7 +4,7 @@ return {
 		require("catppuccin").setup({
 			compile_path = vim.fn.stdpath("cache") .. "/catppuccin",
 			float = {
-				transparent = true,
+				transparent = false,
 			},
 			show_end_of_buffer = true,
 			no_bold = true,
@@ -34,6 +34,6 @@ return {
 				dadbod_ui = true,
 			},
 		})
-		vim.cmd.colorscheme("catppuccin")
+		-- vim.cmd.colorscheme("catppuccin")
 	end,
 }

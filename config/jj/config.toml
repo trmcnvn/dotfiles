@@ -16,7 +16,7 @@ push = ["git", "push"]
 tug = ["bookmark", "move", "--from", "closest_bookmark(@-)", "--to", "@-"]
 
 # Rebase the current branch onto the trunk.
-retrunk = ["rebase", "--skip-emptied", "-d", "trunk()"]
+retrunk = ["rebase", "--skip-emptied", "-o", "trunk()"]
 
 [ui]
 default-command = ["log"]
@@ -47,3 +47,6 @@ behavior = "own"
 
 [snapshot]
 max-new-file-size = "10MiB"
+
+[remotes.origin]
+auto-track-bookmarks = "glob:*"

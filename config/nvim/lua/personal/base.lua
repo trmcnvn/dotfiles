@@ -32,7 +32,8 @@ vim.opt.showtabline = 0
 vim.opt.scrolloff = 3
 vim.opt.title = true
 vim.opt.wrap = false
-vim.opt.fillchars = { eob = " " }
+vim.opt.list = false
+vim.opt.fillchars = { eob = "~" }
 
 -- Editing and indentation settings
 vim.opt.autoindent = true

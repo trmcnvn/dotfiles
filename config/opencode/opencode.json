@@ -8,7 +8,7 @@
     "postgres-metafy": {
       "type": "local",
       "command": ["bunx", "@modelcontextprotocol/server-postgres", "postgresql://localhost/metafy_development"],
-      "enabled": true
+      "enabled": false
     },
     "svelte": {
       "type": "remote",
