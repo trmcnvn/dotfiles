@@ -4,6 +4,6 @@ return {
 		require("cyberdream").setup({
 			variant = "dark",
 		})
-		vim.cmd.colorscheme("cyberdream")
+		-- vim.cmd.colorscheme("cyberdream")
 	end,
 }

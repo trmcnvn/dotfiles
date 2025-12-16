@@ -3,11 +3,13 @@ auto-update-channel = tip
 config-file = ?config.linux
 
 # Font
-font-family = Comic Mono
-font-style = Normal
-font-style-italic = Normal
+font-family = Google Sans Code
+font-style = Regular
+font-style-italic = Italic
 font-style-bold = Bold
-font-size = 13
+font-style-bold-italic = Bold Italic
+font-feature = zero
+font-size = 12
 
 # General font settings
 font-thicken = true
@@ -46,7 +48,7 @@ resize-overlay = never
 
 # Theme
 # theme = Catppuccin Mocha
-theme = cyberdream
+theme = Rose Pine
 macos-icon = official
 background-opacity = 0.98
 background-blur = true
