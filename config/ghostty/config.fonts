@@ -30,3 +30,11 @@
 # font-style-bold-italic = Bold Italic
 # font-feature = zero
 # font-size = 12
+
+# Google Sans Code
+# font-family = Google Sans Code
+# font-style = Regular
+# font-style-italic = Italic
+# font-style-bold = Bold
+# font-style-bold-italic = Bold Italic
+# font-size = 12

@@ -8,7 +8,6 @@ font-style = Regular
 font-style-italic = Italic
 font-style-bold = Bold
 font-style-bold-italic = Bold Italic
-font-feature = zero
 font-size = 12
 
 # General font settings
@@ -48,7 +47,8 @@ resize-overlay = never
 
 # Theme
 # theme = Catppuccin Mocha
-theme = Rose Pine
+# theme = Rose Pine
+theme = Vague
 macos-icon = official
 background-opacity = 0.98
 background-blur = true
