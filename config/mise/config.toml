@@ -1,5 +1,5 @@
 [tools]
-ruby = "latest"
+ruby = "4.0.0"
 nodejs = "latest"
 zig = "latest"
 rust = "latest"

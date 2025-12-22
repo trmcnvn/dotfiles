@@ -25,7 +25,6 @@ diff-formatter = ["difft", "--color=always", "$left", "$right"]
 [revset-aliases]
 "immutable_heads()" = "builtin_immutable_heads() | (trunk().. & ~mine())"
 "closest_bookmark(to)" = "heads(::to & bookmarks())"
-"fork_history(to, from)" = "fork_point(to | from)..@"
 
 [template-aliases]
 "format_short_id(id)" = "id.shortest(4)"
@@ -33,6 +32,11 @@ diff-formatter = ["difft", "--color=always", "$left", "$right"]
 "format_short_signature(signature)" = "signature.email()"
 "format_short_operation_id(id)" = "id.short(12)"
 "format_short_cryptographic_signature(sig)" = 'if(sig, sig.status(), "(no sig)",)'
+
+[colors]
+"prefix" = { bold = false }
+"working_copy" = { bold = false }
+"change_offset" = { bold = false }
 
 [git]
 sign-on-push = true

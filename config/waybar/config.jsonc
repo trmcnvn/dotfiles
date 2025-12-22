@@ -101,7 +101,7 @@
     "format-disabled": "󰂲",
     "format-connected": "",
     "tooltip-format": "Devices connected: {num_connections}",
-    "on-click": "blueberry"
+    "on-click": "omarchy-launch-or-focus-tui bluetui"
   },
   "pulseaudio": {
     "format": "{icon}",
