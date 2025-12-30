@@ -47,8 +47,8 @@ resize-overlay = never
 
 # Theme
 # theme = Catppuccin Mocha
-# theme = Rose Pine
-theme = Vague
+theme = Rose Pine
+# theme = Vague
 macos-icon = official
 background-opacity = 0.98
 background-blur = true
