@@ -1,2 +1,2 @@
-command = fish --login --interactive
+command = bash -l -c fish
 window-decoration = false

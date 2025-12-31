@@ -27,7 +27,7 @@ diff-formatter = ["difft", "--color=always", "$left", "$right"]
 "closest_bookmark(to)" = "heads(::to & bookmarks())"
 
 [template-aliases]
-"format_short_id(id)" = "id.shortest(4)"
+"format_short_id(id)" = "id.shortest(8)"
 "format_timestamp(timestamp)" = "timestamp.ago()"
 "format_short_signature(signature)" = "signature.email()"
 "format_short_operation_id(id)" = "id.short(12)"
