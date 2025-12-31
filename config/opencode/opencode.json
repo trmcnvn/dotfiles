@@ -1,13 +1,16 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "theme": "catppuccin",
-  "share": "disabled",
   "autoupdate": false,
   "username": "Tom",
   "mcp": {
     "postgres-metafy": {
       "type": "local",
-      "command": ["bunx", "@modelcontextprotocol/server-postgres", "postgresql://localhost/metafy_development"],
+      "command": [
+        "bunx",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://localhost/metafy_development"
+      ],
       "enabled": false
     },
     "svelte": {
@@ -15,5 +18,8 @@
       "url": "https://mcp.svelte.dev/mcp",
       "enabled": true
     }
-  }
+  },
+  "plugin": [
+    "opencode-supermemory@latest"
+  ]
 }

@@ -10,27 +10,34 @@ lnm = ["log", "-r", "main@origin.."]
 sync = ["git", "fetch", "--all-remotes"]
 push = ["git", "push"]
 
-# Move the closest bookmark to the current commit. This is useful when
+# Move the closest bookmark to the closest pushable. This is useful when
 # working on a named branch, creating a bunch of commits, and then needing
 # to update the bookmark before pushing.
-tug = ["bookmark", "move", "--from", "closest_bookmark(@-)", "--to", "@-"]
+tug = ["bookmark", "move", "--from", "closest_bookmark(@)", "--to", "closest_pushable(@)"]
 
 # Rebase the current branch onto the trunk.
 retrunk = ["rebase", "--skip-emptied", "-o", "trunk()"]
 
+# Show your entire connected stack
+stack = ["log", "-r", "stack()"]
+
 [ui]
 default-command = ["log"]
+editor = "nvim"
+diff-editor = ":builtin"
 diff-formatter = ["difft", "--color=always", "$left", "$right"]
 
 [revset-aliases]
 "immutable_heads()" = "builtin_immutable_heads() | (trunk().. & ~mine())"
 "closest_bookmark(to)" = "heads(::to & bookmarks())"
+"closest_pushable(to)" = "heads(::to & mutable() & ~description(exact:'') & (~empty() | merges()))"
+"stack()" = "reachable(@, mutable())"
+"mine()" = "author(exact:trmcnvn)"
+"wip()" = "mine() ~ immutable()"
 
 [template-aliases]
-"format_short_id(id)" = "id.shortest(8)"
 "format_timestamp(timestamp)" = "timestamp.ago()"
 "format_short_signature(signature)" = "signature.email()"
-"format_short_operation_id(id)" = "id.short(12)"
 "format_short_cryptographic_signature(sig)" = 'if(sig, sig.status(), "(no sig)",)'
 
 [colors]
@@ -40,7 +47,7 @@ diff-formatter = ["difft", "--color=always", "$left", "$right"]
 
 [git]
 sign-on-push = true
-private-commits = "description(glob:'wip:*') | description(glob:'private:*')"
+private-commits = "description(glob:'wip:*') | description(glob:'WIP:*') | description(glob:'private:*') | description(exact:'')"
 write-change-id-header = true
 track-default-bookmark-on-clone = true
 
@@ -49,8 +56,17 @@ backend = "ssh"
 key = "~/.ssh/id_rsa.pub"
 behavior = "own"
 
+[fsmonitor]
+backend = "watchman"
+
 [snapshot]
 max-new-file-size = "10MiB"
 
 [remotes.origin]
 auto-track-bookmarks = "glob:*"
+
+[[--scope]]
+--when.repositories = ["~/code/work"]
+
+[--scope.user]
+email = "tom@metafy.gg"

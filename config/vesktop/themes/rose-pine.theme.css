@@ -1,6 +1,6 @@
 /**
  * @name system24 (rosé pine)
- * @description a tui-like discord theme. based on rosé pine theme (https://rosepinetheme.com).
+ * @description a tui-style discord theme. based on rosé pine theme (https://rosepinetheme.com).
  * @author refact0r
  * @version 2.0.0
  * @invite nz87hXyvcy
@@ -15,8 +15,8 @@
 
 body {
     /* font, change to '' for default discord font */
-    --font: 'Noto Sans'; /* change to '' for default discord font */
-    --code-font: 'JetBrainsMono Nerd Font'; /* change to '' for default discord font */
+    --font: 'Inter'; /* change to '' for default discord font */
+    --code-font: 'Google Sans Code'; /* change to '' for default discord font */
     font-weight: 300; /* text font weight. 300 is light, 400 is normal. DOES NOT AFFECT BOLD TEXT */
     letter-spacing: -0.05ch; /* decreases letter spacing for better readability. recommended on monospace fonts.*/
 
@@ -45,7 +45,7 @@ body {
     --custom-dms-icon: off; /* off: use default discord icon, hide: remove icon entirely, custom: use custom icon */
     --dms-icon-svg-url: url('https://upload.wikimedia.org/wikipedia/commons/c/c4/Font_Awesome_5_solid_moon.svg'); /* icon svg url. MUST BE A SVG. */
     --dms-icon-svg-size: 90%; /* size of the svg (css mask-size property) */
-    --dms-icon-color-before: var(--icon-secondary); /* normal icon color */
+    --dms-icon-color-before: var(--icon-subtle); /* normal icon color */
     --dms-icon-color-after: var(--white); /* icon color when button is hovered/selected */
     --custom-dms-background: off; /* off to disable, image to use a background image (must set url variable below), color to use a custom color/gradient */
     --dms-background-image-url: url('https://raw.githubusercontent.com/rose-pine/rose-pine-theme/main/assets/icon.png'); /* url of the background image */
@@ -73,7 +73,7 @@ body {
     /* styling options */
     --custom-spotify-bar: on; /* off: default, on: custom text-like spotify progress bar */
     --ascii-titles: on; /* off: default, on: use ascii font for titles at the start of a channel */
-    --ascii-loader: system24; /* off: default, system24: use system24 ascii loader, cats: use cats loader */
+    --ascii-loader: cats; /* off: default, system24: use system24 ascii loader, cats: use cats loader */
 
     /* panel labels */
     --panel-labels: on; /* off: default, on: add labels to panels */
