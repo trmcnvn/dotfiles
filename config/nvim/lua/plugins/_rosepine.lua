@@ -4,7 +4,6 @@ return {
 		require("rose-pine").setup({
 			variant = "main",
 			styles = {
-				bold = false,
 				italic = false,
 			},
 			highlight_groups = {

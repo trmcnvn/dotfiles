@@ -3,11 +3,12 @@ auto-update-channel = tip
 config-file = ?config.linux
 
 # Font
-font-family = Google Sans Code
+font-family = MonoLisa
 font-style = Regular
-font-style-italic = Italic
+font-style-italic = Regular Italic
 font-style-bold = Bold
 font-style-bold-italic = Bold Italic
+font-feature = zero
 font-size = 12
 
 # General font settings
@@ -15,7 +16,7 @@ font-thicken = true
 font-synthetic-style = false
 
 # Cursor
-cursor-style-blink = false
+cursor-style-blink = true
 mouse-hide-while-typing = true
 mouse-scroll-multiplier = 3
 
@@ -46,12 +47,10 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-# theme = Catppuccin Mocha
 theme = Rose Pine
-# theme = Vague
 macos-icon = official
-background-opacity = 0.98
-background-blur = true
+background-opacity = 1
+background-blur = false
 background-opacity-cells = true
 unfocused-split-opacity = 0.95
 

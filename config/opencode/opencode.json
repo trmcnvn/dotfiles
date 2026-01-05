@@ -1,25 +1,17 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "theme": "catppuccin",
   "autoupdate": false,
-  "username": "Tom",
+  "theme": "rosepine",
   "mcp": {
-    "postgres-metafy": {
-      "type": "local",
-      "command": [
-        "bunx",
-        "@modelcontextprotocol/server-postgres",
-        "postgresql://localhost/metafy_development"
-      ],
-      "enabled": false
+    "pg-aiguide": {
+      "type": "remote",
+      "url": "https://mcp.tigerdata.com/docs",
+      "enabled": true
     },
     "svelte": {
       "type": "remote",
       "url": "https://mcp.svelte.dev/mcp",
       "enabled": true
     }
-  },
-  "plugin": [
-    "opencode-supermemory@latest"
-  ]
+  }
 }
