@@ -13,7 +13,10 @@
     "modules": [
       "custom/omarchy",
       "clock",
-      "custom/weather"
+      "custom/weather",
+      "custom/screenrecording-indicator",
+      "custom/updatespacman",
+      "custom/update"
     ]
   },
   "group/left2": {
@@ -25,7 +28,6 @@
   "group/left3": {
     "orientation": "inherit",
     "modules": [
-      "idle_inhibitor",
       "custom/screenrecording-indicator",
       "custom/updatespacman",
       "custom/update"
@@ -40,9 +42,7 @@
   "modules-left": [
     "group/left1",
     "group/left2",
-    "group/left3",
-    "group/left4",
-    "group/left5"
+    "group/left4"
   ],
   "modules-center": [
     "hyprland/window"

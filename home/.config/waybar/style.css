@@ -26,7 +26,11 @@
 }
 
 #left2{
-  margin-right: 8px;
+  margin-right: 4px;
+}
+
+#left4{
+  margin-left: 4px;
 }
 
 #left3{
@@ -37,8 +41,6 @@
   margin-right: 8px;
 }
 
-#left4{
-}
 .modules-center {
   background-color: transparent;
   color: @foam;
@@ -71,10 +73,12 @@ window#waybar.empty #window {
 }
 
 #mpris {
-    background-color: @base;
+  background-color: @base;
   border-radius: 8px;
   border: 1px solid alpha(@text, 0.15);
   color: @love;
+  margin: 0 3px;
+  padding: 3px 6px;
 }
 
 
