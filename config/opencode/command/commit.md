@@ -14,5 +14,8 @@ about what user facing changes were made
 
 - If there are changes do:
    - `jj sync`
-   - `jj retrunk`
+   - `jj retrunk` (if there are any changes from the sync call)
 - If there are conflicts DO NOT FIX THEM. notify me and I will fix them
+- Prefer `jj commit` over `jj desc`
+
+Make a commit with the above details in context.
