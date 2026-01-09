@@ -1,0 +1,266 @@
+#!/bin/sh
+set -eu
+
+DOTFILES="$(cd "$(dirname "$0")" && pwd)"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+RESET='\033[0m'
+
+msg()  { printf "${GREEN}=>${RESET} %s\n" "$1"; }
+warn() { printf "${YELLOW}=>${RESET} %s\n" "$1"; }
+err()  { printf "${RED}=>${RESET} %s\n" "$1" >&2; }
+die()  { err "$1"; exit 1; }
+has()  { command -v "$1" >/dev/null 2>&1; }
+
+detect_os() {
+    case "$(uname -s)" in
+        Darwin) echo "macos" ;;
+        Linux)
+            [ -f /etc/arch-release ] && echo "arch" && return
+            die "Unsupported Linux distro (Arch only)"
+            ;;
+        *) die "Unsupported OS" ;;
+    esac
+}
+
+install_paru() {
+    has paru && return 0
+    msg "Installing paru..."
+    sudo pacman -S --needed --noconfirm base-devel git
+    tmp=$(mktemp -d)
+    git clone https://aur.archlinux.org/paru.git "$tmp/paru"
+    (cd "$tmp/paru" && makepkg -si --noconfirm)
+    rm -rf "$tmp"
+}
+
+install_homebrew() {
+    has brew && return 0
+    msg "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+}
+
+setup_fish() {
+    has fish || die "Fish not installed"
+    fish_path=$(command -v fish)
+
+    if [ "$SHELL" != "$fish_path" ]; then
+        msg "Setting Fish as default shell..."
+        grep -q "$fish_path" /etc/shells || echo "$fish_path" | sudo tee -a /etc/shells >/dev/null
+        chsh -s "$fish_path"
+    else
+        msg "Fish is already default shell"
+    fi
+
+    msg "Installing Fisher plugins..."
+    fish -c "type -q fisher || curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher"
+    fish -c "fisher install trmcnvn/hydro-jj"
+}
+
+apply_macos_defaults() {
+    msg "Applying macOS defaults..."
+
+    # Keyboard
+    defaults write -g ApplePressAndHoldEnabled -bool false
+    defaults write NSGlobalDomain KeyRepeat -int 2
+    defaults write NSGlobalDomain InitialKeyRepeat -int 15
+    defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
+
+    # Disable Dashboard
+    defaults write com.apple.dashboard mcx-disabled -bool true
+
+    # Disable smart characters
+    defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+    defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+    defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+
+    # Mouse/trackpad speed
+    defaults write -g com.apple.trackpad.scaling 2
+    defaults write -g com.apple.mouse.scaling 2.5
+
+    # Disable .DS_Store on network drives
+    defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+
+    # Disable quarantine warnings
+    defaults write com.apple.LaunchServices LSQuarantine -bool false
+
+    # Dark mode
+    defaults write NSGlobalDomain AppleInterfaceStyle -string "Dark"
+    defaults write NSGlobalDomain AppleAquaColorVariant -int 6
+    defaults write NSGlobalDomain AppleHighlightColor -string "0.847059 0.847059 0.862745"
+    defaults write com.apple.menuextra.battery ShowPercent -bool true
+
+    # Window drag gesture
+    defaults write -g NSWindowShouldDragOnGesture YES
+
+    # Finder
+    defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
+    defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+    defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
+    defaults write com.apple.finder _FXSortFoldersFirst -bool true
+    defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+    defaults write com.apple.finder CreateDesktop false
+    defaults write com.apple.finder WarnOnEmptyTrash -bool false
+    defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+    defaults write NSGlobalDomain NSTableViewDefaultSizeMode -int 1
+
+    # Disable Photos hotplug
+    defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
+
+    # Chrome - disable swipe navigation
+    defaults write com.google.Chrome AppleEnableSwipeNavigateWithScrolls -bool false
+
+    # Dock
+    defaults write com.apple.dock mru-spaces -bool false
+    defaults write com.apple.dock tilesize -int 45
+    defaults write com.apple.dock expose-animation-duration -float 0.1
+    defaults write com.apple.dock "expose-group-by-app" -bool true
+    defaults write com.apple.dock autohide-delay -float 0
+    defaults write com.apple.dock autohide-time-modifier -float 0
+    defaults write com.apple.dock autohide -bool true
+    defaults write com.apple.dock launchanim -bool false
+    defaults write com.apple.dock show-recents -bool false
+    defaults write com.apple.dock persistent-apps -array
+    defaults write com.apple.dock static-only -bool true
+
+    # Screenshots
+    defaults write com.apple.screencapture disable-shadow -bool true
+    defaults write com.apple.screencapture location ~/Downloads
+
+    # Restart affected apps
+    for app in "Dock" "Finder" "SystemUIServer"; do
+        killall "$app" >/dev/null 2>&1 || true
+    done
+
+    msg "macOS defaults applied (some may require logout)"
+}
+
+cmd_init() {
+    os=$(detect_os)
+    msg "Initializing dotfiles ($os)"
+
+    case $os in
+        arch)
+            install_paru
+            msg "Installing packages..."
+            # Filter comments and empty lines, then install
+            grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | paru -S --needed -
+            ;;
+        macos)
+            install_homebrew
+            msg "Installing packages..."
+            brew bundle --file="$DOTFILES/packages/brew"
+            ;;
+    esac
+
+    cmd_sync
+
+    setup_fish
+
+    [ "$os" = "macos" ] && apply_macos_defaults
+
+    msg "Done! Restart your shell."
+}
+
+cmd_sync() {
+    msg "Syncing dotfiles..."
+    has stow || die "GNU Stow not installed"
+    stow -R -v -d "$DOTFILES" -t ~ home
+}
+
+cmd_update() {
+    msg "Updating dotfiles..."
+    if [ -d "$DOTFILES/.jj" ] && has jj; then
+        (cd "$DOTFILES" && jj git fetch && jj rebase -d 'trunk()')
+    else
+        git -C "$DOTFILES" pull
+    fi
+    cmd_sync
+}
+
+cmd_doctor() {
+    os=$(detect_os)
+
+    msg "Checking packages ($os)..."
+
+    missing_pkgs=""
+
+    case $os in
+        arch)
+            installed_pkgs=$(paru -Qq 2>/dev/null)
+            missing_pkgs=$(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | while read -r pkg; do
+                echo "$installed_pkgs" | grep -qx "$pkg" || echo "$pkg"
+            done)
+            total=$(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | wc -l | tr -d ' ')
+            ;;
+        macos)
+            installed_formulae=$(brew list --formula 2>/dev/null)
+            installed_casks=$(brew list --cask 2>/dev/null)
+            total=0
+            
+            while IFS= read -r line; do
+                case "$line" in
+                    \#*|"") continue ;;
+                esac
+                
+                if echo "$line" | grep -q '^brew'; then
+                    pkg=$(echo "$line" | sed 's/brew "\([^"]*\)".*/\1/')
+                    total=$((total + 1))
+                    echo "$installed_formulae" | grep -qx "$pkg" || missing_pkgs="$missing_pkgs $pkg"
+                elif echo "$line" | grep -q '^cask'; then
+                    pkg=$(echo "$line" | sed 's/cask "\([^"]*\)".*/\1/')
+                    total=$((total + 1))
+                    echo "$installed_casks" | grep -qx "$pkg" || missing_pkgs="$missing_pkgs $pkg"
+                fi
+            done < "$DOTFILES/packages/brew"
+            ;;
+    esac
+
+    # Count missing
+    if [ -n "$missing_pkgs" ]; then
+        missing_count=$(echo "$missing_pkgs" | wc -w | tr -d ' ')
+    else
+        missing_count=0
+    fi
+    installed_count=$((total - missing_count))
+
+    # Summary
+    if [ "$missing_count" -eq 0 ]; then
+        printf "${GREEN}✓${RESET} All %s packages installed\n" "$total"
+    else
+        printf "${YELLOW}!${RESET} %s/%s packages installed\n" "$installed_count" "$total"
+        printf "  Missing:%s\n" "$missing_pkgs"
+    fi
+
+    # Check stow status
+    if [ -L "$HOME/.config/fish/config.fish" ]; then
+        printf "${GREEN}✓${RESET} Dotfiles stowed\n"
+    else
+        printf "${YELLOW}!${RESET} Dotfiles not stowed\n"
+    fi
+}
+
+cmd_help() {
+    cat <<EOF
+Usage: dot <command>
+
+Commands:
+    init      Full setup (packages, stow, shell, plugins)
+    sync      Re-stow dotfiles
+    update    Pull latest changes and sync
+    doctor    Run health checks
+    help      Show this message
+EOF
+}
+
+case "${1:-help}" in
+    init)   cmd_init ;;
+    sync)   cmd_sync ;;
+    update) cmd_update ;;
+    doctor) cmd_doctor ;;
+    help|-h|--help) cmd_help ;;
+    *) err "Unknown command: $1"; cmd_help; exit 1 ;;
+esac

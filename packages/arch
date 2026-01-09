@@ -1,0 +1,73 @@
+# Core
+base-devel
+git
+stow
+unzip
+wget
+
+# Shell
+fish
+fisher
+
+# Editor (AUR)
+neovim-nightly-bin
+
+# CLI tools
+bat
+btop
+difftastic
+eza
+fd
+fzf
+gum
+jq
+ripgrep
+tldr
+tokei
+tree
+yq
+zoxide
+
+# Dev tools
+docker
+docker-compose
+doctl
+github-cli
+git-secret
+helm
+helmfile
+kubectl
+kustomize
+lazydocker
+lazygit
+lua-language-server
+mise
+tree-sitter-cli
+
+# VCS
+jujutsu
+jjui-bin
+
+# Media
+imagemagick
+mpv
+
+# Desktop (Hyprland)
+hyprland
+waybar
+satty
+
+# Fonts
+noto-fonts
+noto-fonts-emoji
+ttf-jetbrains-mono-nerd
+
+# Apps (AUR)
+bitwarden-bin
+brave-bin
+ghostty-git
+obs-studio
+opencode-bin
+spotify
+vesktop-bin
+walker
