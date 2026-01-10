@@ -6,6 +6,7 @@ rust = "latest"
 go = "latest"
 node = "latest"
 bun = "latest"
+fnox = "latest"
 
 [settings]
 always_keep_download = false

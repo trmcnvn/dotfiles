@@ -33,7 +33,6 @@ docker
 docker-compose
 doctl
 github-cli
-git-secret
 helm
 helmfile
 kubectl
