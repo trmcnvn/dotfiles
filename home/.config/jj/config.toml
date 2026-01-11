@@ -6,7 +6,7 @@ email = "hello@trmcnvn.dev"
 
 [aliases]
 ld = ["log", "--template", "builtin_log_detailed"]
-lnm = ["log", "-r", "main@origin.."]
+lnm = ["log", "-r", "trunk().."]
 sync = ["git", "fetch", "--all-remotes"]
 push = ["git", "push"]
 
