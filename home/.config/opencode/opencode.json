@@ -14,6 +14,10 @@
       "secrets/*": "deny"
     }
   },
+  "keybinds": {
+    "leader": "ctrl+o",
+    "variant_cycle": "<leader>t",
+  },
   "mcp": {
     "pg-aiguide": {
       "type": "remote",

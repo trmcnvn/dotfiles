@@ -23,8 +23,11 @@ return {
 				["g?"] = "actions.show_help",
 				["g."] = "actions.toggle_hidden",
 			},
+			confirmation = {
+				border = "rounded",
+			},
 			float = {
-				border = "single",
+				border = "rounded",
 				max_width = 42,
 				override = function(conf)
 					return vim.tbl_extend("force", conf, { row = 2, col = 2 }) -- Offset from top-left
