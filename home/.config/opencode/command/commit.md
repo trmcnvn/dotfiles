@@ -1,6 +1,6 @@
 ---
 description: jj commit and push
-model: opencode/glm-4.7-free
+model: opencode/glm-4.6
 subtask: true
 ---
 

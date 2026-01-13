@@ -15,8 +15,8 @@
 
 body {
     /* font, change to '' for default discord font */
-    --font: 'Inter'; /* change to '' for default discord font */
-    --code-font: 'Google Sans Code'; /* change to '' for default discord font */
+    --font: 'Roboto'; /* change to '' for default discord font */
+    --code-font: 'TX-02';
     font-weight: 300; /* text font weight. 300 is light, 400 is normal. DOES NOT AFFECT BOLD TEXT */
     letter-spacing: -0.05ch; /* decreases letter spacing for better readability. recommended on monospace fonts.*/
 

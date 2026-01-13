@@ -3,40 +3,32 @@
 ## Code Quality Standards
 
 - Make minimal, surgical changes
-- **Follow Unix Philosophy** (see below)
 - **Never compromise type safety**
+- **Make illegal states unrepresentable**: Model domain with ADTs/discriminated unions; parse inputs at boundaries into typed structures; if state can't exist, code can't mishandle it
+- **Abstractions**: Consciously constrained, pragmatically parameterised, doggedly documented
 
-## Unix Philosophy
+### **ENTROPY REMINDER**
+This codebase will outlive you. Every shortcut you take becomes
+someone else's burden. Every hack compounds into technical debt
+that slows the whole team down.
 
-1. **Modularity:** Simple parts, clean interfaces
-2. **Clarity:** Clarity > cleverness
-3. **Composition:** Design programs to connect to other programs
-4. **Separation:** Policy from mechanism; interfaces from engines
-5. **Simplicity:** Add complexity only where you must
-6. **Parsimony:** Big program only when nothing else will do
-7. **Transparency:** Design for visibility; make inspection/debugging easy
-8. **Robustness:** Child of transparency + simplicity
-9. **Representation:** Fold knowledge into data; keep logic stupid
-10. **Least Surprise:** In interfaces, do the expected thing
-11. **Silence:** Nothing surprising to say → say nothing
-12. **Repair:** Fail loud, fail fast
-13. **Economy:** Programmer time > machine time
-14. **Generation:** Write programs to write programs
-15. **Optimization:** Get it working before optimizing
-16. **Diversity:** Distrust "one true way"
-17. **Extensibility:** Design for the future
+You are not just writing code. You are shaping the future of this
+project. The patterns you establish will be copied. The corners
+you cut will be cut again.
+
+**Fight entropy. Leave the codebase better than you found it.**
 
 ## Testing
 
-- Write tests that verify semantically correct behaviour
-- **Failing tests are accetable** when they expose genuine bugs and test correct behaviour
+- Write tests that verify semantically correct behavior
+- **Failing tests are acceptable** when they expose genuine bugs and test correct behavior
 
-## Git, Pull Requests, Commits
+## SCM, Git, Pull Requests, Commits
 
-- **Prefer jj** over git
-- **gh CLI available** for GitHub operations (PRs, Issues, etc.)
+- **ALWAYS check for `.jj/` dir before ANY VCS command** - if present, use jj not git
+- **gh CLI available** for GitHub operations (PRs, issues, etc.)
 
 ## Plans
 
-- At the end of each plan, output a list of unresolved questions to answer, if any. Make the questions extremely concise. Sacrifice grammar for the sake of concision.
+- At the end of each plan, give me a list of unresolved questions to answer, if any. Make the questions extremely concise. Sacrifice grammar for the sake of concision.
 

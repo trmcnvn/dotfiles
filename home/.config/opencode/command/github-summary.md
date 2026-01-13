@@ -1,0 +1,17 @@
+---
+description: Add AI session summary to GitHub PR description
+---
+
+Update the PR description with an AI session export summary.
+
+First, invoke the skill tool to load the github-summary skill:
+
+```
+skill({ name: 'github-summary' })
+```
+
+Then follow the skill instructions to export the session summary.
+
+<user-request>
+$ARGUMENTS
+</user-request>

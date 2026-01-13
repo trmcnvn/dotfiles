@@ -5,6 +5,15 @@
   "enabled_providers": [
     "opencode"
   ],
+  "permission": {
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.envrc": "deny",
+      "secrets/*": "deny"
+    }
+  },
   "mcp": {
     "pg-aiguide": {
       "type": "remote",
