@@ -3,8 +3,8 @@
 /* --- Global-Settings ---*/
 
 * {
-  font-family: 'JetBrainsMono Nerd Font';
-  font-size: 12px;
+  font-family: 'TX-02', 'JetBrainsMono Nerd Font';
+  font-size: 14px;
   font-weight: bold;
   min-height: 0px;
   }
@@ -26,11 +26,14 @@
 }
 
 #left2{
-  margin-right: 4px;
+  margin-right: 3px;
 }
 
 #left4{
-  margin-left: 4px;
+  background-color: @base;
+  border-radius: 8px;
+  border: 1px solid alpha(@text, 0.15);
+  margin-left: 0;
 }
 
 #left3{
@@ -38,7 +41,7 @@
   border-radius: 8px;
   border: 1px solid alpha(@text, 0.15);
   color: @subtle;
-  margin-right: 8px;
+  margin-right: 3px;
 }
 
 .modules-center {
@@ -73,9 +76,6 @@ window#waybar.empty #window {
 }
 
 #mpris {
-  background-color: @base;
-  border-radius: 8px;
-  border: 1px solid alpha(@text, 0.15);
   color: @love;
   margin: 0 3px;
   padding: 3px 6px;
