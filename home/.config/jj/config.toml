@@ -57,7 +57,7 @@ track-default-bookmark-on-clone = true
 
 [signing]
 backend = "ssh"
-key = "~/.ssh/id_rsa.pub"
+key = "~/.ssh/id_ed25519.pub"
 behavior = "own"
 
 [fsmonitor]
