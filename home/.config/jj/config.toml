@@ -35,7 +35,7 @@ diff-formatter = ["difft", "--color=always", "$left", "$right"]
 "closest_bookmark(to)" = "heads(::to & bookmarks())"
 "closest_pushable(to)" = "heads(::to & mutable() & ~description(exact:'') & (~empty() | merges()))"
 "stack()" = "reachable(@, mutable())"
-"mine()" = "author_name(exact:'Thomas McNiven')"
+"mine()" = "author_name(exact:'Thomas McNiven') | author_name(exact:'trmcnvn')"
 "wip()" = "mine() ~ immutable()"
 "branch_start(to)" = "heads(::to & trunk())+ & ::to"
 

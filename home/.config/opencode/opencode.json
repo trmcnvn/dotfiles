@@ -3,7 +3,8 @@
   "autoupdate": false,
   "theme": "rosepine",
   "enabled_providers": [
-    "opencode"
+    "opencode",
+    "openai"
   ],
   "permission": {
     "read": {

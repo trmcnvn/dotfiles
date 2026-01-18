@@ -72,11 +72,11 @@ body {
 
     /* styling options */
     --custom-spotify-bar: on; /* off: default, on: custom text-like spotify progress bar */
-    --ascii-titles: on; /* off: default, on: use ascii font for titles at the start of a channel */
+    --ascii-titles: off; /* off: default, on: use ascii font for titles at the start of a channel */
     --ascii-loader: cats; /* off: default, system24: use system24 ascii loader, cats: use cats loader */
 
     /* panel labels */
-    --panel-labels: on; /* off: default, on: add labels to panels */
+    --panel-labels: off; /* off: default, on: add labels to panels */
     --label-color: var(--text-muted); /* color of labels */
     --label-font-weight: 500; /* font weight of labels */
 }
