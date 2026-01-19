@@ -23,7 +23,7 @@ you cut will be cut again.
 - Write tests that verify semantically correct behavior
 - **Failing tests are acceptable** when they expose genuine bugs and test correct behavior
 
-## SCM, Git, Pull Requests, Commits
+## Git, jj, VCS, SCM, Pull Requests, Commits
 
 - **ALWAYS check for `.jj/` dir before ANY VCS command** - if present, use jj not git
 - **gh CLI available** for GitHub operations (PRs, issues, etc.)
@@ -32,3 +32,10 @@ you cut will be cut again.
 
 - At the end of each plan, give me a list of unresolved questions to answer, if any. Make the questions extremely concise. Sacrifice grammar for the sake of concision.
 
+## Specialized Subagents
+
+### Oracle
+Invoke for: code review, architecture decisions, debugging analysis, refactor planning, second opinion.
+
+### Librarian
+Invoke for: understanding 3rd party libraries/packages, exploring remote repositories, discovering open source patterns.
