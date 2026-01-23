@@ -168,7 +168,7 @@ cmd_init() {
 cmd_sync() {
     msg "Syncing dotfiles..."
     has stow || die "GNU Stow not installed"
-    stow -R -v -d "$DOTFILES" -t ~ home
+    stow --no-folding -R -v -d "$DOTFILES" -t ~ home
 }
 
 cmd_update() {

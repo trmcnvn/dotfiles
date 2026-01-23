@@ -1,2 +1,2 @@
 command = bash -l -c fish
-window-decoration = false
+window-decoration = true
