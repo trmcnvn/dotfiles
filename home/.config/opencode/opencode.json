@@ -40,14 +40,6 @@
       "url": "https://docs.mcp.cloudflare.com/mcp",
       "enabled": false
     },
-    "chrome-devtools": {
-      "type": "local",
-      "command": [
-        "bunx",
-        "chrome-devtools@latest"
-      ],
-      "enabled": false
-    },
     "context7": {
       "type": "remote",
       "url": "https://mcp.context7.com/mcp",
@@ -57,11 +49,6 @@
       "type": "remote",
       "url": "https://mcp.grep.app",
       "enabled": true
-    },
-    "figma": {
-      "type": "remote",
-      "url": "https://mcp.figma.com/mcp",
-      "enabled": false
     }
   }
 }
