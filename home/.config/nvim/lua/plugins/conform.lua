@@ -31,7 +31,7 @@ return {
 				javascript = { "oxfmt", "biome", "prettierd", stop_after_first = true },
 				typescript = { "oxfmt", "biome", "prettierd", stop_after_first = true },
 				typescriptreact = { "oxfmt", "biome", "prettierd", stop_after_first = true },
-				svelte = { "oxfmt", "prettierd", stop_after_first = true },
+				svelte = { "prettierd", stop_after_first = true },
 			},
 			formatters = {
 				oxfmt = {
