@@ -70,7 +70,7 @@ max-new-file-size = "10MiB"
 auto-track-bookmarks = "glob:*"
 
 [[--scope]]
---when.repositories = ["~/code/work"]
+--when.repositories = ["~/code/work", "~/Developer/work"]
 
 [--scope.user]
 email = "tom@metafy.gg"
