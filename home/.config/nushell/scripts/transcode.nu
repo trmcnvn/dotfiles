@@ -19,6 +19,7 @@ def transcode-video [
         },
         "4k" => {
             (ffmpeg -i $input
+                -vf scale=3840:2160
                 -c:v libx265 -preset slow -crf 24
                 -c:a aac -b:a 192k
                 $"($stem)-4k.mp4")

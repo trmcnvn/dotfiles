@@ -37,28 +37,46 @@ $env.NU_LIB_DIRS = [
     ($env.XDG_CONFIG_HOME | path join "nushell" "scripts")
 ]
 
+# Extra PATH entries — must be set before mise captures its baseline
+$env.PATH = ($env.PATH | prepend [
+    ($env.HOME | path join ".local" "bin")
+    ($env.HOME | path join ".local" "share" "omarchy" "bin")
+    ($env.HOME | path join "code" "dotfiles")
+    ($env.CARGO_HOME | path join "bin")
+    ($env.BUN_INSTALL | path join "bin")
+])
+
 # Generate cached init scripts for tools that need `source` in config.nu.
 # These MUST exist before config.nu is parsed (source is parse-time).
 let cache_dir = ($env.XDG_CACHE_HOME | path join "nushell")
 mkdir $cache_dir
 
 # mise
-if (which mise | is-not-empty) {
-    mise activate nu | save --force ($cache_dir | path join "mise-init.nu")
-} else {
-    "" | save --force ($cache_dir | path join "mise-init.nu")
+let mise_cache = ($cache_dir | path join "mise-init.nu")
+if not ($mise_cache | path exists) {
+    if (which mise | is-not-empty) {
+        mise activate nu | save --force $mise_cache
+    } else {
+        "" | save --force $mise_cache
+    }
 }
 
 # zoxide
-if (which zoxide | is-not-empty) {
-    zoxide init nushell | save --force ($cache_dir | path join "zoxide-init.nu")
-} else {
-    "" | save --force ($cache_dir | path join "zoxide-init.nu")
+let zoxide_cache = ($cache_dir | path join "zoxide-init.nu")
+if not ($zoxide_cache | path exists) {
+    if (which zoxide | is-not-empty) {
+        zoxide init nushell | save --force $zoxide_cache
+    } else {
+        "" | save --force $zoxide_cache
+    }
 }
 
 # jj completions
-if (which jj | is-not-empty) {
-    jj util completion nushell | save --force ($cache_dir | path join "jj-completions.nu")
-} else {
-    "" | save --force ($cache_dir | path join "jj-completions.nu")
+let jj_cache = ($cache_dir | path join "jj-completions.nu")
+if not ($jj_cache | path exists) {
+    if (which jj | is-not-empty) {
+        jj util completion nushell | save --force $jj_cache
+    } else {
+        "" | save --force $jj_cache
+    }
 }

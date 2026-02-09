@@ -36,7 +36,8 @@ window-decoration = true
 title = Ghostty 👻
 
 # Functionality
-shell-integration = fish
+command = bash -l -c nu
+shell-integration = none
 shell-integration-features = no-cursor,sudo,title,ssh-env,ssh-terminfo
 clipboard-read = allow
 clipboard-write = allow

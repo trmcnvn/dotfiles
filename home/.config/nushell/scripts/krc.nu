@@ -3,6 +3,7 @@ def krc [namespace: string] {
     let pod = (kubectl get pods
         -n $namespace
         -l app=metafy-api
+        --field-selector=status.phase=Running
         -o jsonpath='{.items[0].metadata.name}'
         | str trim)
 

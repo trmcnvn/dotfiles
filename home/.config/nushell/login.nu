@@ -6,14 +6,27 @@ def --env _start_ssh_agent [] {
 
     # Restore saved agent env if file exists
     if ($env_file | path exists) {
-        let saved = (open $env_file)
-        $env.SSH_AUTH_SOCK = ($saved | get SSH_AUTH_SOCK)
-        $env.SSH_AGENT_PID = ($saved | get SSH_AGENT_PID)
+        let saved = (try { open $env_file } catch { {} })
+        let saved_sock = ($saved | get -o SSH_AUTH_SOCK | default "")
+        let saved_pid = ($saved | get -o SSH_AGENT_PID | default "")
+
+        if ($saved_sock | is-not-empty) {
+            $env.SSH_AUTH_SOCK = $saved_sock
+        }
+
+        if ($saved_pid | is-not-empty) {
+            $env.SSH_AGENT_PID = $saved_pid
+        }
     }
 
     # Check if agent is alive
-    let agent_running = if ($env | get -i SSH_AGENT_PID | is-not-empty) {
-        (do { kill -0 ($env.SSH_AGENT_PID | into int) } | complete).exit_code == 0
+    let agent_running = if ($env | get -o SSH_AGENT_PID | is-not-empty) {
+        let pid = (try { $env.SSH_AGENT_PID | into int } catch { -1 })
+        if $pid > 0 {
+            (do { ^kill -0 $pid } | complete).exit_code == 0
+        } else {
+            false
+        }
     } else {
         false
     }
