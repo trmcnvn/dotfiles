@@ -1,0 +1,21 @@
+# Stow built-in defaults (overridden by this file's existence)
+RCS
+.+,v
+CVS
+\.\#.+
+\.cvsignore
+\.svn
+_darcs
+\.hg
+\.git
+\.gitignore
+\.gitmodules
+.+~
+\#.*\#
+^/README.*
+^/LICENSE.*
+^/COPYING
+
+# Custom ignores
+node_modules
+.+\.lock

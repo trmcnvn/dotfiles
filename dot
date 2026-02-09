@@ -168,6 +168,16 @@ cmd_init() {
 cmd_sync() {
     msg "Syncing dotfiles..."
     has stow || die "GNU Stow not installed"
+
+    # Dry-run to find conflicts, then remove them before stowing
+    conflicts=$(stow --no-folding -R -n -d "$DOTFILES" -t ~ home 2>&1 | grep "existing target" | sed 's/.*over existing target //' | sed 's/ since.*//')
+    if [ -n "$conflicts" ]; then
+        echo "$conflicts" | while IFS= read -r file; do
+            warn "Removing conflicting file: ~/$file"
+            rm -f "$HOME/$file"
+        done
+    fi
+
     stow --no-folding -R -v -d "$DOTFILES" -t ~ home
 }
 
