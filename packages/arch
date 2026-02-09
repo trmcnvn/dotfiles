@@ -6,8 +6,7 @@ unzip
 wget
 
 # Shell
-fish
-fisher
+nushell
 
 # Editor (AUR)
 neovim-nightly-bin
