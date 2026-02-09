@@ -1,11 +1,26 @@
+local jj_cache = {
+	value = nil,
+	last_update = 0,
+	update_interval = 30,
+}
+
 local function jj_info()
+	local current_time = os.time()
+	if jj_cache.value and (current_time - jj_cache.last_update < jj_cache.update_interval) then
+		return jj_cache.value
+	end
+
 	local output = vim.fn.system("nu -c 'jj-prompt | to json'")
 	if vim.v.shell_error ~= 0 then
+		jj_cache.value = nil
+		jj_cache.last_update = current_time
 		return nil
 	end
 
 	local ok, data = pcall(vim.json.decode, output)
 	if not ok then
+		jj_cache.value = nil
+		jj_cache.last_update = current_time
 		return nil
 	end
 
@@ -14,10 +29,12 @@ local function jj_info()
 		bookmark = data.bookmarks[1].name or ""
 	end
 
-	return {
+	jj_cache.value = {
 		change_id = data.change_id or "",
 		bookmark = bookmark,
 	}
+	jj_cache.last_update = current_time
+	return jj_cache.value
 end
 
 return {

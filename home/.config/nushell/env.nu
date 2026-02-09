@@ -29,7 +29,6 @@ $env.BUN_INSTALL = ($env.HOME | path join ".bun")
 
 # OpenCode
 $env.OPENCODE_EXPERIMENTAL_LSP_TOOL = "1"
-$env.OPENCODE_EXPERIMENTAL_PLAN_MODE = "1"
 $env.OPENCODE_ENABLE_EXA = "1"
 
 # Script search path (must be set here so config.nu can `source` from scripts/)

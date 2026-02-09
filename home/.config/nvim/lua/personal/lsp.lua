@@ -82,3 +82,4 @@ vim.lsp.config(
 	})
 )
 vim.lsp.enable("ruby_lsp") -- Ruby LSP is installed by the Gem, not managed by Mason
+vim.lsp.enable("rust_analyzer", false)
