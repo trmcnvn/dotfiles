@@ -43,21 +43,15 @@ install_homebrew() {
     eval "$(/opt/homebrew/bin/brew shellenv)"
 }
 
-setup_fish() {
-    has fish || die "Fish not installed"
-    fish_path=$(command -v fish)
+setup_bash() {
+    bash_path="/bin/bash"
 
-    if [ "$SHELL" != "$fish_path" ]; then
-        msg "Setting Fish as default shell..."
-        grep -q "$fish_path" /etc/shells || echo "$fish_path" | sudo tee -a /etc/shells >/dev/null
-        chsh -s "$fish_path"
+    if [ "$SHELL" != "$bash_path" ]; then
+        msg "Setting Bash as default shell..."
+        chsh -s "$bash_path"
     else
-        msg "Fish is already default shell"
+        msg "Bash is already default shell"
     fi
-
-    msg "Installing Fisher plugins..."
-    fish -c "type -q fisher || curl -sL https://git.io/fisher | source && fisher install jorgebucaran/fisher"
-    fish -c "fisher install trmcnvn/hydro-jj"
 }
 
 apply_macos_defaults() {
@@ -158,7 +152,7 @@ cmd_init() {
 
     cmd_sync
 
-    setup_fish
+    setup_bash
 
     [ "$os" = "macos" ] && apply_macos_defaults
 
