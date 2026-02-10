@@ -10,6 +10,7 @@ source ~/.cache/nushell/mise-init.nu
 # Modular configs
 source scripts/prompt.nu
 source scripts/aliases.nu
+source scripts/dot-completions.nu
 source ~/.cache/nushell/zoxide-init.nu
 source ~/.cache/nushell/jj-completions.nu
 

@@ -15,6 +15,33 @@ err()  { printf "${RED}=>${RESET} %s\n" "$1" >&2; }
 die()  { err "$1"; exit 1; }
 has()  { command -v "$1" >/dev/null 2>&1; }
 
+confirm() {
+    prompt=$1
+    default=${2:-n}
+    answer=""
+
+    if [ "$default" = "y" ]; then
+        suffix="[Y/n]"
+    else
+        suffix="[y/N]"
+    fi
+
+    if [ ! -t 0 ]; then
+        [ "$default" = "y" ]
+        return
+    fi
+
+    printf "%s %s " "$prompt" "$suffix"
+    read -r answer || true
+
+    case "$answer" in
+        y|Y|yes|YES) return 0 ;;
+        n|N|no|NO) return 1 ;;
+        "") [ "$default" = "y" ] && return 0 || return 1 ;;
+        *) return 1 ;;
+    esac
+}
+
 detect_os() {
     case "$(uname -s)" in
         Darwin) echo "macos" ;;
@@ -41,6 +68,73 @@ install_homebrew() {
     msg "Installing Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     eval "$(/opt/homebrew/bin/brew shellenv)"
+}
+
+append_line_if_missing() {
+    line=$1
+    file=$2
+    grep -Fqx "$line" "$file" 2>/dev/null && return 0
+    printf "%s\n" "$line" >> "$file"
+}
+
+remove_line_exact() {
+    line=$1
+    file=$2
+    tmp=$(mktemp)
+    grep -Fvx "$line" "$file" > "$tmp" || true
+    mv "$tmp" "$file"
+}
+
+collect_package_status() {
+    os=$1
+    PKG_TOTAL=0
+    PKG_MISSING_COUNT=0
+    PKG_MISSING_LIST=""
+
+    add_missing() {
+        PKG_MISSING_COUNT=$((PKG_MISSING_COUNT + 1))
+        if [ -z "$PKG_MISSING_LIST" ]; then
+            PKG_MISSING_LIST=$1
+        else
+            PKG_MISSING_LIST="$PKG_MISSING_LIST
+$1"
+        fi
+    }
+
+    case "$os" in
+        arch)
+            has paru || die "paru not installed"
+            installed_pkgs=$(paru -Qq 2>/dev/null || true)
+            while IFS= read -r pkg; do
+                [ -z "$pkg" ] && continue
+                PKG_TOTAL=$((PKG_TOTAL + 1))
+                echo "$installed_pkgs" | grep -qx "$pkg" || add_missing "$pkg"
+            done <<EOF
+$(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$')
+EOF
+            ;;
+        macos)
+            has brew || die "Homebrew not installed"
+            installed_formulae=$(brew list --formula 2>/dev/null || true)
+            installed_casks=$(brew list --cask 2>/dev/null || true)
+
+            while IFS= read -r line; do
+                case "$line" in
+                    \#*|"") continue ;;
+                esac
+
+                if echo "$line" | grep -q '^brew'; then
+                    pkg=$(echo "$line" | sed 's/brew "\([^"]*\)".*/\1/')
+                    PKG_TOTAL=$((PKG_TOTAL + 1))
+                    echo "$installed_formulae" | grep -qx "$pkg" || add_missing "brew:$pkg"
+                elif echo "$line" | grep -q '^cask'; then
+                    pkg=$(echo "$line" | sed 's/cask "\([^"]*\)".*/\1/')
+                    PKG_TOTAL=$((PKG_TOTAL + 1))
+                    echo "$installed_casks" | grep -qx "$pkg" || add_missing "cask:$pkg"
+                fi
+            done < "$DOTFILES/packages/brew"
+            ;;
+    esac
 }
 
 setup_bash() {
@@ -163,12 +257,34 @@ cmd_sync() {
     msg "Syncing dotfiles..."
     has stow || die "GNU Stow not installed"
 
-    # Dry-run to find conflicts, then remove them before stowing
+    # Dry-run to find conflicts, then backup+remove before stowing
     conflicts=$(stow --no-folding -R -n -d "$DOTFILES" -t ~ home 2>&1 | grep "existing target" | sed 's/.*over existing target //' | sed 's/ since.*//')
     if [ -n "$conflicts" ]; then
-        echo "$conflicts" | while IFS= read -r file; do
-            warn "Removing conflicting file: ~/$file"
-            rm -f "$HOME/$file"
+        warn "Stow conflicts found:"
+        printf "%s\n" "$conflicts" | while IFS= read -r file; do
+            warn "  ~/$file"
+        done
+
+        confirm "Backup + replace conflicting paths?" y || die "Aborted; resolve conflicts manually then re-run sync"
+
+        backup_dir="$DOTFILES/backups/$(date +%Y%m%d_%H%M%S)"
+        msg "Backing up conflicts to $backup_dir"
+
+        printf "%s\n" "$conflicts" | while IFS= read -r file; do
+            target="$HOME/$file"
+            [ -e "$target" ] || [ -L "$target" ] || continue
+
+            backup_path="$backup_dir/$file"
+            mkdir -p "$(dirname "$backup_path")"
+
+            if [ -d "$target" ] && [ ! -L "$target" ]; then
+                cp -R "$target" "$backup_path"
+            else
+                cp -P "$target" "$backup_path"
+            fi
+
+            warn "Replacing ~/$file"
+            rm -rf "$target"
         done
     fi
 
@@ -185,66 +301,299 @@ cmd_update() {
     cmd_sync
 }
 
+cmd_check_packages() {
+    os=$(detect_os)
+    msg "Checking package state ($os)..."
+
+    collect_package_status "$os"
+
+    installed_count=$((PKG_TOTAL - PKG_MISSING_COUNT))
+    if [ "$PKG_MISSING_COUNT" -eq 0 ]; then
+        printf "${GREEN}✓${RESET} All %s/%s configured packages installed\n" "$installed_count" "$PKG_TOTAL"
+    else
+        printf "${YELLOW}!${RESET} %s/%s configured packages installed\n" "$installed_count" "$PKG_TOTAL"
+        printf "Missing:\n%s\n" "$PKG_MISSING_LIST"
+    fi
+}
+
 cmd_doctor() {
     os=$(detect_os)
-
-    msg "Checking packages ($os)..."
-
-    missing_pkgs=""
-
-    case $os in
-        arch)
-            installed_pkgs=$(paru -Qq 2>/dev/null)
-            missing_pkgs=$(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | while read -r pkg; do
-                echo "$installed_pkgs" | grep -qx "$pkg" || echo "$pkg"
-            done)
-            total=$(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | wc -l | tr -d ' ')
-            ;;
-        macos)
-            installed_formulae=$(brew list --formula 2>/dev/null)
-            installed_casks=$(brew list --cask 2>/dev/null)
-            total=0
-            
-            while IFS= read -r line; do
-                case "$line" in
-                    \#*|"") continue ;;
-                esac
-                
-                if echo "$line" | grep -q '^brew'; then
-                    pkg=$(echo "$line" | sed 's/brew "\([^"]*\)".*/\1/')
-                    total=$((total + 1))
-                    echo "$installed_formulae" | grep -qx "$pkg" || missing_pkgs="$missing_pkgs $pkg"
-                elif echo "$line" | grep -q '^cask'; then
-                    pkg=$(echo "$line" | sed 's/cask "\([^"]*\)".*/\1/')
-                    total=$((total + 1))
-                    echo "$installed_casks" | grep -qx "$pkg" || missing_pkgs="$missing_pkgs $pkg"
-                fi
-            done < "$DOTFILES/packages/brew"
-            ;;
-    esac
-
-    # Count missing
-    if [ -n "$missing_pkgs" ]; then
-        missing_count=$(echo "$missing_pkgs" | wc -w | tr -d ' ')
-    else
-        missing_count=0
-    fi
-    installed_count=$((total - missing_count))
-
-    # Summary
-    if [ "$missing_count" -eq 0 ]; then
-        printf "${GREEN}✓${RESET} All %s packages installed\n" "$total"
-    else
-        printf "${YELLOW}!${RESET} %s/%s packages installed\n" "$installed_count" "$total"
-        printf "  Missing:%s\n" "$missing_pkgs"
-    fi
+    cmd_check_packages
 
     # Check stow status
-    if [ -L "$HOME/.config/fish/config.fish" ]; then
+    if [ -L "$HOME/.config/nushell/config.nu" ]; then
         printf "${GREEN}✓${RESET} Dotfiles stowed\n"
     else
         printf "${YELLOW}!${RESET} Dotfiles not stowed\n"
     fi
+
+    for tool in stow git; do
+        if has "$tool"; then
+            printf "${GREEN}✓${RESET} %s installed\n" "$tool"
+        else
+            printf "${YELLOW}!${RESET} %s missing\n" "$tool"
+        fi
+    done
+
+    if has opencode; then
+        printf "${GREEN}✓${RESET} opencode installed\n"
+    else
+        printf "${YELLOW}!${RESET} opencode missing\n"
+    fi
+
+    if has nu; then
+        printf "${GREEN}✓${RESET} nushell installed\n"
+    else
+        printf "${YELLOW}!${RESET} nushell missing\n"
+    fi
+
+    if [ -d "$DOTFILES/.jj" ] && has jj; then
+        printf "${GREEN}✓${RESET} jj available for this repo\n"
+    elif [ -d "$DOTFILES/.jj" ]; then
+        printf "${YELLOW}!${RESET} .jj repo detected but jj missing\n"
+    fi
+}
+
+cmd_benchmark_shell() {
+    runs=10
+    verbose=0
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -r|--runs)
+                shift
+                runs=${1:-10}
+                ;;
+            -v|--verbose)
+                verbose=1
+                ;;
+            -h|--help)
+                cat <<EOF
+Usage: dot benchmark-shell [options]
+
+Options:
+    -r, --runs <n>    Number of runs (default: 10)
+    -v, --verbose     Print each run timing
+    -h, --help        Show help
+EOF
+                return 0
+                ;;
+            *) die "Unknown option: $1" ;;
+        esac
+        shift || true
+    done
+
+    has nu || die "nushell (nu) not installed"
+    has python3 || die "python3 required for benchmark-shell"
+
+    case "$runs" in
+        ''|*[!0-9]*) die "runs must be integer" ;;
+    esac
+    [ "$runs" -ge 1 ] || die "runs must be >= 1"
+
+    msg "Benchmarking nushell startup ($runs runs)..."
+
+    py_output=$(python3 - "$runs" "$verbose" <<'PY'
+import subprocess
+import statistics
+import sys
+import time
+
+runs = int(sys.argv[1])
+verbose = int(sys.argv[2]) == 1
+times = []
+
+for i in range(runs):
+    start = time.perf_counter()
+    subprocess.run(["nu", "-c", "exit"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    elapsed = time.perf_counter() - start
+    times.append(elapsed)
+    if verbose:
+        print(f"run {i+1}: {elapsed:.4f}s")
+
+avg = statistics.fmean(times)
+mn = min(times)
+mx = max(times)
+print(f"avg={avg:.4f}")
+print(f"min={mn:.4f}")
+print(f"max={mx:.4f}")
+PY
+)
+
+echo "$py_output" | while IFS= read -r line; do
+    case "$line" in
+        run*) printf "%s\n" "$line" ;;
+        avg=*) avg=${line#avg=} ;;
+        min=*) min=${line#min=} ;;
+        max=*) max=${line#max=} ;;
+    esac
+done
+
+avg=$(printf "%s\n" "$py_output" | grep '^avg=' | sed 's/^avg=//')
+min=$(printf "%s\n" "$py_output" | grep '^min=' | sed 's/^min=//')
+max=$(printf "%s\n" "$py_output" | grep '^max=' | sed 's/^max=//')
+
+printf "avg: %ss\n" "$avg"
+printf "min: %ss\n" "$min"
+printf "max: %ss\n" "$max"
+
+awk -v a="$avg" 'BEGIN {
+    if (a <= 0.08) print "rating: excellent";
+    else if (a <= 0.15) print "rating: good";
+    else if (a <= 0.30) print "rating: fair";
+    else print "rating: slow";
+}'
+}
+
+cmd_package() {
+    subcmd=${1:-help}
+    shift || true
+    os=$(detect_os)
+
+    case "$subcmd" in
+        list)
+            case "$os" in
+                arch)
+                    grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$'
+                    ;;
+                macos)
+                    grep -E '^(brew|cask) ' "$DOTFILES/packages/brew" || true
+                    ;;
+            esac
+            ;;
+        add)
+            pkg=${1:-}
+            [ -n "$pkg" ] || die "Usage: dot package add <name> [brew|cask]"
+
+            case "$os" in
+                arch)
+                    append_line_if_missing "$pkg" "$DOTFILES/packages/arch"
+                    msg "Added package to packages/arch: $pkg"
+                    ;;
+                macos)
+                    kind=${2:-brew}
+                    [ "$kind" = "brew" ] || [ "$kind" = "cask" ] || die "Kind must be brew or cask"
+                    line="$kind \"$pkg\""
+                    append_line_if_missing "$line" "$DOTFILES/packages/brew"
+                    msg "Added package to packages/brew: $line"
+                    ;;
+            esac
+            ;;
+        remove)
+            pkg=${1:-}
+            [ -n "$pkg" ] || die "Usage: dot package remove <name>"
+
+            case "$os" in
+                arch)
+                    remove_line_exact "$pkg" "$DOTFILES/packages/arch"
+                    msg "Removed package from packages/arch: $pkg"
+                    ;;
+                macos)
+                    tmp=$(mktemp)
+                    awk -v p="$pkg" '
+                        {
+                            line=$0
+                            if (line ~ /^(brew|cask) "/) {
+                                name=line
+                                sub(/^(brew|cask) "/, "", name)
+                                sub(/".*/, "", name)
+                                if (name == p) next
+                            }
+                            print line
+                        }
+                    ' "$DOTFILES/packages/brew" > "$tmp"
+                    mv "$tmp" "$DOTFILES/packages/brew"
+                    msg "Removed package from packages/brew: $pkg"
+                    ;;
+            esac
+            ;;
+        help|*)
+            cat <<EOF
+Usage: dot package <command>
+
+Commands:
+    list                         List configured packages
+    add <name> [brew|cask]       Add package to config
+    remove <name>                Remove package from config
+EOF
+            ;;
+    esac
+}
+
+cmd_link() {
+    target_dir=/usr/local/bin
+    if [ ! -w "$target_dir" ]; then
+        target_dir="$HOME/.local/bin"
+        mkdir -p "$target_dir"
+    fi
+
+    ln -sf "$DOTFILES/dot" "$target_dir/dot"
+    msg "Linked dot -> $target_dir/dot"
+    msg "Ensure $target_dir is in PATH"
+}
+
+cmd_unlink() {
+    removed=0
+    for path in /usr/local/bin/dot "$HOME/.local/bin/dot"; do
+        if [ -L "$path" ]; then
+            rm -f "$path"
+            msg "Removed $path"
+            removed=1
+        fi
+    done
+
+    [ "$removed" -eq 1 ] || warn "No dot symlink found"
+}
+
+cmd_completions() {
+    nu_file="$DOTFILES/home/.config/nushell/scripts/dot-completions.nu"
+
+    mkdir -p "$(dirname "$nu_file")"
+
+    cat > "$nu_file" <<'EOF'
+def "nu-complete dot commands" [] {
+    [
+        "init"
+        "sync"
+        "update"
+        "doctor"
+        "check-packages"
+        "package"
+        "benchmark-shell"
+        "link"
+        "unlink"
+        "completions"
+        "help"
+    ]
+}
+
+def "nu-complete dot package commands" [] {
+    ["list", "add", "remove", "help"]
+}
+
+def "nu-complete dot package kinds" [] {
+    ["brew", "cask"]
+}
+
+extern "dot" [
+    command?: string@"nu-complete dot commands"
+]
+
+extern "dot package" [
+    subcommand?: string@"nu-complete dot package commands"
+    package?: string
+    kind?: string@"nu-complete dot package kinds"
+]
+
+extern "dot benchmark-shell" [
+    --runs(-r): int
+    --verbose(-v)
+    --help(-h)
+]
+EOF
+
+    msg "Generated completions:"
+    msg "  $nu_file"
 }
 
 cmd_help() {
@@ -256,15 +605,30 @@ Commands:
     sync      Re-stow dotfiles
     update    Pull latest changes and sync
     doctor    Run health checks
+    check-packages  Check configured package coverage
+    package   Manage package config (list/add/remove)
+    benchmark-shell Benchmark nushell startup time
+    link      Symlink dot into PATH
+    unlink    Remove dot symlink from PATH
+    completions Generate shell completions into dotfiles
     help      Show this message
 EOF
 }
 
-case "${1:-help}" in
-    init)   cmd_init ;;
-    sync)   cmd_sync ;;
-    update) cmd_update ;;
-    doctor) cmd_doctor ;;
+cmd=${1:-help}
+shift || true
+
+case "$cmd" in
+    init)   cmd_init "$@" ;;
+    sync)   cmd_sync "$@" ;;
+    update) cmd_update "$@" ;;
+    doctor) cmd_doctor "$@" ;;
+    check-packages) cmd_check_packages "$@" ;;
+    package) cmd_package "$@" ;;
+    benchmark-shell) cmd_benchmark_shell "$@" ;;
+    link) cmd_link "$@" ;;
+    unlink) cmd_unlink "$@" ;;
+    completions) cmd_completions "$@" ;;
     help|-h|--help) cmd_help ;;
-    *) err "Unknown command: $1"; cmd_help; exit 1 ;;
+    *) err "Unknown command: $cmd"; cmd_help; exit 1 ;;
 esac

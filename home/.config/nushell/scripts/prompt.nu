@@ -110,7 +110,7 @@ $env.PROMPT_INDICATOR = {||
     if $code != 0 {
         $"(ansi $COLOR_ERROR)❯❯❯(ansi reset) "
     } else {
-        $"(ansi {fg: '#a5d6a7', attr: b})❯(ansi {fg: '#fff59d', attr: b})❯(ansi {fg: '#ffab91', attr: b})❯(ansi reset) "
+        $"("❯❯❯" | ansi gradient --fgstart '0xa5d6a7' --fgend '0xffab91') "
     }
 }
 
