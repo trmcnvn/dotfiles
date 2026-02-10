@@ -21,16 +21,16 @@ When invoked, apply these opinionated constraints for building better interfaces
 ## Stack
 
 - MUST use Tailwind CSS defaults unless custom values already exist or are explicitly requested
-- MUST use `motion/react` (formerly `framer-motion`) when JavaScript animation is required
+- MUST use `motion/react` (React) or built-in `transition:`/`animate:` directives + `svelte/motion` (Svelte) for animation; use `motion` vanilla JS API via `use:` actions for complex JS animation in Svelte
 - SHOULD use `tw-animate-css` for entrance and micro-animations in Tailwind CSS
 - MUST use `cn` utility (`clsx` + `tailwind-merge`) for class logic
 
 ## Components
 
-- MUST use accessible component primitives for anything with keyboard or focus behavior (`Base UI`, `React Aria`, `Radix`)
+- MUST use accessible component primitives for anything with keyboard or focus behavior (`Base UI`, `React Aria`, `Radix` for React; `Bits UI` for Svelte)
 - MUST use the project’s existing component primitives first
 - NEVER mix primitive systems within the same interaction surface
-- SHOULD prefer [`Base UI`](https://base-ui.com/react/components) for new primitives if compatible with the stack
+- SHOULD prefer [`Base UI`](https://base-ui.com/react/components) (React) or [`Bits UI`](https://bits-ui.com) (Svelte) for new primitives if compatible with the stack
 - MUST add an `aria-label` to icon-only buttons
 - NEVER rebuild keyboard or focus behavior by hand unless explicitly requested
 
@@ -72,7 +72,7 @@ When invoked, apply these opinionated constraints for building better interfaces
 
 - NEVER animate large `blur()` or `backdrop-filter` surfaces
 - NEVER apply `will-change` outside an active animation
-- NEVER use `useEffect` for anything that can be expressed as render logic
+- NEVER use `useEffect` (React) or `$effect` (Svelte) for anything expressible as render logic or `$derived`
 
 ## Design
 

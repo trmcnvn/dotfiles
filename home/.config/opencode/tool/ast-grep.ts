@@ -49,7 +49,7 @@ Examples:
   },
 
   async execute(args) {
-    const cmd = ["sg", "--pattern", args.pattern];
+    const cmd = ["ast-grep", "--pattern", args.pattern];
     if (args.lang) cmd.push("--lang", args.lang);
     if (args.json) cmd.push("--json");
     cmd.push(args.path ?? ".");
@@ -83,7 +83,7 @@ Example: pattern="console.log($MSG)" rewrite="logger.info($MSG)"`,
 
   async execute(args) {
     const cmd = [
-      "sg",
+      "ast-grep",
       "--pattern",
       args.pattern,
       "--rewrite",
