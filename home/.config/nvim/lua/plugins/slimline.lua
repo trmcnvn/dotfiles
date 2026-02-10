@@ -18,7 +18,7 @@ local function jj_info()
 	end
 
 	local ok, data = pcall(vim.json.decode, output)
-	if not ok then
+	if not ok or data == vim.NIL then
 		jj_cache.value = nil
 		jj_cache.last_update = current_time
 		return nil
