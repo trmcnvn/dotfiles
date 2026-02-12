@@ -5,6 +5,7 @@ import { access, mkdir, readFile, rename, writeFile } from "fs/promises";
 
 const PEON_BASE_URL =
   "https://raw.githubusercontent.com/tonyyont/peon-ping/main/packs/peon";
+const ERROR_IDLE_SUPPRESS_MS = 15_000;
 const PEON_CACHE_DIR = join(homedir(), ".cache", "opencode-peon", "peon");
 const PEON_SOUNDS_DIR = join(PEON_CACHE_DIR, "sounds");
 const PEON_MANIFEST_PATH = join(PEON_CACHE_DIR, "manifest.json");
@@ -150,6 +151,7 @@ const fetchAndInstallPeon = async () => {
 
 export const NotificationPlugin = async ({ $, client }) => {
   const lastPlayedByCategory = new Map();
+  const recentErrorBySession = new Map();
   let peonCategoryMap = await loadLocalPeonCategoryMap();
   let peonInstallPromise = null;
 
@@ -238,6 +240,18 @@ export const NotificationPlugin = async ({ $, client }) => {
       // Only notify for main session events, not background subagents
       if (event.type === "session.idle") {
         const sessionID = event.properties.sessionID;
+
+        const lastErrorAt = recentErrorBySession.get(sessionID);
+        if (
+          typeof lastErrorAt === "number" &&
+          Date.now() - lastErrorAt < ERROR_IDLE_SUPPRESS_MS
+        ) {
+          recentErrorBySession.delete(sessionID);
+          return;
+        }
+
+        recentErrorBySession.delete(sessionID);
+
         if (await isMainSession(sessionID)) {
           await playSound("complete");
         }
@@ -245,6 +259,9 @@ export const NotificationPlugin = async ({ $, client }) => {
 
       if (event.type === "session.error") {
         const sessionID = event.properties?.sessionID;
+        if (sessionID) {
+          recentErrorBySession.set(sessionID, Date.now());
+        }
         if (!sessionID || (await isMainSession(sessionID))) {
           await playSound("error");
         }
