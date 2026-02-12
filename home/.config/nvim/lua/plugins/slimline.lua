@@ -18,10 +18,16 @@ local function jj_info()
 	end
 
 	local ok, data = pcall(vim.json.decode, output)
-	if not ok or data == vim.NIL then
+	if not ok then
 		jj_cache.value = nil
 		jj_cache.last_update = current_time
 		return nil
+	end
+
+	if data == vim.NIL then
+		jj_cache.value = { change_id = "", bookmark = "" }
+		jj_cache.last_update = current_time
+		return jj_cache.value
 	end
 
 	local bookmark = ""

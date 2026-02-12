@@ -3,12 +3,12 @@ auto-update-channel = tip
 config-file = ?config.linux
 
 # Font
-font-family = TX-02
-font-style = Condensed
-font-style-italic = Condensed Oblique
-font-style-bold = Bold Condensed
-font-style-bold-italic = Bold Condensed Oblique
-font-size = 14
+font-family = Atkinson Hyperlegible Mono
+font-style = Regular
+font-style-italic = Italic
+font-style-bold = Bold
+font-style-bold-italic = Bold Italic
+font-size = 12
 
 # General font settings
 font-thicken = true
