@@ -38,7 +38,7 @@ brew "zoxide"
 
 # Casks
 cask "bitwarden"
-cask "docker-desktop"
+cask "orbstack"
 cask "ghostty"
 cask "google-chrome"
 cask "iina"
