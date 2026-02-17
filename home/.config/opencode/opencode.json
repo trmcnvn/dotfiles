@@ -6,6 +6,29 @@
     "opencode",
     "openai"
   ],
+  "provider": {
+    "openai": {
+      "models": {
+        "gpt-5.3-codex": {
+          "name": "GPT-5.3 Codex",
+          "tool_call": true,
+          "reasoning": true,
+          "temperature": true,
+          "attachment": true,
+          "interleaved": {
+            "field": "reasoning_content"
+          },
+          "limit": {
+            "context": 1047676,
+            "output": 65536
+          },
+          "options": {
+            "store": false
+          }
+        }
+      }
+    }
+  },
   "permission": {
     "read": {
       "*": "allow",
@@ -19,15 +42,13 @@
     "leader": "ctrl+o",
     "variant_cycle": "<leader>t",
   },
+  "plugin": [
+    "@sveltejs/opencode"
+  ],
   "mcp": {
     "pg-aiguide": {
       "type": "remote",
       "url": "https://mcp.tigerdata.com/docs",
-      "enabled": false
-    },
-    "svelte": {
-      "type": "remote",
-      "url": "https://mcp.svelte.dev/mcp",
       "enabled": false
     },
     "whop": {
@@ -57,6 +78,11 @@
         "opensrc-mcp"
       ],
       "enabled": true
+    },
+    "metafy-api": {
+      "type": "remote",
+      "url": "https://dev.metafy.gg/mcp",
+      "enabled": false
     }
   }
 }

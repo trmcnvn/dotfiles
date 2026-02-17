@@ -108,9 +108,9 @@ $env.PROMPT_COMMAND_RIGHT = {||
 $env.PROMPT_INDICATOR = {||
     let code = ($env.LAST_EXIT_CODE? | default 0)
     if $code != 0 {
-        $"(ansi $COLOR_ERROR)❯❯❯(ansi reset) "
+        $"(ansi $COLOR_ERROR)λ(ansi reset) "
     } else {
-        $"("❯❯❯" | ansi gradient --fgstart '0xa5d6a7' --fgend '0xffab91') "
+        $"(ansi '#FF6600')λ(ansi reset) "
     }
 }
 

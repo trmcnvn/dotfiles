@@ -7,7 +7,6 @@ go = "latest"
 node = "latest"
 bun = "latest"
 fnox = "latest"
-python = "system"
 
 [settings]
 always_keep_download = false

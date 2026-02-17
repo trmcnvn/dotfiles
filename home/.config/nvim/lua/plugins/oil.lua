@@ -28,10 +28,13 @@ return {
 			},
 			float = {
 				border = "rounded",
-				max_width = 42,
-				override = function(conf)
-					return vim.tbl_extend("force", conf, { row = 2, col = 2 }) -- Offset from top-left
-				end,
+				-- max_width = 42,
+				-- override = function(conf)
+				-- 	return vim.tbl_extend("force", conf, { row = 2, col = 2 }) -- Offset from top-left
+				-- end,
+			},
+			view_options = {
+				show_hidden = true,
 			},
 		})
 
