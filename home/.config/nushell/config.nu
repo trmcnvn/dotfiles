@@ -30,3 +30,4 @@ source ~/.cache/nushell/jj-completions.nu
 source scripts/share.nu
 source scripts/transcode.nu
 source scripts/krc.nu
+source scripts/tml.nu
