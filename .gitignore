@@ -1,3 +1,4 @@
 home/.config/opencode/node_modules/
 *.lock
 .opencode/plans
+backups/
