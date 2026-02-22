@@ -19,7 +19,6 @@ font-synthetic-style = false
 # Cursor
 cursor-style-blink = true
 mouse-hide-while-typing = true
-mouse-scroll-multiplier = 0.4
 
 # Window
 window-inherit-font-size = true

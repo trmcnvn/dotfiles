@@ -4,4 +4,4 @@ alias vim = nvim
 alias vi = nvim
 alias ff = fzf --preview 'bat --style=numbers --color=always {}'
 alias oc = opencode
-alias t = ^tmux new-session -A -s Work
+alias t = try { tmux attach } catch { tml oc }

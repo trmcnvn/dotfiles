@@ -22,6 +22,7 @@ return {
 				["_"] = "actions.open_cwd",
 				["g?"] = "actions.show_help",
 				["g."] = "actions.toggle_hidden",
+				["<C-r>"] = "actions.refresh",
 			},
 			confirmation = {
 				border = "rounded",
@@ -38,8 +39,8 @@ return {
 			},
 		})
 
-		-- Toggle oil float
+		-- Toggle oil
 		local M = require("utils.keymaps")
-		M.n("<leader>e", require("oil").toggle_float, { desc = "Toggle Oil explorer" })
+		M.n("<leader>e", require("oil").open, { desc = "Open Oil explorer" })
 	end,
 }
