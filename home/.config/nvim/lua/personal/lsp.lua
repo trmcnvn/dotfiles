@@ -14,6 +14,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
 			return
 		end
 
+		if client.name == "ruby_lsp" then
+			vim.lsp.semantic_tokens.enable(false, { client_id = client.id })
+		end
+
 		if client:supports_method("textDocument/completion") then
 			vim.lsp.completion.enable(true, client.id, ev.buf, { autotrigger = false })
 		end

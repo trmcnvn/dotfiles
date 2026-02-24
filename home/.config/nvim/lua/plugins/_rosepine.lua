@@ -5,11 +5,12 @@ return {
 			variant = "main",
 			styles = {
 				italic = false,
+				transparency = true,
 			},
 			highlight_groups = {
 				Comment = { italic = true },
 			},
 		})
-		vim.cmd.colorscheme("rose-pine")
+		-- vim.cmd.colorscheme("rose-pine")
 	end,
 }

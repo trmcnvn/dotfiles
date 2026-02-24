@@ -59,6 +59,7 @@ map_with_center("n", "G", "G", { desc = "Go to bottom and center" })
 map_with_center("n", "gg", "gg", { desc = "Go to top and center" })
 
 -- Open link under cursor
+-- https://google.com
 M.n("gx", function()
 	local url = vim.fn.expand("<cWORD>")
 	local cmd

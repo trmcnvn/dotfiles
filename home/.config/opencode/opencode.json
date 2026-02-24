@@ -1,46 +1,24 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": false,
-  "theme": "rosepine",
+  "theme": "system",
   "enabled_providers": [
     "opencode",
     "openai"
   ],
-  "provider": {
-    "openai": {
-      "models": {
-        "gpt-5.3-codex": {
-          "name": "GPT-5.3 Codex",
-          "tool_call": true,
-          "reasoning": true,
-          "temperature": true,
-          "attachment": true,
-          "interleaved": {
-            "field": "reasoning_content"
-          },
-          "limit": {
-            "context": 1047676,
-            "output": 65536
-          },
-          "options": {
-            "store": false
-          }
-        }
-      }
-    }
-  },
   "permission": {
     "read": {
       "*": "allow",
       "*.env": "deny",
       "*.env.*": "deny",
       "*.envrc": "deny",
-      "secrets/*": "deny"
+      "secrets/*": "deny",
+      "~/.local/share/opencode/mcp-auth.json": "deny"
     }
   },
   "keybinds": {
     "leader": "ctrl+o",
-    "variant_cycle": "<leader>t",
+    "variant_cycle": "<leader>t"
   },
   "plugin": [
     "@sveltejs/opencode"
@@ -49,11 +27,6 @@
     "pg-aiguide": {
       "type": "remote",
       "url": "https://mcp.tigerdata.com/docs",
-      "enabled": false
-    },
-    "whop": {
-      "type": "remote",
-      "url": "https://docs.whop.com/mcp",
       "enabled": false
     },
     "cloudflare": {

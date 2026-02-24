@@ -1,0 +1,27 @@
+# Personal theme for Ghostty
+# Based on: https://github.com/focus-editor/focus/blob/main/config/themes/kujukuju.focus-theme
+
+palette = 0=#080b14
+palette = 1=#f07178
+palette = 2=#bae67e
+palette = 3=#e4d97d
+palette = 4=#309ecb
+palette = 5=#ffa759
+palette = 6=#26b2b2
+palette = 7=#cbcebc
+palette = 8=#87919d
+palette = 9=#ff6a27
+palette = 10=#9dd2bb
+palette = 11=#f8ad34
+palette = 12=#599999
+palette = 13=#ffcc66
+palette = 14=#33cccc
+palette = 15=#ffffff
+
+background = #141824
+foreground = #cbcebc
+cursor-color = #26b2b2
+cursor-text = #bae67e
+selection-background = #1a3c49
+selection-foreground = #cbcebc
+split-divider-color = #21333f

@@ -48,7 +48,8 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-theme = Rose Pine
+# theme = Rose Pine
+theme = personal
 macos-icon = official
 background-opacity = 1
 background-blur = false
@@ -71,6 +72,3 @@ keybind = ctrl+3=goto_tab:3
 keybind = ctrl+4=goto_tab:4
 keybind = ctrl+5=goto_tab:5
 keybind = f11=toggle_fullscreen
-
-# Fix general slowness on hyprland (https://github.com/ghostty-org/ghostty/discussions/3224)
-async-backend = epoll
