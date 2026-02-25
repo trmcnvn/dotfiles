@@ -130,8 +130,14 @@ vim.filetype.add({
 	},
 })
 
--- Convenient keymaps for common typos
--- vim.keymap.set("c", "W", "w", { desc = "Save file" })
--- vim.keymap.set("c", "Q", "q", { desc = "Quit" })
--- vim.keymap.set("c", "Wq", "wq", { desc = "Save and quit" })
--- vim.keymap.set("c", "WQ", "wq", { desc = "Save and quit" })
+-- Delete/change without yanking (only yank via y)
+for _, mode in ipairs({ "n", "v" }) do
+	for _, key in ipairs({ "d", "D", "c", "C", "x", "s" }) do
+		vim.keymap.set(mode, key, '"_' .. key, { noremap = true })
+	end
+end
+vim.keymap.set("n", "dd", '"_dd', { noremap = true })
+vim.keymap.set("n", "cc", '"_cc', { noremap = true })
+
+-- Convenient command aliases for common typos
+vim.api.nvim_create_user_command("W", "w", {})
