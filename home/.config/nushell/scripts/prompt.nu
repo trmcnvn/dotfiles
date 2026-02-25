@@ -1,9 +1,9 @@
-# JJ-aware prompt matching hydro-jj layout and colors
+# JJ-aware prompt matching hydro-jj layout with Catppuccin Mocha colors
 
-const COLOR_PWD = "#ebbcba"
-const COLOR_ERROR = "#eb6f92"
-const COLOR_DURATION = "#c4a7e7"
-const COLOR_DIM = { fg: "#ebbcba", attr: d }
+const COLOR_PWD = "#89b4fa"
+const COLOR_ERROR = "#f38ba8"
+const COLOR_DURATION = "#cba6f7"
+const COLOR_DIM = { fg: "#6c7086", attr: d }
 
 def _jj-status [] {
     if (which jj-prompt | is-empty) {
@@ -110,7 +110,7 @@ $env.PROMPT_INDICATOR = {||
     if $code != 0 {
         $"(ansi $COLOR_ERROR)λ(ansi reset) "
     } else {
-        $"(ansi '#FF6600')λ(ansi reset) "
+        $"(ansi '#fab387')λ(ansi reset) "
     }
 }
 

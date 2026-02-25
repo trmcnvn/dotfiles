@@ -258,7 +258,19 @@ cmd_sync() {
     has stow || die "GNU Stow not installed"
 
     # Dry-run to find conflicts, then backup+remove before stowing
-    conflicts=$(stow --no-folding -R -n -d "$DOTFILES" -t ~ home 2>&1 | grep "existing target" | sed 's/.*over existing target //' | sed 's/ since.*//')
+    dry_run_output=$(stow --no-folding -R -n -d "$DOTFILES" -t ~ home 2>&1 || true)
+    conflicts=$(printf "%s\n" "$dry_run_output" | awk '
+        /existing target is not owned by stow:/ {
+            sub(/^.*existing target is not owned by stow: /, "", $0)
+            print
+            next
+        }
+        /over existing target / {
+            sub(/^.*over existing target /, "", $0)
+            sub(/ since.*/, "", $0)
+            print
+        }
+    ' | sort -u)
     if [ -n "$conflicts" ]; then
         warn "Stow conflicts found:"
         printf "%s\n" "$conflicts" | while IFS= read -r file; do

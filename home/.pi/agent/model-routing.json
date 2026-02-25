@@ -1,0 +1,10 @@
+{
+  "tools": {
+    "handoff": {
+      "model": "opencode/gemini-3-flash"
+    },
+    "auto-session-name": {
+      "model": "opencode/claude-haiku-4-5"
+    }
+  }
+}

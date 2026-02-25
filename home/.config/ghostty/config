@@ -62,7 +62,6 @@ keybind = opt+ctrl+enter=new_split:down
 keybind = super+w=unbind
 keybind = super+a=unbind
 keybind = super+s=unbind
-keybind = shift+enter=text:\n
 keybind = performable:ctrl+c=copy_to_clipboard
 keybind = ctrl+v=paste_from_clipboard
 keybind = ctrl+t=new_tab
@@ -71,4 +70,4 @@ keybind = ctrl+2=goto_tab:2
 keybind = ctrl+3=goto_tab:3
 keybind = ctrl+4=goto_tab:4
 keybind = ctrl+5=goto_tab:5
-keybind = f11=toggle_fullscreen
+keybind = alt+backspace=text:\x1b\x7f

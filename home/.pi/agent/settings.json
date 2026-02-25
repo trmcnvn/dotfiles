@@ -1,0 +1,13 @@
+{
+  "lastChangelogVersion": "0.57.1",
+  "defaultProvider": "opencode",
+  "defaultModel": "claude-opus-4-6",
+  "defaultThinkingLevel": "xhigh",
+  "theme": "catppuccin-mocha",
+  "collapseChangelog": true,
+  "quietStartup": true,
+  "packages": [
+    "https://github.com/davebcn87/pi-autoresearch"
+  ],
+  "hideThinkingBlock": true
+}
