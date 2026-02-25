@@ -1,7 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "autoupdate": false,
-  "theme": "system",
   "enabled_providers": [
     "opencode",
     "openai"
@@ -15,10 +14,6 @@
       "secrets/*": "deny",
       "~/.local/share/opencode/mcp-auth.json": "deny"
     }
-  },
-  "keybinds": {
-    "leader": "ctrl+o",
-    "variant_cycle": "<leader>t"
   },
   "plugin": [
     "@sveltejs/opencode"

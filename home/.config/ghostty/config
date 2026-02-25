@@ -48,8 +48,8 @@ confirm-close-surface = true
 resize-overlay = never
 
 # Theme
-# theme = Rose Pine
-theme = personal
+theme = Catppuccin Mocha
+background = #181825
 macos-icon = official
 background-opacity = 1
 background-blur = false

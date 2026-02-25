@@ -1,7 +1,7 @@
 ---
 description: Principal engineering advisor for code reviews, architecture decisions, complex debugging, and planning. Invoke when you need deeper analysis before acting — reviews, trade-offs, debugging race conditions, planning refactors. Prompt with precise problem + files. Ask for concrete outcomes. Tell the user you're consulting the Oracle and why. Treat its response as advisory — you decide what to act on.
 mode: subagent
-model: opencode/gpt-5.2
+model: opencode/gpt-5.4
 temperature: 0.1
 reasoningEffort: medium
 textVerbosity: high

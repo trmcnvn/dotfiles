@@ -30,21 +30,21 @@ return {
 		MiniIcons.mock_nvim_web_devicons()
 		MiniIcons.tweak_lsp_kind()
 
-		-- Completion
-		require("mini.completion").setup({
-			mappings = {
-				scroll_down = "<C-d>",
-				scroll_up = "<C-u>",
-			},
-		})
-		M.i("<Tab>", [[pumvisible() ? "<C-n>" : "<Tab>"]], { expr = true })
-		M.i("<S-Tab>", [[pumvisible() ? "<C-p>" : "<S-Tab>"]], { expr = true })
-		M.i("<CR>", function()
-			if vim.fn.complete_info()["selected"] ~= -1 then
-				return "\25"
-			end
-			return "\r"
-		end, { expr = true })
+		-- Completion disabled in favor of blink.cmp
+		-- require("mini.completion").setup({
+		-- 	mappings = {
+		-- 		scroll_down = "<C-d>",
+		-- 		scroll_up = "<C-u>",
+		-- 	},
+		-- })
+		-- M.i("<Tab>", [[pumvisible() ? "<C-n>" : "<Tab>"]], { expr = true })
+		-- M.i("<S-Tab>", [[pumvisible() ? "<C-p>" : "<S-Tab>"]], { expr = true })
+		-- M.i("<CR>", function()
+		-- 	if vim.fn.complete_info()["selected"] ~= -1 then
+		-- 		return "\25"
+		-- 	end
+		-- 	return "\r"
+		-- end, { expr = true })
 
 		-- Starter (Dashboard)
 		require("mini.starter").setup()

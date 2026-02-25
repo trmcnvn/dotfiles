@@ -3,7 +3,6 @@
     "diagnostics.globals": [
         "vim",
         "MiniIcons",
-        "MiniCompletion",
         "MiniBufremove",
         "MiniPick",
         "MiniDiff",
