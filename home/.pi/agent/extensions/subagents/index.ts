@@ -1,9 +1,15 @@
 import { spawn } from "node:child_process";
-import { homedir } from "node:os";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DEFAULT_MAX_BYTES,
+  DEFAULT_MAX_LINES,
+  formatSize,
   getMarkdownTheme,
   keyHint,
+  truncateHead,
   type AgentToolUpdateCallback,
   type ExtensionAPI,
 } from "@mariozechner/pi-coding-agent";
@@ -27,6 +33,13 @@ const EMPTY_OUTPUT_MESSAGE = "Subagent completed without returning any text.";
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
 const COLLAPSED_ITEM_COUNT = 10;
+const SUBAGENT_TEMP_OUTPUT_PREFIX = "pi-subagent-";
+
+type TruncatedOutput = {
+  readonly text: string;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
+};
 
 type JsonRecord = Record<string, unknown>;
 type SubagentMode = "single" | "parallel" | "chain";
@@ -566,6 +579,46 @@ const isFailure = (result: SingleResult | MutableSingleResult): boolean =>
 const normalizeOutput = (value: string): string =>
   value.trim().length > 0 ? value : EMPTY_OUTPUT_MESSAGE;
 
+const truncateAndPersistOutput = async (
+  value: string,
+): Promise<TruncatedOutput> => {
+  const truncation = truncateHead(value, {
+    maxLines: DEFAULT_MAX_LINES,
+    maxBytes: DEFAULT_MAX_BYTES,
+  });
+
+  if (!truncation.truncated) {
+    return {
+      text: truncation.content,
+      truncated: false,
+      fullOutputPath: null,
+    };
+  }
+
+  const omittedLines = truncation.totalLines - truncation.outputLines;
+  const omittedBytes = truncation.totalBytes - truncation.outputBytes;
+
+  let fullOutputPath: string | null = null;
+  try {
+    const tempDir = await mkdtemp(join(tmpdir(), SUBAGENT_TEMP_OUTPUT_PREFIX));
+    fullOutputPath = join(tempDir, "output.txt");
+    await writeFile(fullOutputPath, value, "utf8");
+  } catch {
+    fullOutputPath = null;
+  }
+
+  const truncationNotice =
+    fullOutputPath === null
+      ? `Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}). ${omittedLines} lines (${formatSize(omittedBytes)}) omitted. Could not persist full output to a temp file.`
+      : `Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}). ${omittedLines} lines (${formatSize(omittedBytes)}) omitted. Full output saved to: ${fullOutputPath}`;
+
+  return {
+    text: `${truncation.content}\n\n[${truncationNotice}]`,
+    truncated: true,
+    fullOutputPath,
+  };
+};
+
 const latestVisibleOutput = (result: SingleResult | MutableSingleResult): string => {
   if (result.partialText !== null && result.partialText.trim().length > 0) {
     return result.partialText;
@@ -967,15 +1020,23 @@ export default function subagentsExtension(pi: ExtensionAPI) {
               },
         );
 
+        const truncatedOutput = await truncateAndPersistOutput(
+          buildSingleFinalText(result),
+        );
+
         return {
-          content: [{ type: "text", text: buildSingleFinalText(result) }],
-          details: createDetails("single", [
-            {
-              ...result,
-              displayItems: [...result.displayItems],
-              usage: { ...result.usage },
-            },
-          ]),
+          content: [{ type: "text", text: truncatedOutput.text }],
+          details: {
+            ...createDetails("single", [
+              {
+                ...result,
+                displayItems: [...result.displayItems],
+                usage: { ...result.usage },
+              },
+            ]),
+            truncated: truncatedOutput.truncated,
+            fullOutputPath: truncatedOutput.fullOutputPath,
+          },
         };
       }
 
@@ -1043,11 +1104,17 @@ export default function subagentsExtension(pi: ExtensionAPI) {
           },
         );
 
+        const truncatedOutput = await truncateAndPersistOutput(
+          buildParallelFinalText(results),
+        );
+
         return {
-          content: [{ type: "text", text: buildParallelFinalText(results) }],
+          content: [{ type: "text", text: truncatedOutput.text }],
           details: {
             mode: "parallel",
             results,
+            truncated: truncatedOutput.truncated,
+            fullOutputPath: truncatedOutput.fullOutputPath,
           },
         };
       }
@@ -1110,11 +1177,17 @@ export default function subagentsExtension(pi: ExtensionAPI) {
         );
 
         if (isFailure(result)) {
+          const truncatedOutput = await truncateAndPersistOutput(
+            buildChainFinalText(results),
+          );
+
           return {
-            content: [{ type: "text", text: buildChainFinalText(results) }],
+            content: [{ type: "text", text: truncatedOutput.text }],
             details: {
               mode: "chain",
               results,
+              truncated: truncatedOutput.truncated,
+              fullOutputPath: truncatedOutput.fullOutputPath,
             },
           };
         }
@@ -1122,11 +1195,17 @@ export default function subagentsExtension(pi: ExtensionAPI) {
         previousOutput = result.finalOutput.trim().length > 0 ? result.finalOutput : "";
       }
 
+      const truncatedOutput = await truncateAndPersistOutput(
+        buildChainFinalText(results),
+      );
+
       return {
-        content: [{ type: "text", text: buildChainFinalText(results) }],
+        content: [{ type: "text", text: truncatedOutput.text }],
         details: {
           mode: "chain",
           results,
+          truncated: truncatedOutput.truncated,
+          fullOutputPath: truncatedOutput.fullOutputPath,
         },
       };
     },

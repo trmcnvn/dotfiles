@@ -3,7 +3,7 @@
     "pg-aiguide": {
       "type": "remote",
       "url": "https://mcp.tigerdata.com/docs",
-      "enabled": true
+      "enabled": false
     },
     "cloudflare": {
       "type": "remote",
@@ -37,7 +37,7 @@
     "metafy-api": {
       "type": "remote",
       "url": "https://dev.metafy.gg/mcp",
-      "enabled": true
+      "enabled": false
     },
     "sentry": {
       "type": "remote",

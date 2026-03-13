@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   DEFAULT_MAX_BYTES,
@@ -43,6 +46,14 @@ type WebsearchDetails = {
   readonly requestId: string | null;
   readonly resolvedSearchType: string | null;
   readonly costDollarsTotal: number | null;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
+};
+
+type TruncateContentResult = {
+  readonly text: string;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
 };
 
 type WebsearchToolResult = {
@@ -58,6 +69,8 @@ type WebsearchDetailsInput = {
   readonly requestId?: string | null;
   readonly resolvedSearchType?: string | null;
   readonly costDollarsTotal?: number | null;
+  readonly truncated?: boolean;
+  readonly fullOutputPath?: string | null;
 };
 
 const WebsearchParams = Type.Object({
@@ -124,6 +137,8 @@ const buildWebsearchDetails = ({
   requestId = null,
   resolvedSearchType = null,
   costDollarsTotal = null,
+  truncated = false,
+  fullOutputPath = null,
 }: WebsearchDetailsInput): WebsearchDetails => ({
   query,
   limit,
@@ -132,6 +147,8 @@ const buildWebsearchDetails = ({
   requestId,
   resolvedSearchType,
   costDollarsTotal,
+  truncated,
+  fullOutputPath,
 });
 
 const decodeHtmlEntities = (value: string): string => {
@@ -168,20 +185,45 @@ const stripHtmlTags = (value: string): string =>
 const htmlToText = (value: string): string =>
   normalizeWhitespace(decodeHtmlEntities(stripHtmlTags(value)));
 
-const truncateContent = (content: string): string => {
+const truncateContent = async (content: string): Promise<TruncateContentResult> => {
   const truncation = truncateHead(content, {
     maxLines: DEFAULT_MAX_LINES,
     maxBytes: DEFAULT_MAX_BYTES,
   });
 
   if (!truncation.truncated) {
-    return truncation.content;
+    return {
+      text: truncation.content,
+      truncated: false,
+      fullOutputPath: null,
+    };
   }
 
-  return [
-    truncation.content,
-    `[Output truncated: ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).]`,
-  ].join("\n\n");
+  const omittedLines = truncation.totalLines - truncation.outputLines;
+  const omittedBytes = truncation.totalBytes - truncation.outputBytes;
+
+  let fullOutputPath: string | null = null;
+  try {
+    const tempDir = await mkdtemp(join(tmpdir(), "pi-websearch-"));
+    fullOutputPath = join(tempDir, "output.txt");
+    await writeFile(fullOutputPath, content, "utf8");
+  } catch {
+    fullOutputPath = null;
+  }
+
+  const truncationNoticeParts = [
+    `Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).`,
+    `${omittedLines} lines (${formatSize(omittedBytes)}) omitted.`,
+    fullOutputPath === null
+      ? "Could not persist full output to a temp file."
+      : `Full output saved to: ${fullOutputPath}`,
+  ];
+
+  return {
+    text: [truncation.content, `[${truncationNoticeParts.join(" ")}]`].join("\n\n"),
+    truncated: true,
+    fullOutputPath,
+  };
 };
 
 const runCurl = async (
@@ -589,7 +631,7 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
       name: WEBSEARCH_TOOL,
       label: "Web Search",
       description:
-        "Search the public web with Exa. Uses Exa MCP by default, Exa API when EXA_API_KEY is set, and falls back to DuckDuckGo if MCP fails.",
+        "Search the public web with Exa. Uses Exa MCP by default, Exa API when EXA_API_KEY is set, and falls back to DuckDuckGo if MCP fails. Output is truncated to context-safe limits; when truncated, full output is saved to a temp file.",
       promptSnippet: "Search the public web for current information.",
       promptGuidelines: [
         "Primary engine is Exa via Exa MCP (no API key required).",
@@ -613,14 +655,17 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
         if (apiKey === null) {
           try {
             const mcpOutput = await fetchExaMcpWebsearchText(pi, query, limit, signal);
+            const truncatedOutput = await truncateContent(mcpOutput);
 
             return {
-              content: [{ type: "text", text: truncateContent(mcpOutput) }],
+              content: [{ type: "text", text: truncatedOutput.text }],
               details: buildWebsearchDetails({
                 query,
                 limit,
                 resultCount: countExaMcpResults(mcpOutput),
                 engine: "exa",
+                truncated: truncatedOutput.truncated,
+                fullOutputPath: truncatedOutput.fullOutputPath,
               }),
             };
           } catch {
@@ -631,11 +676,14 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
               signal,
             );
 
+            const renderedFallbackResults = renderWebResults(query, fallbackResults);
+            const truncatedOutput = await truncateContent(renderedFallbackResults);
+
             return {
               content: [
                 {
                   type: "text",
-                  text: truncateContent(renderWebResults(query, fallbackResults)),
+                  text: truncatedOutput.text,
                 },
               ],
               details: buildWebsearchDetails({
@@ -643,6 +691,8 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
                 limit,
                 resultCount: fallbackResults.length,
                 engine: "duckduckgo",
+                truncated: truncatedOutput.truncated,
+                fullOutputPath: truncatedOutput.fullOutputPath,
               }),
             };
           }
@@ -676,11 +726,14 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
 
         const parsed = parseExaWebResults(rawResponse, limit);
 
+        const renderedResults = renderWebResults(query, parsed.results);
+        const truncatedOutput = await truncateContent(renderedResults);
+
         return {
           content: [
             {
               type: "text",
-              text: truncateContent(renderWebResults(query, parsed.results)),
+              text: truncatedOutput.text,
             },
           ],
           details: buildWebsearchDetails({
@@ -691,6 +744,8 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
             requestId: parsed.requestId,
             resolvedSearchType: parsed.resolvedSearchType,
             costDollarsTotal: parsed.costDollarsTotal,
+            truncated: truncatedOutput.truncated,
+            fullOutputPath: truncatedOutput.fullOutputPath,
           }),
         };
       },

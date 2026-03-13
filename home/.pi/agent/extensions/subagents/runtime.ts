@@ -3,6 +3,7 @@ import registerMcpExtension from "../mcp/index.js";
 import { registerCodesearchTool } from "../codesearch/shared.js";
 import { registerWebfetchTool } from "../webfetch/shared.js";
 import { registerWebsearchTool } from "../websearch/shared.js";
+import { registerTruncatedBuiltinsOverflowHandler } from "../truncated-builtins.js";
 
 const TEMPERATURE_ENV = "PI_SUBAGENT_TEMPERATURE";
 const LEGACY_TOOLS_ENV = "PI_SUBAGENT_TOOLS";
@@ -210,6 +211,7 @@ export default function subagentsRuntimeExtension(pi: ExtensionAPI) {
   registerWebsearchTool(pi);
   registerCodesearchTool(pi);
   registerMcpExtension(pi);
+  registerTruncatedBuiltinsOverflowHandler(pi);
 
   const temperature = parseTemperature();
   const permissionPolicy = parsePermissionPolicy();

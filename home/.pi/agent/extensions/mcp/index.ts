@@ -1,6 +1,6 @@
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
@@ -69,6 +69,12 @@ type McpRegisteredTool = {
   readonly piToolName: string;
   readonly description: string;
   readonly outputMode: McpToolOutputMode;
+};
+
+type TruncateContentResult = {
+  readonly text: string;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
 };
 
 type McpOAuthState = {
@@ -277,20 +283,45 @@ const renderUnknownAsText = (value: unknown): string => {
   }
 };
 
-const truncateContent = (content: string): string => {
+const truncateContent = async (content: string): Promise<TruncateContentResult> => {
   const truncation = truncateHead(content, {
     maxLines: DEFAULT_MAX_LINES,
     maxBytes: DEFAULT_MAX_BYTES,
   });
 
   if (!truncation.truncated) {
-    return truncation.content;
+    return {
+      text: truncation.content,
+      truncated: false,
+      fullOutputPath: null,
+    };
   }
 
-  return [
-    truncation.content,
-    `[Output truncated: ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).]`,
-  ].join("\n\n");
+  const omittedLines = truncation.totalLines - truncation.outputLines;
+  const omittedBytes = truncation.totalBytes - truncation.outputBytes;
+
+  let fullOutputPath: string | null = null;
+  try {
+    const tempDir = await mkdtemp(join(tmpdir(), "pi-mcp-tool-"));
+    fullOutputPath = join(tempDir, "output.txt");
+    await writeFile(fullOutputPath, content, "utf8");
+  } catch {
+    fullOutputPath = null;
+  }
+
+  const truncationNoticeParts = [
+    `Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).`,
+    `${omittedLines} lines (${formatSize(omittedBytes)}) omitted.`,
+    fullOutputPath === null
+      ? "Could not persist full output to a temp file."
+      : `Full output saved to: ${fullOutputPath}`,
+  ];
+
+  return {
+    text: [truncation.content, `[${truncationNoticeParts.join(" ")}]`].join("\n\n"),
+    truncated: true,
+    fullOutputPath,
+  };
 };
 
 const extractPrimaryTextContent = (content: readonly unknown[]): string => {
@@ -1329,6 +1360,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
           `MCP tool ${tool.name} from server ${runtime.definition.key}.`,
           tool.description ?? "",
           inputSummary ?? "Accepts a JSON object of arguments.",
+          "Output is truncated to context-safe limits; when truncated, full output is saved to a temp file.",
         ].filter((part) => part.trim().length > 0);
 
         const registeredTool: McpRegisteredTool = {
@@ -1394,7 +1426,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
             const content = isRecord(callResult)
               ? callResult.content
               : undefined;
-            const output = truncateContent(formatToolContent(content));
+            const output = await truncateContent(formatToolContent(content));
             const isError =
               isRecord(callResult) && typeof callResult.isError === "boolean"
                 ? callResult.isError
@@ -1406,17 +1438,19 @@ export default function mcpExtension(pi: ExtensionAPI) {
 
             if (isError) {
               throw new Error(
-                `MCP tool ${runtime.definition.key}/${registeredTool.mcpToolName} returned an error: ${output}`,
+                `MCP tool ${runtime.definition.key}/${registeredTool.mcpToolName} returned an error: ${output.text}`,
               );
             }
 
             return {
-              content: [{ type: "text", text: output }],
+              content: [{ type: "text", text: output.text }],
               details: {
                 server: runtime.definition.key,
                 mcpTool: registeredTool.mcpToolName,
                 outputMode: registeredTool.outputMode,
                 structuredContent,
+                truncated: output.truncated,
+                fullOutputPath: output.fullOutputPath,
               },
             };
           },

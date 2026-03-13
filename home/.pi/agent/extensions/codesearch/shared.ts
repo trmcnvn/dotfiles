@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   DEFAULT_MAX_BYTES,
@@ -31,6 +34,14 @@ type CodesearchDetails = {
   readonly languages: readonly string[];
   readonly repo: string | null;
   readonly path: string | null;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
+};
+
+type TruncateContentResult = {
+  readonly text: string;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
 };
 
 const CodesearchParams = Type.Object({
@@ -135,20 +146,45 @@ const normalizeStringList = (value: unknown): readonly string[] => {
   return Array.from(new Set(normalized));
 };
 
-const truncateContent = (content: string): string => {
+const truncateContent = async (content: string): Promise<TruncateContentResult> => {
   const truncation = truncateHead(content, {
     maxLines: DEFAULT_MAX_LINES,
     maxBytes: DEFAULT_MAX_BYTES,
   });
 
   if (!truncation.truncated) {
-    return truncation.content;
+    return {
+      text: truncation.content,
+      truncated: false,
+      fullOutputPath: null,
+    };
   }
 
-  return [
-    truncation.content,
-    `[Output truncated: ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).]`,
-  ].join("\n\n");
+  const omittedLines = truncation.totalLines - truncation.outputLines;
+  const omittedBytes = truncation.totalBytes - truncation.outputBytes;
+
+  let fullOutputPath: string | null = null;
+  try {
+    const tempDir = await mkdtemp(join(tmpdir(), "pi-codesearch-"));
+    fullOutputPath = join(tempDir, "output.txt");
+    await writeFile(fullOutputPath, content, "utf8");
+  } catch {
+    fullOutputPath = null;
+  }
+
+  const truncationNoticeParts = [
+    `Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).`,
+    `${omittedLines} lines (${formatSize(omittedBytes)}) omitted.`,
+    fullOutputPath === null
+      ? "Could not persist full output to a temp file."
+      : `Full output saved to: ${fullOutputPath}`,
+  ];
+
+  return {
+    text: [truncation.content, `[${truncationNoticeParts.join(" ")}]`].join("\n\n"),
+    truncated: true,
+    fullOutputPath,
+  };
 };
 
 const runCurl = async (
@@ -253,7 +289,7 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
       name: CODESEARCH_TOOL,
       label: "Code Search",
       description:
-        "Search and retrieve relevant code context using Exa Code via Exa MCP.",
+        "Search and retrieve relevant code context using Exa Code via Exa MCP. Output is truncated to context-safe limits; when truncated, full output is saved to a temp file.",
       promptSnippet:
         "Search for real code examples and API context across libraries, SDKs, and frameworks.",
       promptGuidelines: [
@@ -322,7 +358,7 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
         );
 
         const output = parseExaMcpCodesearchText(responseBody);
-        const content = truncateContent(output);
+        const truncatedOutput = await truncateContent(output);
 
         const details: CodesearchDetails = {
           query,
@@ -332,10 +368,12 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
           languages,
           repo,
           path,
+          truncated: truncatedOutput.truncated,
+          fullOutputPath: truncatedOutput.fullOutputPath,
         };
 
         return {
-          content: [{ type: "text", text: content }],
+          content: [{ type: "text", text: truncatedOutput.text }],
           details,
         };
       },
