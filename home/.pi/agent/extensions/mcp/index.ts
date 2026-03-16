@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir, tmpdir } from "node:os";
@@ -21,24 +22,28 @@ import {
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
+  DynamicBorder,
   formatSize,
-  keyHint,
   truncateHead,
   type ExtensionAPI,
   type ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { Container, SelectList, Text, type SelectItem } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 
 const MCP_CONFIG_PATH =
   process.env.PI_MCP_CONFIG_PATH ?? join(homedir(), ".pi", "agent", "mcp.json");
 const MCP_AUTH_STATE_PATH =
   process.env.PI_MCP_AUTH_PATH ?? join(homedir(), ".pi", "agent", "mcp-auth.json");
+const MCP_DISCOVERY_CACHE_PATH = join(homedir(), ".pi", "agent", "mcp-discovery-cache.json");
 const CONNECTION_TIMEOUT_MS = 15_000;
 const INTERACTIVE_AUTH_TIMEOUT_MS = 10 * 60_000;
 const OAUTH_CALLBACK_WAIT_TIMEOUT_MS = 5 * 60_000;
 const OAUTH_CALLBACK_BASE_URL = "http://127.0.0.1:54545/callback";
 const MCP_COLLAPSED_PREVIEW_LINES = 14;
+const MCP_DISCOVERY_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
+const IDLE_CONNECTION_TIMEOUT_MS = 10 * 60_000;
+const MCP_SESSION_CONFIG_TYPE = "mcp-proxy-session-config";
 
 type JsonRecord = Record<string, unknown>;
 type McpToolOutputMode = "full" | "collapsed" | "muted";
@@ -68,6 +73,7 @@ type McpRegisteredTool = {
   readonly mcpToolName: string;
   readonly piToolName: string;
   readonly description: string;
+  readonly inputSchema: JsonRecord;
   readonly outputMode: McpToolOutputMode;
 };
 
@@ -91,13 +97,15 @@ type McpRuntime = {
   client: Client | null;
   transport: StreamableHTTPClientTransport | StdioClientTransport | null;
   connectPromise: Promise<Client> | null;
-  readonly toolsByPiName: Map<string, McpRegisteredTool>;
   oauthState: McpOAuthState | null;
+  lastActivityAt: number;
+  activeRequestCount: number;
+  idleCloseTimer: ReturnType<typeof setTimeout> | null;
+  idleCloseGeneration: number;
 };
 
-type DiscoveryFailure = {
-  readonly key: string;
-  readonly message: string;
+type McpConfig = {
+  readonly definitions: readonly McpServerDefinition[];
 };
 
 type McpSessionState = {
@@ -124,6 +132,23 @@ type PersistedMcpOAuthState = {
 
 type PersistedMcpOAuthFile = {
   readonly servers: Readonly<Record<string, PersistedMcpOAuthState>>;
+};
+
+type PersistedMcpDiscoveryTool = {
+  readonly mcpToolName: string;
+  readonly piToolName: string;
+  readonly description: string;
+  readonly inputSchema: JsonRecord;
+};
+
+type PersistedMcpDiscoveryState = {
+  readonly definitionHash: string;
+  readonly updatedAt: string;
+  readonly tools: readonly PersistedMcpDiscoveryTool[];
+};
+
+type PersistedMcpDiscoveryFile = {
+  readonly servers: Readonly<Record<string, PersistedMcpDiscoveryState>>;
 };
 
 const OpenObjectParams = Type.Object({}, { additionalProperties: true });
@@ -189,6 +214,104 @@ const parsePersistedMcpOAuthFile = (value: unknown): PersistedMcpOAuthFile => {
   }
 
   return { servers };
+};
+
+const parsePersistedMcpDiscoveryTool = (
+  value: unknown,
+): PersistedMcpDiscoveryTool | undefined => {
+  if (
+    !isRecord(value) ||
+    !isNonEmptyString(value.mcpToolName) ||
+    !isNonEmptyString(value.piToolName)
+  ) {
+    return undefined;
+  }
+
+  return {
+    mcpToolName: value.mcpToolName.trim(),
+    piToolName: value.piToolName.trim(),
+    description: isNonEmptyString(value.description) ? value.description.trim() : "",
+    inputSchema: isRecord(value.inputSchema) ? value.inputSchema : { type: "object" },
+  };
+};
+
+const parsePersistedMcpDiscoveryState = (
+  value: unknown,
+): PersistedMcpDiscoveryState | undefined => {
+  if (!isRecord(value) || !isNonEmptyString(value.definitionHash)) {
+    return undefined;
+  }
+
+  const tools = Array.isArray(value.tools)
+    ? value.tools
+        .map((tool) => parsePersistedMcpDiscoveryTool(tool))
+        .filter((tool): tool is PersistedMcpDiscoveryTool => tool !== undefined)
+    : [];
+
+  return {
+    definitionHash: value.definitionHash.trim(),
+    updatedAt: isNonEmptyString(value.updatedAt)
+      ? value.updatedAt.trim()
+      : new Date().toISOString(),
+    tools,
+  };
+};
+
+const parsePersistedMcpDiscoveryFile = (value: unknown): PersistedMcpDiscoveryFile => {
+  if (!isRecord(value) || !isRecord(value.servers)) {
+    return { servers: {} };
+  }
+
+  const servers: Record<string, PersistedMcpDiscoveryState> = {};
+  for (const [serverKey, serverState] of Object.entries(value.servers)) {
+    const parsedState = parsePersistedMcpDiscoveryState(serverState);
+    if (parsedState !== undefined) {
+      servers[serverKey] = parsedState;
+    }
+  }
+
+  return { servers };
+};
+
+const stableStringify = (value: unknown): string => {
+  if (value === null || value === undefined || typeof value !== "object") {
+    const serialized = JSON.stringify(value);
+    return serialized === undefined ? "undefined" : serialized;
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  const keys = Object.keys(value).sort((left, right) => left.localeCompare(right));
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${stableStringify((value as JsonRecord)[key])}`)
+    .join(",")}}`;
+};
+
+const computeDefinitionHash = (definition: McpServerDefinition): string => {
+  const identity: JsonRecord =
+    definition.type === "remote"
+      ? {
+          type: definition.type,
+          url: definition.url,
+        }
+      : {
+          type: definition.type,
+          command: definition.command,
+          args: [...definition.args],
+          env: definition.env,
+          cwd: definition.cwd,
+        };
+
+  return createHash("sha256").update(stableStringify(identity)).digest("hex");
+};
+
+const isPersistedDiscoveryStateFresh = (state: PersistedMcpDiscoveryState): boolean => {
+  const updatedAtMs = Date.parse(state.updatedAt);
+  return Number.isFinite(updatedAtMs)
+    ? Date.now() - updatedAtMs <= MCP_DISCOVERY_CACHE_MAX_AGE_MS
+    : false;
 };
 
 const sanitizeNameToken = (value: string): string => {
@@ -324,16 +447,6 @@ const truncateContent = async (content: string): Promise<TruncateContentResult> 
   };
 };
 
-const extractPrimaryTextContent = (content: readonly unknown[]): string => {
-  for (const part of content) {
-    if (isRecord(part) && part.type === "text" && typeof part.text === "string") {
-      return part.text;
-    }
-  }
-
-  return "MCP tool returned no content.";
-};
-
 const countLines = (value: string): number => {
   if (value.length === 0) {
     return 0;
@@ -397,7 +510,7 @@ const summarizeInputSchema = (inputSchema: JsonRecord): string | null => {
       : "";
     summaries.push(`${name} (${fieldType}, ${required})${description}`);
 
-    if (summaries.length >= 8) {
+    if (summaries.length >= 4) {
       break;
     }
   }
@@ -409,12 +522,63 @@ const summarizeInputSchema = (inputSchema: JsonRecord): string | null => {
   return `Input fields: ${summaries.join("; ")}`;
 };
 
+const createRegisteredTools = (
+  definition: McpServerDefinition,
+  tools: readonly {
+    readonly name: string;
+    readonly description: string | null;
+    readonly inputSchema: JsonRecord;
+  }[],
+): readonly McpRegisteredTool[] => {
+  const registeredTools: McpRegisteredTool[] = [];
+  const seenPiNames = new Set<string>();
+
+  for (const tool of tools) {
+    const baseName = `${sanitizeNameToken(definition.key)}_${sanitizeNameToken(tool.name)}`;
+    let piToolName = baseName;
+    let duplicateIndex = 2;
+    while (seenPiNames.has(piToolName)) {
+      piToolName = `${baseName}_${duplicateIndex}`;
+      duplicateIndex += 1;
+    }
+    seenPiNames.add(piToolName);
+
+    const inputSummary = summarizeInputSchema(tool.inputSchema);
+    const descriptionParts = [
+      `MCP tool ${tool.name} from server ${definition.key}.`,
+      tool.description ?? "",
+      inputSummary ?? "Accepts a JSON object of arguments.",
+    ].filter((part) => part.trim().length > 0);
+
+    registeredTools.push({
+      mcpToolName: tool.name,
+      piToolName,
+      description: descriptionParts.join(" "),
+      inputSchema: tool.inputSchema,
+      outputMode: resolveToolOutputMode(definition, tool.name),
+    });
+  }
+
+  return registeredTools;
+};
+
+const hydrateRegisteredTools = (
+  definition: McpServerDefinition,
+  persistedTools: readonly PersistedMcpDiscoveryTool[],
+): readonly McpRegisteredTool[] =>
+  persistedTools.map((tool) => ({
+    mcpToolName: tool.mcpToolName,
+    piToolName: tool.piToolName,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+    outputMode: resolveToolOutputMode(definition, tool.mcpToolName),
+  }));
+
 const createRuntime = (definition: McpServerDefinition): McpRuntime => ({
   definition,
   client: null,
   transport: null,
   connectPromise: null,
-  toolsByPiName: new Map(),
   oauthState:
     definition.type === "remote"
       ? {
@@ -426,6 +590,10 @@ const createRuntime = (definition: McpServerDefinition): McpRuntime => ({
           pendingAuthorizationUrl: null,
         }
       : null,
+  lastActivityAt: 0,
+  activeRequestCount: 0,
+  idleCloseTimer: null,
+  idleCloseGeneration: 0,
 });
 
 const withTimeout = async <T>(
@@ -450,10 +618,7 @@ const withTimeout = async <T>(
   }
 };
 
-const parseMcpDefinitions = (
-  rawConfig: string,
-  configPath: string,
-): readonly McpServerDefinition[] => {
+const parseMcpConfig = (rawConfig: string, configPath: string): McpConfig => {
   let parsedConfig: unknown;
   try {
     parsedConfig = JSON.parse(rawConfig);
@@ -465,12 +630,16 @@ const parseMcpDefinitions = (
   }
 
   if (!isRecord(parsedConfig)) {
-    return [];
+    return {
+      definitions: [],
+    };
   }
 
   const servers = parsedConfig.servers;
   if (!isRecord(servers)) {
-    return [];
+    return {
+      definitions: [],
+    };
   }
 
   const definitions: McpServerDefinition[] = [];
@@ -554,7 +723,9 @@ const parseMcpDefinitions = (
     });
   }
 
-  return definitions;
+  return {
+    definitions,
+  };
 };
 
 const createOAuthProvider = (
@@ -883,6 +1054,7 @@ const ensureConnected = async (
     client.onclose = () => {
       runtime.client = null;
       runtime.transport = null;
+      clearIdleCloseTimer(runtime);
     };
 
     runtime.client = client;
@@ -982,10 +1154,25 @@ const formatToolContent = (content: unknown): string => {
   return parts.join("\n\n");
 };
 
+const clearIdleCloseTimer = (runtime: McpRuntime) => {
+  if (runtime.idleCloseTimer !== null) {
+    clearTimeout(runtime.idleCloseTimer);
+    runtime.idleCloseTimer = null;
+  }
+};
+
+const touchRuntime = (runtime: McpRuntime) => {
+  runtime.lastActivityAt = Date.now();
+  runtime.idleCloseGeneration += 1;
+  clearIdleCloseTimer(runtime);
+};
+
 const closeRuntime = async (runtime: McpRuntime): Promise<void> => {
   const client = runtime.client;
+  const transport = runtime.transport;
   runtime.client = null;
   runtime.transport = null;
+  clearIdleCloseTimer(runtime);
 
   if (client !== null) {
     try {
@@ -993,23 +1180,74 @@ const closeRuntime = async (runtime: McpRuntime): Promise<void> => {
     } catch {
       // best-effort cleanup
     }
+  } else if (transport !== null) {
+    try {
+      await transport.close();
+    } catch {
+      // best-effort cleanup
+    }
+  }
+};
+
+const scheduleIdleClose = (runtime: McpRuntime) => {
+  clearIdleCloseTimer(runtime);
+
+  if (runtime.client === null || runtime.activeRequestCount > 0) {
+    return;
+  }
+
+  const generation = runtime.idleCloseGeneration;
+  const timer = setTimeout(() => {
+    if (
+      runtime.client === null ||
+      runtime.activeRequestCount > 0 ||
+      runtime.idleCloseGeneration !== generation
+    ) {
+      return;
+    }
+
+    void closeRuntime(runtime);
+  }, IDLE_CONNECTION_TIMEOUT_MS);
+
+  timer.unref?.();
+  runtime.idleCloseTimer = timer;
+};
+
+const withRuntimeLease = async <T>(
+  runtime: McpRuntime,
+  operation: () => Promise<T>,
+): Promise<T> => {
+  runtime.activeRequestCount += 1;
+  touchRuntime(runtime);
+
+  try {
+    return await operation();
+  } finally {
+    runtime.activeRequestCount -= 1;
+    runtime.lastActivityAt = Date.now();
+    runtime.idleCloseGeneration += 1;
+
+    if (runtime.activeRequestCount === 0) {
+      scheduleIdleClose(runtime);
+    }
   }
 };
 
 export default function mcpExtension(pi: ExtensionAPI) {
   const runtimes = new Map<string, McpRuntime>();
-  const toolNamesByServer = new Map<string, readonly string[]>();
-  const loadedServerKeys = new Set<string>();
+  const discoveredToolsByServer = new Map<string, readonly McpRegisteredTool[]>();
   const configuredDefinitionsByKey = new Map<string, McpServerDefinition>();
-  const registeredPiToolNames = new Set<string>();
   let defaultEnabledServers = new Set<string>();
   let sessionEnabledServers = new Set<string>();
   let initialized = false;
   let initializationPromise: Promise<void> | null = null;
   let authStateLoaded = false;
+  let discoveryCacheLoaded = false;
   let authStateWriteQueue: Promise<void> = Promise.resolve();
+  let discoveryCacheWriteQueue: Promise<void> = Promise.resolve();
   let lastOAuthUi: OAuthUi | null = null;
   const persistedAuthByServer = new Map<string, PersistedMcpOAuthState>();
+  const persistedDiscoveryByServer = new Map<string, PersistedMcpDiscoveryState>();
 
   const queuePersistedAuthWrite = () => {
     const serialized: PersistedMcpOAuthFile = {
@@ -1152,42 +1390,153 @@ export default function mcpExtension(pi: ExtensionAPI) {
     runtime.oauthState.tokens = persisted.tokens;
   };
 
-  const applySessionServerSelection = () => {
-    const activeTools = new Set(pi.getActiveTools());
+  const queuePersistedDiscoveryWrite = () => {
+    const serialized: PersistedMcpDiscoveryFile = {
+      servers: Object.fromEntries(persistedDiscoveryByServer.entries()),
+    };
 
-    for (const toolNames of toolNamesByServer.values()) {
-      for (const toolName of toolNames) {
-        activeTools.delete(toolName);
+    discoveryCacheWriteQueue = discoveryCacheWriteQueue
+      .catch(() => {
+        // keep queue alive after previous failure
+      })
+      .then(async () => {
+        try {
+          await mkdir(dirname(MCP_DISCOVERY_CACHE_PATH), { recursive: true });
+          await writeFile(
+            MCP_DISCOVERY_CACHE_PATH,
+            `${JSON.stringify(serialized, null, 2)}\n`,
+            {
+              encoding: "utf8",
+              mode: 0o600,
+            },
+          );
+          await chmod(MCP_DISCOVERY_CACHE_PATH, 0o600);
+        } catch (error) {
+          if (lastOAuthUi !== null) {
+            const message =
+              error instanceof Error ? error.message : "unknown file write error";
+            lastOAuthUi.notify(
+              `Failed to persist MCP discovery cache: ${message}`,
+              "warning",
+            );
+          }
+        }
+      });
+  };
+
+  const persistDiscoveredTools = (
+    definition: McpServerDefinition,
+    tools: readonly McpRegisteredTool[],
+  ) => {
+    discoveredToolsByServer.set(definition.key, tools);
+    persistedDiscoveryByServer.set(definition.key, {
+      definitionHash: computeDefinitionHash(definition),
+      updatedAt: new Date().toISOString(),
+      tools: tools.map((tool) => ({
+        mcpToolName: tool.mcpToolName,
+        piToolName: tool.piToolName,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+      })),
+    });
+    queuePersistedDiscoveryWrite();
+  };
+
+  const ensureDiscoveryCacheLoaded = async (oauthUi: OAuthUi | null): Promise<void> => {
+    if (discoveryCacheLoaded) {
+      if (oauthUi !== null) {
+        lastOAuthUi = oauthUi;
       }
+      return;
+    }
+    discoveryCacheLoaded = true;
+
+    if (oauthUi !== null) {
+      lastOAuthUi = oauthUi;
     }
 
-    for (const serverKey of sessionEnabledServers) {
-      const toolNames = toolNamesByServer.get(serverKey);
-      if (toolNames === undefined) {
-        continue;
+    let rawDiscoveryState: string;
+    try {
+      rawDiscoveryState = await readFile(MCP_DISCOVERY_CACHE_PATH, "utf8");
+    } catch (error) {
+      const isMissingDiscoveryFile =
+        error !== null &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "ENOENT";
+
+      if (isMissingDiscoveryFile) {
+        return;
       }
 
-      for (const toolName of toolNames) {
-        activeTools.add(toolName);
+      if (lastOAuthUi !== null) {
+        const message =
+          error instanceof Error ? error.message : "unknown file read error";
+        lastOAuthUi.notify(
+          `Failed to read MCP discovery cache ${MCP_DISCOVERY_CACHE_PATH}: ${message}`,
+          "warning",
+        );
       }
+      return;
     }
 
-    pi.setActiveTools(Array.from(activeTools));
+    let parsedRawState: unknown;
+    try {
+      parsedRawState = JSON.parse(rawDiscoveryState);
+    } catch (error) {
+      if (lastOAuthUi !== null) {
+        const message =
+          error instanceof Error ? error.message : "unknown JSON parse error";
+        lastOAuthUi.notify(
+          `Failed to parse MCP discovery cache ${MCP_DISCOVERY_CACHE_PATH}: ${message}`,
+          "warning",
+        );
+      }
+      return;
+    }
+
+    const parsedState = parsePersistedMcpDiscoveryFile(parsedRawState);
+
+    persistedDiscoveryByServer.clear();
+    for (const [serverKey, state] of Object.entries(parsedState.servers)) {
+      persistedDiscoveryByServer.set(serverKey, state);
+    }
+  };
+
+  const hydrateDiscoveredToolsFromCache = (definition: McpServerDefinition) => {
+    const persisted = persistedDiscoveryByServer.get(definition.key);
+    if (persisted === undefined) {
+      return;
+    }
+
+    if (
+      persisted.definitionHash !== computeDefinitionHash(definition) ||
+      !isPersistedDiscoveryStateFresh(persisted)
+    ) {
+      persistedDiscoveryByServer.delete(definition.key);
+      queuePersistedDiscoveryWrite();
+      return;
+    }
+
+    discoveredToolsByServer.set(
+      definition.key,
+      hydrateRegisteredTools(definition, persisted.tools),
+    );
   };
 
   const persistSessionServerSelection = () => {
-    pi.appendEntry<McpSessionState>("mcp-session-config", {
+    pi.appendEntry<McpSessionState>(MCP_SESSION_CONFIG_TYPE, {
       enabledServers: Array.from(sessionEnabledServers).sort((a, b) =>
         a.localeCompare(b),
       ),
     });
   };
 
-  const restoreSessionServerSelectionFromBranch = (ctx: ExtensionContext) => {
+  const restoreSessionServerSelectionFromBranch = async (ctx: ExtensionContext) => {
     let savedEnabledServers: readonly string[] | undefined;
 
     for (const entry of ctx.sessionManager.getBranch()) {
-      if (entry.type !== "custom" || entry.customType !== "mcp-session-config") {
+      if (entry.type !== "custom" || entry.customType !== MCP_SESSION_CONFIG_TYPE) {
         continue;
       }
 
@@ -1204,6 +1553,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
 
     const restoredEnabledServers = new Set<string>();
     const source = savedEnabledServers ?? Array.from(defaultEnabledServers);
+
     for (const serverKey of source) {
       if (configuredDefinitionsByKey.has(serverKey)) {
         restoredEnabledServers.add(serverKey);
@@ -1211,7 +1561,6 @@ export default function mcpExtension(pi: ExtensionAPI) {
     }
 
     sessionEnabledServers = restoredEnabledServers;
-    applySessionServerSelection();
   };
 
   const openAuthorizationUrlInBrowser = async (url: string): Promise<boolean> => {
@@ -1312,16 +1661,32 @@ export default function mcpExtension(pi: ExtensionAPI) {
     };
   };
 
-  const loadServerDefinition = async (
-    definition: McpServerDefinition,
-    requestAuthorizationCode: ((serverKey: string, authorizationUrl: URL) => Promise<string>) | null,
-  ): Promise<DiscoveryFailure | null> => {
-    if (loadedServerKeys.has(definition.key)) {
-      return null;
+  const getOrCreateRuntime = (definition: McpServerDefinition): McpRuntime => {
+    const existingRuntime = runtimes.get(definition.key);
+    if (existingRuntime !== undefined) {
+      return existingRuntime;
     }
 
     const runtime = createRuntime(definition);
     hydrateRuntimeAuthState(runtime);
+    runtimes.set(definition.key, runtime);
+    return runtime;
+  };
+
+  const ensureServerMetadata = async (
+    definition: McpServerDefinition,
+    requestAuthorizationCode: ((serverKey: string, authorizationUrl: URL) => Promise<string>) | null,
+    forceRefresh = false,
+  ): Promise<readonly McpRegisteredTool[]> => {
+    if (!forceRefresh) {
+      const existingMetadata = discoveredToolsByServer.get(definition.key);
+      if (existingMetadata !== undefined) {
+        return existingMetadata;
+      }
+    }
+
+    const hadRuntime = runtimes.has(definition.key);
+    const runtime = getOrCreateRuntime(definition);
 
     try {
       const connectionTimeoutMs =
@@ -1329,174 +1694,351 @@ export default function mcpExtension(pi: ExtensionAPI) {
           ? CONNECTION_TIMEOUT_MS
           : INTERACTIVE_AUTH_TIMEOUT_MS;
 
-      const client = await withTimeout(
-        ensureConnected(runtime, requestAuthorizationCode, updatePersistedAuthFromRuntime),
-        connectionTimeoutMs,
-        `Connecting to MCP server ${definition.key}`,
+      const registeredTools = await withRuntimeLease(runtime, async () => {
+        const client = await withTimeout(
+          ensureConnected(runtime, requestAuthorizationCode, updatePersistedAuthFromRuntime),
+          connectionTimeoutMs,
+          `Connecting to MCP server ${definition.key}`,
+        );
+
+        const tools = await withTimeout(
+          listAllTools(client),
+          connectionTimeoutMs,
+          `Listing tools from MCP server ${definition.key}`,
+        );
+
+        return createRegisteredTools(definition, tools);
+      });
+
+      persistDiscoveredTools(definition, registeredTools);
+      return registeredTools;
+    } catch (error) {
+      if (!hadRuntime) {
+        await closeRuntime(runtime);
+        runtimes.delete(definition.key);
+      }
+      throw error;
+    }
+  };
+
+  const invokeMcpTool = async (
+    runtime: McpRuntime,
+    registeredTool: McpRegisteredTool,
+    params: Record<string, unknown>,
+    toolOauthUi: OAuthUi | null,
+  ) => {
+    const requestToolAuthorizationCode = createAuthorizationCodeRequester(toolOauthUi);
+
+    const callResult = await withRuntimeLease(runtime, async () => {
+      let client = await ensureConnected(
+        runtime,
+        requestToolAuthorizationCode,
+        updatePersistedAuthFromRuntime,
       );
 
-      const tools = await withTimeout(
-        listAllTools(client),
-        connectionTimeoutMs,
-        `Listing tools from MCP server ${definition.key}`,
-      );
-
-      runtimes.set(runtime.definition.key, runtime);
-      loadedServerKeys.add(runtime.definition.key);
-
-      const serverToolNames: string[] = [];
-      for (const tool of tools) {
-        const baseName = `${sanitizeNameToken(runtime.definition.key)}_${sanitizeNameToken(tool.name)}`;
-        let piToolName = baseName;
-        let duplicateIndex = 2;
-        while (registeredPiToolNames.has(piToolName)) {
-          piToolName = `${baseName}_${duplicateIndex}`;
-          duplicateIndex += 1;
-        }
-        registeredPiToolNames.add(piToolName);
-
-        const inputSummary = summarizeInputSchema(tool.inputSchema);
-        const descriptionParts = [
-          `MCP tool ${tool.name} from server ${runtime.definition.key}.`,
-          tool.description ?? "",
-          inputSummary ?? "Accepts a JSON object of arguments.",
-          "Output is truncated to context-safe limits; when truncated, full output is saved to a temp file.",
-        ].filter((part) => part.trim().length > 0);
-
-        const registeredTool: McpRegisteredTool = {
-          mcpToolName: tool.name,
-          piToolName,
-          description: descriptionParts.join(" "),
-          outputMode: resolveToolOutputMode(runtime.definition, tool.name),
-        };
-
-        runtime.toolsByPiName.set(piToolName, registeredTool);
-
-        pi.registerTool({
-          name: piToolName,
-          label: `MCP ${runtime.definition.key}/${tool.name}`,
-          description: registeredTool.description,
-          parameters: OpenObjectParams,
-
-          async execute(_toolCallId, params, _signal, _onUpdate, toolCtx) {
-            const activeRuntime = runtimes.get(runtime.definition.key);
-            if (activeRuntime === undefined) {
-              throw new Error(
-                `MCP server ${runtime.definition.key} is not active. Reload extensions and try again.`,
-              );
-            }
-
-            const toolOauthUi: OAuthUi | null = toolCtx.hasUI
-              ? {
-                  notify: toolCtx.ui.notify.bind(toolCtx.ui),
-                  input: toolCtx.ui.input.bind(toolCtx.ui),
-                }
-              : null;
-            const requestToolAuthorizationCode = createAuthorizationCodeRequester(toolOauthUi);
-
-            let client = await ensureConnected(
-              activeRuntime,
-              requestToolAuthorizationCode,
-              updatePersistedAuthFromRuntime,
-            );
-            let callResult;
-
-            try {
-              callResult = await client.callTool({
-                name: registeredTool.mcpToolName,
-                arguments: params,
-              });
-            } catch (error) {
-              if (error instanceof UnauthorizedError) {
-                await closeRuntime(activeRuntime);
-                client = await ensureConnected(
-                  activeRuntime,
-                  requestToolAuthorizationCode,
-                  updatePersistedAuthFromRuntime,
-                );
-                callResult = await client.callTool({
-                  name: registeredTool.mcpToolName,
-                  arguments: params,
-                });
-              } else {
-                throw error;
-              }
-            }
-
-            const content = isRecord(callResult)
-              ? callResult.content
-              : undefined;
-            const output = await truncateContent(formatToolContent(content));
-            const isError =
-              isRecord(callResult) && typeof callResult.isError === "boolean"
-                ? callResult.isError
-                : false;
-            const structuredContent =
-              isRecord(callResult) && isRecord(callResult.structuredContent)
-                ? callResult.structuredContent
-                : null;
-
-            if (isError) {
-              throw new Error(
-                `MCP tool ${runtime.definition.key}/${registeredTool.mcpToolName} returned an error: ${output.text}`,
-              );
-            }
-
-            return {
-              content: [{ type: "text", text: output.text }],
-              details: {
-                server: runtime.definition.key,
-                mcpTool: registeredTool.mcpToolName,
-                outputMode: registeredTool.outputMode,
-                structuredContent,
-                truncated: output.truncated,
-                fullOutputPath: output.fullOutputPath,
-              },
-            };
-          },
-
-          renderResult(result, { expanded }, theme) {
-            const output = extractPrimaryTextContent(result.content);
-            if (registeredTool.outputMode === "full" || expanded) {
-              return new Text(output, 0, 0);
-            }
-
-            const expandHint = keyHint("expandTools", "for full output");
-            if (registeredTool.outputMode === "muted") {
-              const header =
-                theme.fg("muted", "(output hidden)") +
-                (output.trim().length > 0
-                  ? `\n${theme.fg("muted", `(${expandHint})`)}`
-                  : "");
-              return new Text(header, 0, 0);
-            }
-
-            const { preview, omittedLineCount } = takePreviewLines(
-              output,
-              MCP_COLLAPSED_PREVIEW_LINES,
-            );
-
-            let text = preview.length > 0 ? preview : theme.fg("muted", "(no output)");
-            if (omittedLineCount > 0) {
-              text +=
-                `\n${theme.fg("muted", `... ${omittedLineCount} more lines`)}` +
-                `\n${theme.fg("muted", `(${expandHint})`)}`;
-            }
-
-            return new Text(text, 0, 0);
-          },
+      try {
+        return await client.callTool({
+          name: registeredTool.mcpToolName,
+          arguments: params,
         });
+      } catch (error) {
+        if (error instanceof UnauthorizedError) {
+          await closeRuntime(runtime);
+          client = await ensureConnected(
+            runtime,
+            requestToolAuthorizationCode,
+            updatePersistedAuthFromRuntime,
+          );
+          return await client.callTool({
+            name: registeredTool.mcpToolName,
+            arguments: params,
+          });
+        }
 
-        serverToolNames.push(piToolName);
+        throw error;
+      }
+    });
+
+    const content = isRecord(callResult) ? callResult.content : undefined;
+    const output = await truncateContent(formatToolContent(content));
+    const isError =
+      isRecord(callResult) && typeof callResult.isError === "boolean"
+        ? callResult.isError
+        : false;
+    const structuredContent =
+      isRecord(callResult) && isRecord(callResult.structuredContent)
+        ? callResult.structuredContent
+        : null;
+
+    return {
+      output,
+      isError,
+      structuredContent,
+    };
+  };
+
+  const ensureToolsForServer = async (
+    serverKey: string,
+    requestAuthorizationCode: ((serverKey: string, authorizationUrl: URL) => Promise<string>) | null,
+    forceRefresh = false,
+  ): Promise<readonly McpRegisteredTool[]> => {
+    if (!isServerEnabledForSession(serverKey)) {
+      throw new Error(
+        `MCP server ${serverKey} is disabled in this session. Use /mcp to enable it.`,
+      );
+    }
+
+    const definition = configuredDefinitionsByKey.get(serverKey);
+    if (definition === undefined) {
+      throw new Error(`Unknown MCP server: ${serverKey}`);
+    }
+
+    return await ensureServerMetadata(definition, requestAuthorizationCode, forceRefresh);
+  };
+
+  const inferServerKeyFromToolReference = (toolReference: string): string | null => {
+    const sortedServerKeys = Array.from(configuredDefinitionsByKey.keys()).sort(
+      (left, right) => right.length - left.length,
+    );
+
+    for (const serverKey of sortedServerKeys) {
+      if (toolReference === serverKey || toolReference.startsWith(`${serverKey}_`)) {
+        return serverKey;
+      }
+    }
+
+    return null;
+  };
+
+  const resolveToolReference = (
+    toolReference: string,
+    serverKey?: string,
+  ):
+    | {
+        readonly definition: McpServerDefinition;
+        readonly tool: McpRegisteredTool;
+      }
+    | null => {
+    const trimmedReference = toolReference.trim();
+    if (trimmedReference.length === 0) {
+      return null;
+    }
+
+    const candidateServerKeys =
+      isNonEmptyString(serverKey) && isServerEnabledForSession(serverKey)
+        ? [serverKey]
+        : (() => {
+            const inferredServerKey = inferServerKeyFromToolReference(trimmedReference);
+            return inferredServerKey === null
+              ? Array.from(sessionEnabledServers)
+              : [inferredServerKey];
+          })();
+
+    for (const candidateServerKey of candidateServerKeys) {
+      const definition = configuredDefinitionsByKey.get(candidateServerKey);
+      const tools = discoveredToolsByServer.get(candidateServerKey);
+      if (definition === undefined || tools === undefined) {
+        continue;
       }
 
-      toolNamesByServer.set(runtime.definition.key, serverToolNames);
-      return null;
-    } catch (error) {
-      await closeRuntime(runtime);
-      const message = error instanceof Error ? error.message : String(error);
-      return { key: definition.key, message };
+      const matchedTool = tools.find(
+        (tool) =>
+          tool.piToolName === trimmedReference || tool.mcpToolName === trimmedReference,
+      );
+      if (matchedTool !== undefined) {
+        return {
+          definition,
+          tool: matchedTool,
+        };
+      }
     }
+
+    return null;
+  };
+
+  const isServerEnabledForSession = (serverKey: string): boolean =>
+    sessionEnabledServers.has(serverKey);
+
+  const getSearchScopeServerKeys = (serverKey?: string): readonly string[] =>
+    serverKey === undefined
+      ? Array.from(sessionEnabledServers).sort((left, right) => left.localeCompare(right))
+      : isServerEnabledForSession(serverKey)
+        ? [serverKey]
+        : [];
+
+  const hasUndiscoveredSearchScope = (serverKey?: string): boolean =>
+    getSearchScopeServerKeys(serverKey).some(
+      (candidateServerKey) => !discoveredToolsByServer.has(candidateServerKey),
+    );
+
+  const findToolMatches = (
+    query: string,
+    serverKey?: string,
+  ): readonly {
+    readonly serverKey: string;
+    readonly tool: McpRegisteredTool;
+  }[] => {
+    const searchQuery = query.trim().toLowerCase();
+
+    return Array.from(discoveredToolsByServer.entries())
+      .filter(
+        ([candidateServerKey]) =>
+          serverKey === undefined || candidateServerKey === serverKey,
+      )
+      .flatMap(([candidateServerKey, tools]) =>
+        tools
+          .filter((tool) => {
+            const haystack = `${tool.piToolName}\n${tool.mcpToolName}\n${tool.description}`.toLowerCase();
+            return haystack.includes(searchQuery);
+          })
+          .map((tool) => ({ serverKey: candidateServerKey, tool })),
+      )
+      .sort((left, right) => left.tool.piToolName.localeCompare(right.tool.piToolName));
+  };
+
+  const refreshDiscoveryScopeBestEffort = async (serverKey?: string): Promise<void> => {
+    const refreshes = getSearchScopeServerKeys(serverKey)
+      .filter((candidateServerKey) => !discoveredToolsByServer.has(candidateServerKey))
+      .map(async (candidateServerKey) => {
+        const definition = configuredDefinitionsByKey.get(candidateServerKey);
+        if (definition === undefined) {
+          return;
+        }
+
+        try {
+          await ensureServerMetadata(definition, null);
+        } catch {
+          // best-effort warm-up only; explicit refresh still surfaces failures
+        }
+      });
+
+    await Promise.allSettled(refreshes);
+  };
+
+  const formatInputSchemaForText = (inputSchema: JsonRecord): string =>
+    renderUnknownAsText(inputSchema);
+
+  const renderProxyStatus = (): string => {
+    const lines = ["MCP servers:"];
+
+    for (const serverKey of Array.from(configuredDefinitionsByKey.keys()).sort((a, b) =>
+      a.localeCompare(b),
+    )) {
+      lines.push(
+        `- ${serverKey} · ${sessionEnabledServers.has(serverKey) ? "enabled" : "disabled"}`,
+      );
+    }
+
+    lines.push("", "Use /mcp to toggle servers for this session.");
+    return lines.join("\n");
+  };
+
+  const renderServerToolList = (
+    serverKey: string,
+    tools: readonly McpRegisteredTool[],
+  ): string => {
+    const definition = configuredDefinitionsByKey.get(serverKey);
+    const lines = [`MCP server ${serverKey}${definition === undefined ? "" : ` (${definition.type})`}`];
+
+    if (tools.length === 0) {
+      lines.push("No tools discovered.");
+      return lines.join("\n");
+    }
+
+    lines.push(
+      `${tools.length} tool${tools.length === 1 ? "" : "s"}. Use \`tool\` with the full name below. Use /mcp if this server should be enabled or disabled in this session.`,
+      "",
+    );
+
+    for (const tool of tools) {
+      lines.push(`- ${tool.piToolName}: ${tool.description}`);
+    }
+
+    return lines.join("\n");
+  };
+
+  const renderToolDescription = (serverKey: string, tool: McpRegisteredTool): string => {
+    const lines = [
+      `Tool: ${tool.piToolName}`,
+      `Server: ${serverKey}`,
+      `MCP name: ${tool.mcpToolName}`,
+      `Description: ${tool.description}`,
+      "",
+      "Input schema:",
+      formatInputSchemaForText(tool.inputSchema),
+    ];
+
+    return lines.join("\n");
+  };
+
+  const renderToolSearch = (
+    query: string,
+    matches: readonly {
+      readonly serverKey: string;
+      readonly tool: McpRegisteredTool;
+    }[],
+    refreshed: boolean,
+    autoRefreshed: boolean,
+  ): string => {
+    if (matches.length === 0) {
+      if (autoRefreshed) {
+        return `No MCP tools matched \"${query}\". Some undiscovered servers may still require auth or a manual refresh; try mcp({ search: \"${query}\", refresh: true }) or inspect a specific server.`;
+      }
+
+      return refreshed
+        ? `No MCP tools matched \"${query}\".`
+        : `No discovered MCP tools matched \"${query}\". Try mcp({ search: \"${query}\", refresh: true }) or list a specific server first.`;
+    }
+
+    const lines = [`Found ${matches.length} MCP tool${matches.length === 1 ? "" : "s"} matching \"${query}\":`, ""];
+    for (const match of matches.slice(0, 40)) {
+      lines.push(`- ${match.tool.piToolName}: ${match.tool.description}`);
+    }
+
+    if (matches.length > 40) {
+      lines.push("", `... ${matches.length - 40} more results`);
+    }
+
+    return lines.join("\n");
+  };
+
+  const formatGatewayToolOutput = (
+    tool: McpRegisteredTool,
+    output: string,
+  ): string => {
+    if (tool.outputMode === "muted") {
+      return "(output hidden by MCP outputMode configuration)";
+    }
+
+    if (tool.outputMode === "collapsed") {
+      const { preview, omittedLineCount } = takePreviewLines(
+        output,
+        MCP_COLLAPSED_PREVIEW_LINES,
+      );
+
+      if (omittedLineCount === 0) {
+        return preview;
+      }
+
+      return `${preview}\n... ${omittedLineCount} more lines`;
+    }
+
+    return output;
+  };
+
+  const createProxyTextResult = async (
+    text: string,
+    details: JsonRecord,
+  ) => {
+    const output = await truncateContent(text);
+    return {
+      content: [{ type: "text" as const, text: output.text }],
+      details: {
+        ...details,
+        truncated: output.truncated,
+        fullOutputPath: output.fullOutputPath,
+      },
+    };
   };
 
   const initializeFromConfig = (oauthUi: OAuthUi | null): Promise<void> => {
@@ -1516,6 +2058,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
       initialized = true;
 
       await ensureAuthStateLoaded(oauthUi);
+      await ensureDiscoveryCacheLoaded(oauthUi);
 
       let rawConfig: string;
       try {
@@ -1532,9 +2075,9 @@ export default function mcpExtension(pi: ExtensionAPI) {
         return;
       }
 
-      let definitions: readonly McpServerDefinition[];
+      let config: McpConfig;
       try {
-        definitions = parseMcpDefinitions(rawConfig, MCP_CONFIG_PATH);
+        config = parseMcpConfig(rawConfig, MCP_CONFIG_PATH);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (oauthUi !== null) {
@@ -1544,31 +2087,15 @@ export default function mcpExtension(pi: ExtensionAPI) {
       }
 
       configuredDefinitionsByKey.clear();
-      for (const definition of definitions) {
+      discoveredToolsByServer.clear();
+      for (const definition of config.definitions) {
         configuredDefinitionsByKey.set(definition.key, definition);
+        hydrateDiscoveredToolsFromCache(definition);
       }
 
-      const enabledDefinitions = definitions.filter((definition) => definition.enabled);
+      const enabledDefinitions = config.definitions.filter((definition) => definition.enabled);
       defaultEnabledServers = new Set(enabledDefinitions.map((definition) => definition.key));
       sessionEnabledServers = new Set(defaultEnabledServers);
-
-      const requestAuthorizationCode = createAuthorizationCodeRequester(oauthUi);
-      const failures: DiscoveryFailure[] = [];
-
-      for (const definition of enabledDefinitions) {
-        const failure = await loadServerDefinition(definition, requestAuthorizationCode);
-        if (failure !== null) {
-          failures.push(failure);
-        }
-      }
-
-      applySessionServerSelection();
-
-      if (oauthUi !== null) {
-        for (const failure of failures) {
-          oauthUi.notify(`MCP server ${failure.key} failed: ${failure.message}`, "warning");
-        }
-      }
     })().finally(() => {
       initializationPromise = null;
     });
@@ -1576,8 +2103,252 @@ export default function mcpExtension(pi: ExtensionAPI) {
     return initializationPromise;
   };
 
+  const selectSessionDiscoverabilityChoice = async (
+    ctx: ExtensionContext,
+    sortedServerNames: readonly string[],
+    desiredEnabledServers: ReadonlySet<string>,
+  ): Promise<string | null> =>
+    await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+      const items: SelectItem[] = [
+        { value: "__done__", label: "Done" },
+        { value: "__enable_all__", label: "Enable all" },
+        { value: "__disable_all__", label: "Disable all" },
+        ...sortedServerNames.map((serverName) => {
+          const checkmark = desiredEnabledServers.has(serverName)
+            ? theme.fg("success", "✓")
+            : " ";
+
+          return {
+            value: serverName,
+            label: `${checkmark} ${serverName}`,
+          };
+        }),
+      ];
+
+      const container = new Container();
+      container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+      container.addChild(
+        new Text(theme.fg("accent", theme.bold("MCP servers (✓ enabled)")), 1, 0),
+      );
+
+      const selectList = new SelectList(items, Math.min(items.length, 14), {
+        selectedPrefix: (text) => theme.fg("accent", text),
+        selectedText: (text) => text,
+        description: (text) => theme.fg("muted", text),
+        scrollInfo: (text) => theme.fg("dim", text),
+        noMatch: (text) => theme.fg("warning", text),
+      });
+      selectList.onSelect = (item) => done(item.value);
+      selectList.onCancel = () => done(null);
+      container.addChild(selectList);
+      container.addChild(
+        new Text(theme.fg("dim", "↑↓ navigate • enter toggle • esc done"), 1, 0),
+      );
+      container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
+
+      return {
+        render(width: number) {
+          return container.render(width);
+        },
+        invalidate() {
+          container.invalidate();
+        },
+        handleInput(data: string) {
+          selectList.handleInput(data);
+          tui.requestRender();
+        },
+      };
+    });
+
+  pi.registerTool({
+    name: "mcp",
+    label: "MCP",
+    description:
+      "Compact MCP gateway. Search, list, describe, and call MCP tools without exposing every discovered MCP tool in the prompt.",
+    parameters: Type.Object({
+      server: Type.Optional(
+        Type.String({ description: "MCP server key to inspect or use" }),
+      ),
+      search: Type.Optional(
+        Type.String({ description: "Search discovered MCP tools" }),
+      ),
+      describe: Type.Optional(
+        Type.String({ description: "Describe a tool by full name or raw MCP name" }),
+      ),
+      tool: Type.Optional(
+        Type.String({ description: "Call a tool by full name or raw MCP name" }),
+      ),
+      args: Type.Optional(OpenObjectParams),
+      refresh: Type.Optional(
+        Type.Boolean({ description: "Refresh discovery metadata before reading it" }),
+      ),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, toolCtx) {
+      const toolOauthUi: OAuthUi | null = toolCtx.hasUI
+        ? {
+            notify: toolCtx.ui.notify.bind(toolCtx.ui),
+            input: toolCtx.ui.input.bind(toolCtx.ui),
+          }
+        : null;
+
+      await initializeFromConfig(toolOauthUi);
+
+      if (configuredDefinitionsByKey.size === 0) {
+        return {
+          content: [{ type: "text", text: "No MCP servers are configured." }],
+          details: { mode: "status" },
+        };
+      }
+
+      const requestAuthorizationCode = createAuthorizationCodeRequester(toolOauthUi);
+      const serverKey = isNonEmptyString(params.server) ? params.server.trim() : undefined;
+      const refresh = params.refresh === true;
+
+      if (isNonEmptyString(params.tool)) {
+        const toolReference = params.tool.trim();
+        const hintedServerKey = serverKey ?? inferServerKeyFromToolReference(toolReference) ?? undefined;
+
+        if (hintedServerKey !== undefined) {
+          await ensureToolsForServer(
+            hintedServerKey,
+            requestAuthorizationCode,
+            refresh || !discoveredToolsByServer.has(hintedServerKey),
+          );
+        }
+
+        const resolvedTool = resolveToolReference(toolReference, serverKey);
+        if (resolvedTool === null) {
+          throw new Error(
+            `Unknown MCP tool: ${toolReference}. Use mcp({ search: \"...\" }) or mcp({ server: \"...\" }) to inspect available tools.`,
+          );
+        }
+
+        const runtime = getOrCreateRuntime(resolvedTool.definition);
+        const result = await invokeMcpTool(
+          runtime,
+          resolvedTool.tool,
+          isRecord(params.args) ? params.args : {},
+          toolOauthUi,
+        );
+
+        if (result.isError) {
+          throw new Error(
+            `MCP tool ${resolvedTool.definition.key}/${resolvedTool.tool.mcpToolName} returned an error: ${result.output.text}`,
+          );
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: formatGatewayToolOutput(resolvedTool.tool, result.output.text),
+            },
+          ],
+          details: {
+            mode: "tool",
+            server: resolvedTool.definition.key,
+            mcpTool: resolvedTool.tool.mcpToolName,
+            outputMode: resolvedTool.tool.outputMode,
+            truncated: result.output.truncated,
+            fullOutputPath: result.output.fullOutputPath,
+            structuredContent: result.structuredContent,
+          },
+        };
+      }
+
+      if (isNonEmptyString(params.describe)) {
+        const toolReference = params.describe.trim();
+        const hintedServerKey = serverKey ?? inferServerKeyFromToolReference(toolReference) ?? undefined;
+
+        if (hintedServerKey !== undefined) {
+          await ensureToolsForServer(
+            hintedServerKey,
+            requestAuthorizationCode,
+            refresh || !discoveredToolsByServer.has(hintedServerKey),
+          );
+        }
+
+        const resolvedTool = resolveToolReference(toolReference, serverKey);
+        if (resolvedTool === null) {
+          throw new Error(
+            `Unknown MCP tool: ${toolReference}. Use mcp({ search: \"...\" }) or mcp({ server: \"...\" }) first.`,
+          );
+        }
+
+        return await createProxyTextResult(
+          renderToolDescription(resolvedTool.definition.key, resolvedTool.tool),
+          {
+            mode: "describe",
+            server: resolvedTool.definition.key,
+            mcpTool: resolvedTool.tool.mcpToolName,
+          },
+        );
+      }
+
+      if (isNonEmptyString(params.search)) {
+        if (serverKey !== undefined) {
+          await ensureToolsForServer(
+            serverKey,
+            requestAuthorizationCode,
+            refresh || !discoveredToolsByServer.has(serverKey),
+          );
+        } else if (refresh) {
+          for (const candidateServerKey of getSearchScopeServerKeys()) {
+            const definition = configuredDefinitionsByKey.get(candidateServerKey);
+            if (definition === undefined) {
+              continue;
+            }
+
+            await ensureServerMetadata(definition, requestAuthorizationCode, true);
+          }
+        }
+
+        let matches = findToolMatches(params.search.trim(), serverKey);
+        let autoRefreshed = false;
+
+        if (!refresh && matches.length === 0 && hasUndiscoveredSearchScope(serverKey)) {
+          await refreshDiscoveryScopeBestEffort(serverKey);
+          matches = findToolMatches(params.search.trim(), serverKey);
+          autoRefreshed = true;
+        }
+
+        return await createProxyTextResult(
+          renderToolSearch(
+            params.search.trim(),
+            matches,
+            refresh || autoRefreshed,
+            autoRefreshed,
+          ),
+          {
+            mode: "search",
+            refreshed: refresh || autoRefreshed,
+            autoRefreshed,
+            resultCount: matches.length,
+          },
+        );
+      }
+
+      if (serverKey !== undefined) {
+        const tools = await ensureToolsForServer(
+          serverKey,
+          requestAuthorizationCode,
+          refresh || !discoveredToolsByServer.has(serverKey),
+        );
+
+        return await createProxyTextResult(renderServerToolList(serverKey, tools), {
+          mode: "list",
+          server: serverKey,
+          refreshed: refresh,
+          toolCount: tools.length,
+        });
+      }
+
+      return await createProxyTextResult(renderProxyStatus(), { mode: "status" });
+    },
+  });
+
   pi.registerCommand("mcp", {
-    description: "Toggle MCP servers for this session",
+    description: "Enable or disable MCP servers for this session",
     handler: async (_args, ctx) => {
       if (!ctx.hasUI) {
         return;
@@ -1602,72 +2373,46 @@ export default function mcpExtension(pi: ExtensionAPI) {
       );
 
       while (true) {
-        const optionToServer = new Map<string, string>();
-        const serverOptions = sortedServerNames.map((serverName) => {
-          const definition = configuredDefinitionsByKey.get(serverName);
-          const typeLabel = definition?.type ?? "unknown";
-          const enabledLabel = desiredEnabledServers.has(serverName) ? "on" : "off";
-          const loadedLabel = loadedServerKeys.has(serverName) ? "" : " · lazy";
-          const option = `[${enabledLabel}] ${serverName} (${typeLabel})${loadedLabel}`;
-          optionToServer.set(option, serverName);
-          return option;
-        });
+        const choice = await selectSessionDiscoverabilityChoice(
+          ctx,
+          sortedServerNames,
+          desiredEnabledServers,
+        );
 
-        const choice = await ctx.ui.select("MCP servers (session)", [
-          "Done",
-          "Enable all",
-          "Disable all",
-          ...serverOptions,
-        ]);
-
-        if (!isNonEmptyString(choice) || choice === "Done") {
+        if (choice === null || choice === "__done__") {
           break;
         }
 
-        if (choice === "Enable all") {
+        if (choice === "__enable_all__") {
           for (const serverName of sortedServerNames) {
             desiredEnabledServers.add(serverName);
           }
           continue;
         }
 
-        if (choice === "Disable all") {
+        if (choice === "__disable_all__") {
           desiredEnabledServers.clear();
           continue;
         }
 
-        const selectedServerName = optionToServer.get(choice);
-        if (!isNonEmptyString(selectedServerName)) {
+        if (!configuredDefinitionsByKey.has(choice)) {
           continue;
         }
 
-        if (desiredEnabledServers.has(selectedServerName)) {
-          desiredEnabledServers.delete(selectedServerName);
+        if (desiredEnabledServers.has(choice)) {
+          desiredEnabledServers.delete(choice);
         } else {
-          desiredEnabledServers.add(selectedServerName);
+          desiredEnabledServers.add(choice);
         }
       }
 
       const previousEnabledServers = new Set(sessionEnabledServers);
-      const requestAuthorizationCode = createAuthorizationCodeRequester(oauthUi);
       const nextEnabledServers = new Set<string>();
 
       for (const serverKey of desiredEnabledServers) {
-        const definition = configuredDefinitionsByKey.get(serverKey);
-        if (definition === undefined) {
-          continue;
+        if (configuredDefinitionsByKey.has(serverKey)) {
+          nextEnabledServers.add(serverKey);
         }
-
-        const failure = await loadServerDefinition(definition, requestAuthorizationCode);
-        if (failure !== null) {
-          ctx.ui.notify(
-            `MCP server ${failure.key} could not be enabled: ${failure.message}`,
-            "warning",
-          );
-          continue;
-        }
-
-        nextEnabledServers.add(serverKey);
       }
 
       const hasChanged =
@@ -1675,7 +2420,6 @@ export default function mcpExtension(pi: ExtensionAPI) {
         Array.from(previousEnabledServers).some((serverKey) => !nextEnabledServers.has(serverKey));
 
       sessionEnabledServers = nextEnabledServers;
-      applySessionServerSelection();
 
       if (hasChanged) {
         persistSessionServerSelection();
@@ -1696,13 +2440,13 @@ export default function mcpExtension(pi: ExtensionAPI) {
 
     if (!ctx.hasUI) {
       return startupInitialization.then(() => {
-        restoreSessionServerSelectionFromBranch(ctx);
+        return restoreSessionServerSelectionFromBranch(ctx);
       });
     }
 
     void startupInitialization
       .then(() => {
-        restoreSessionServerSelectionFromBranch(ctx);
+        return restoreSessionServerSelectionFromBranch(ctx);
       })
       .catch((error) => {
         if (oauthUi === null) {
@@ -1715,11 +2459,11 @@ export default function mcpExtension(pi: ExtensionAPI) {
   });
 
   pi.on("session_tree", async (_event, ctx) => {
-    restoreSessionServerSelectionFromBranch(ctx);
+    await restoreSessionServerSelectionFromBranch(ctx);
   });
 
   pi.on("session_fork", async (_event, ctx) => {
-    restoreSessionServerSelectionFromBranch(ctx);
+    await restoreSessionServerSelectionFromBranch(ctx);
   });
 
   pi.on("session_shutdown", async () => {
@@ -1727,16 +2471,17 @@ export default function mcpExtension(pi: ExtensionAPI) {
     await Promise.all(closures);
 
     await authStateWriteQueue;
+    await discoveryCacheWriteQueue;
 
     runtimes.clear();
-    toolNamesByServer.clear();
-    loadedServerKeys.clear();
+    discoveredToolsByServer.clear();
     configuredDefinitionsByKey.clear();
-    registeredPiToolNames.clear();
     defaultEnabledServers.clear();
     sessionEnabledServers.clear();
     persistedAuthByServer.clear();
+    persistedDiscoveryByServer.clear();
     authStateLoaded = false;
+    discoveryCacheLoaded = false;
     lastOAuthUi = null;
   });
 }
