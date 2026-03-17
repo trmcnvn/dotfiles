@@ -16,14 +16,23 @@ Scope: `home/.pi/agent/extensions/mcp/*`
 - `mcp.json` `enabled: true` means the server is discoverable by default via the compact `mcp` gateway.
 - `/mcp` toggles whether a configured server is discoverable for the current session only.
 - Support both server types:
-  - `remote` (Streamable HTTP)
+  - `remote` (preferred transport: Streamable HTTP, optional SSE fallback / explicit SSE)
   - `local` (stdio command/args)
 - Only servers with `"enabled": true` are discoverable by default.
 - OAuth flow must work in interactive mode and fail clearly in non-interactive modes.
 - OAuth callback base URL is loopback: `http://127.0.0.1:54545/callback/<server>`.
+- Remote `mcp.json` entries may also specify:
+  - `headers`: extra HTTP headers for remote requests
+  - `timeout` / `timeoutMs`: per-request timeout in milliseconds
+  - `transport`: `"auto" | "streamable-http" | "sse"`
 - Optional MCP output display config is read from `mcp.json` per server:
   - `outputMode`: `"full" | "collapsed" | "muted"` (default: `"full"`)
   - `outputModesByTool`: map of MCP tool name -> output mode (overrides `outputMode`)
+- The `mcp` gateway may expose prompt/resource actions inside the same tool surface:
+  - `listPrompts`
+  - `getPrompt`
+  - `listResources`
+  - `readResource`
 
 ## Data / Secret Paths
 

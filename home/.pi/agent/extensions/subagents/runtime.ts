@@ -3,7 +3,6 @@ import registerMcpExtension from "../mcp/index.js";
 import { registerCodesearchTool } from "../codesearch/shared.js";
 import { registerWebfetchTool } from "../webfetch/shared.js";
 import { registerWebsearchTool } from "../websearch/shared.js";
-import { registerTruncatedBuiltinsOverflowHandler } from "../truncated-builtins.js";
 
 const TEMPERATURE_ENV = "PI_SUBAGENT_TEMPERATURE";
 const LEGACY_TOOLS_ENV = "PI_SUBAGENT_TOOLS";
@@ -24,6 +23,13 @@ const isRecord = (value: unknown): value is JsonRecord =>
 const normalizeToolName = (value: string): string => value.trim().toLowerCase();
 
 const READ_ONLY_BLOCKED_TOOLS = new Set(["bash", "edit", "write"]);
+const DEFAULT_RESEARCH_TOOLS = new Set([
+  "read",
+  "webfetch",
+  "websearch",
+  "codesearch",
+  "mcp",
+]);
 
 const parseTemperature = (): number | null => {
   const rawValue = process.env[TEMPERATURE_ENV];
@@ -172,16 +178,15 @@ const isToolAllowed = (
 const isReadOnlyAllowedTool = (toolName: string): boolean =>
   !READ_ONLY_BLOCKED_TOOLS.has(normalizeToolName(toolName));
 
+const isResearchDefaultTool = (toolName: string): boolean =>
+  DEFAULT_RESEARCH_TOOLS.has(normalizeToolName(toolName));
+
 const applyRequestedTools = (
   pi: ExtensionAPI,
   policy: ToolPermissionPolicy | null,
   legacyTools: readonly string[] | null,
   readOnlyMode: boolean,
 ): void => {
-  if (policy === null && legacyTools === null && !readOnlyMode) {
-    return;
-  }
-
   const activeTools = pi.getActiveTools();
   if (activeTools.length === 0) {
     return;
@@ -192,11 +197,13 @@ const applyRequestedTools = (
     selectedTools = activeTools.filter((toolName) => isReadOnlyAllowedTool(toolName));
   } else if (policy !== null) {
     selectedTools = activeTools.filter((toolName) => isToolAllowed(toolName, policy));
-  } else {
-    const requestedToolSet = new Set(legacyTools ?? []);
+  } else if (legacyTools !== null) {
+    const requestedToolSet = new Set(legacyTools);
     selectedTools = activeTools.filter((toolName) =>
       requestedToolSet.has(normalizeToolName(toolName))
     );
+  } else {
+    selectedTools = activeTools.filter((toolName) => isResearchDefaultTool(toolName));
   }
 
   if (isSameToolList(activeTools, selectedTools)) {
@@ -211,7 +218,6 @@ export default function subagentsRuntimeExtension(pi: ExtensionAPI) {
   registerWebsearchTool(pi);
   registerCodesearchTool(pi);
   registerMcpExtension(pi);
-  registerTruncatedBuiltinsOverflowHandler(pi);
 
   const temperature = parseTemperature();
   const permissionPolicy = parsePermissionPolicy();

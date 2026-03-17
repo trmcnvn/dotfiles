@@ -3,7 +3,6 @@ name: review
 description: Reviews code for quality, bugs, security, and best practices
 model: opencode/gemini-3-pro
 temperature: 0.1
-reasoningEffort: low
 permission:
   "*": deny
   read: allow

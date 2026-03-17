@@ -9,8 +9,12 @@ import {
   type OAuthClientProvider,
   type OAuthDiscoveryState,
 } from "@modelcontextprotocol/sdk/client/auth.js";
+import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import {
+  StreamableHTTPClientTransport,
+  StreamableHTTPError,
+} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
   OAuthClientInformationFullSchema,
   OAuthClientInformationSchema,
@@ -47,12 +51,16 @@ const MCP_SESSION_CONFIG_TYPE = "mcp-proxy-session-config";
 
 type JsonRecord = Record<string, unknown>;
 type McpToolOutputMode = "full" | "collapsed" | "muted";
+type McpRemoteTransport = "auto" | "streamable-http" | "sse";
 
 type McpServerDefinition =
   | {
       readonly key: string;
       readonly type: "remote";
       readonly url: string;
+      readonly headers: Readonly<Record<string, string>>;
+      readonly timeoutMs: number;
+      readonly transport: McpRemoteTransport;
       readonly enabled: boolean;
       readonly outputMode: McpToolOutputMode;
       readonly outputModesByTool: Readonly<Record<string, McpToolOutputMode>>;
@@ -95,7 +103,11 @@ type McpOAuthState = {
 type McpRuntime = {
   readonly definition: McpServerDefinition;
   client: Client | null;
-  transport: StreamableHTTPClientTransport | StdioClientTransport | null;
+  transport:
+    | StreamableHTTPClientTransport
+    | SSEClientTransport
+    | StdioClientTransport
+    | null;
   connectPromise: Promise<Client> | null;
   oauthState: McpOAuthState | null;
   lastActivityAt: number;
@@ -295,6 +307,9 @@ const computeDefinitionHash = (definition: McpServerDefinition): string => {
       ? {
           type: definition.type,
           url: definition.url,
+          headers: definition.headers,
+          timeoutMs: definition.timeoutMs,
+          transport: definition.transport,
         }
       : {
           type: definition.type,
@@ -364,6 +379,82 @@ const parseToolOutputModesByTool = (
 
   return parsed;
 };
+
+const parseRemoteHeaders = (value: unknown): Readonly<Record<string, string>> => {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const headers: Record<string, string> = {};
+  for (const [rawName, rawValue] of Object.entries(value)) {
+    const headerName = rawName.trim();
+    if (headerName.length === 0) {
+      continue;
+    }
+
+    if (
+      typeof rawValue === "string" ||
+      typeof rawValue === "number" ||
+      typeof rawValue === "boolean"
+    ) {
+      headers[headerName] = String(rawValue);
+    }
+  }
+
+  return headers;
+};
+
+const parseRemoteTimeoutMs = (value: unknown): number | null => {
+  const parsedValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN;
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return null;
+  }
+
+  return Math.round(parsedValue);
+};
+
+const parseRemoteTransport = (value: unknown): McpRemoteTransport | null => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "auto") {
+    return "auto";
+  }
+
+  if (
+    normalized === "streamable-http" ||
+    normalized === "streamable_http" ||
+    normalized === "streamablehttp" ||
+    normalized === "http"
+  ) {
+    return "streamable-http";
+  }
+
+  if (normalized === "sse" || normalized === "eventsource") {
+    return "sse";
+  }
+
+  return null;
+};
+
+const resolveRemoteTransport = (rawServer: JsonRecord): McpRemoteTransport =>
+  parseRemoteTransport(rawServer.transport) ??
+  parseRemoteTransport(rawServer.remoteTransport) ??
+  parseRemoteTransport(rawServer.transportPreference) ??
+  "auto";
+
+const resolveRemoteTimeoutMs = (rawServer: JsonRecord): number =>
+  parseRemoteTimeoutMs(rawServer.timeoutMs) ??
+  parseRemoteTimeoutMs(rawServer.timeout) ??
+  CONNECTION_TIMEOUT_MS;
 
 const resolveServerOutputMode = (rawServer: JsonRecord): McpToolOutputMode =>
   parseToolOutputMode(rawServer.outputMode) ??
@@ -662,6 +753,9 @@ const parseMcpConfig = (rawConfig: string, configPath: string): McpConfig => {
         key,
         type: "remote",
         url: rawValue.url.trim(),
+        headers: parseRemoteHeaders(rawValue.headers),
+        timeoutMs: resolveRemoteTimeoutMs(rawValue),
+        transport: resolveRemoteTransport(rawValue),
         enabled,
         outputMode,
         outputModesByTool,
@@ -817,14 +911,40 @@ const createOAuthProvider = (
   };
 };
 
+const createRemoteRequestInit = (
+  definition: Extract<McpServerDefinition, { readonly type: "remote" }>,
+): RequestInit | undefined =>
+  Object.keys(definition.headers).length === 0
+    ? undefined
+    : { headers: { ...definition.headers } };
+
+const createRemoteTransport = (
+  definition: Extract<McpServerDefinition, { readonly type: "remote" }>,
+  oauthProvider: OAuthClientProvider | null,
+  transport: Exclude<McpRemoteTransport, "auto">,
+): StreamableHTTPClientTransport | SSEClientTransport => {
+  const requestInit = createRemoteRequestInit(definition);
+
+  if (transport === "sse") {
+    return new SSEClientTransport(new URL(definition.url), {
+      authProvider: oauthProvider ?? undefined,
+      requestInit,
+    });
+  }
+
+  return new StreamableHTTPClientTransport(new URL(definition.url), {
+    authProvider: oauthProvider ?? undefined,
+    requestInit,
+  });
+};
+
 const createTransport = (
   definition: McpServerDefinition,
   oauthProvider: OAuthClientProvider | null,
-): StreamableHTTPClientTransport | StdioClientTransport => {
+  transport: Exclude<McpRemoteTransport, "auto"> = "streamable-http",
+): StreamableHTTPClientTransport | SSEClientTransport | StdioClientTransport => {
   if (definition.type === "remote") {
-    return new StreamableHTTPClientTransport(new URL(definition.url), {
-      authProvider: oauthProvider ?? undefined,
-    });
+    return createRemoteTransport(definition, oauthProvider, transport);
   }
 
   return new StdioClientTransport({
@@ -833,6 +953,24 @@ const createTransport = (
     env: { ...definition.env },
     cwd: definition.cwd ?? undefined,
   });
+};
+
+const getRequestTimeoutMs = (definition: McpServerDefinition): number =>
+  definition.type === "remote" ? definition.timeoutMs : CONNECTION_TIMEOUT_MS;
+
+const shouldFallbackToSse = (error: unknown): boolean => {
+  if (!(error instanceof StreamableHTTPError)) {
+    return false;
+  }
+
+  return (
+    error.code === -1 ||
+    error.code === 404 ||
+    error.code === 405 ||
+    error.code === 406 ||
+    error.code === 415 ||
+    error.code === 501
+  );
 };
 
 const parseAuthorizationCodeInput = (input: string): string | null => {
@@ -976,10 +1114,36 @@ const waitForOAuthCallbackCode = async (
   });
 };
 
+const createRuntimeClient = (
+  runtime: McpRuntime,
+  onToolListChanged: (serverKey: string) => void,
+): Client =>
+  new Client(
+    {
+      name: `pi-mcp-${runtime.definition.key}`,
+      version: "1.0.0",
+    },
+    runtime.definition.type === "remote"
+      ? {
+          listChanged: {
+            tools: {
+              autoRefresh: false,
+              onChanged: (error) => {
+                if (error === null) {
+                  onToolListChanged(runtime.definition.key);
+                }
+              },
+            },
+          },
+        }
+      : undefined,
+  );
+
 const ensureConnected = async (
   runtime: McpRuntime,
   requestAuthorizationCode: ((serverKey: string, authorizationUrl: URL) => Promise<string>) | null,
   onOAuthStateChange: (runtime: McpRuntime) => void,
+  onToolListChanged: (serverKey: string) => void,
 ): Promise<Client> => {
   if (runtime.client !== null) {
     return runtime.client;
@@ -990,66 +1154,133 @@ const ensureConnected = async (
   }
 
   runtime.connectPromise = (async () => {
-    const client = new Client({
-      name: `pi-mcp-${runtime.definition.key}`,
-      version: "1.0.0",
-    });
+    const connectWithTransport = async (
+      transportPreference: Exclude<McpRemoteTransport, "auto">,
+    ): Promise<{
+      readonly client: Client;
+      readonly transport:
+        | StreamableHTTPClientTransport
+        | SSEClientTransport
+        | StdioClientTransport;
+    }> => {
+      const client = createRuntimeClient(runtime, onToolListChanged);
+      const oauthProvider = createOAuthProvider(runtime, onOAuthStateChange);
+      const initialTransport = createTransport(
+        runtime.definition,
+        oauthProvider,
+        transportPreference,
+      );
+      let connectedTransport:
+        | StreamableHTTPClientTransport
+        | SSEClientTransport
+        | StdioClientTransport = initialTransport;
 
-    const oauthProvider = createOAuthProvider(runtime, onOAuthStateChange);
-    const initialTransport = createTransport(runtime.definition, oauthProvider);
-    let connectedTransport: StreamableHTTPClientTransport | StdioClientTransport =
-      initialTransport;
+      try {
+        await client.connect(initialTransport);
+      } catch (error) {
+        if (error instanceof UnauthorizedError && runtime.oauthState !== null) {
+          const authorizationUrl = runtime.oauthState.pendingAuthorizationUrl;
+          runtime.oauthState.pendingAuthorizationUrl = null;
 
-    try {
-      await client.connect(initialTransport);
-    } catch (error) {
-      if (
-        error instanceof UnauthorizedError &&
-        initialTransport instanceof StreamableHTTPClientTransport &&
-        runtime.oauthState !== null
-      ) {
-        const authorizationUrl = runtime.oauthState.pendingAuthorizationUrl;
-        runtime.oauthState.pendingAuthorizationUrl = null;
+          if (authorizationUrl === null) {
+            throw new Error(
+              `OAuth authorization is required for MCP server ${runtime.definition.key}, but no authorization URL was provided by the server.`,
+            );
+          }
 
-        if (authorizationUrl === null) {
-          throw new Error(
-            `OAuth authorization is required for MCP server ${runtime.definition.key}, but no authorization URL was provided by the server.`,
+          if (requestAuthorizationCode === null) {
+            throw new Error(
+              `OAuth authorization is required for MCP server ${runtime.definition.key}. Run Pi interactively to complete sign-in. Authorization URL: ${authorizationUrl.toString()}`,
+            );
+          }
+
+          const authorizationCode = await requestAuthorizationCode(
+            runtime.definition.key,
+            authorizationUrl,
           );
-        }
+          const parsedCode = parseAuthorizationCodeInput(authorizationCode);
 
-        if (requestAuthorizationCode === null) {
-          throw new Error(
-            `OAuth authorization is required for MCP server ${runtime.definition.key}. Run Pi interactively to complete sign-in. Authorization URL: ${authorizationUrl.toString()}`,
+          if (!isNonEmptyString(parsedCode)) {
+            throw new Error(
+              `No authorization code was provided for MCP server ${runtime.definition.key}.`,
+            );
+          }
+
+          await initialTransport.finishAuth(parsedCode);
+
+          try {
+            await initialTransport.close();
+          } catch {
+            // best-effort cleanup before reconnecting with fresh transport
+          }
+
+          const authenticatedTransport = createTransport(
+            runtime.definition,
+            oauthProvider,
+            transportPreference,
           );
+          await client.connect(authenticatedTransport);
+          connectedTransport = authenticatedTransport;
+        } else {
+          try {
+            await initialTransport.close();
+          } catch {
+            // best-effort cleanup after failed connection
+          }
+          try {
+            await client.close();
+          } catch {
+            // best-effort cleanup after failed connection
+          }
+          throw error;
         }
-
-        const authorizationCode = await requestAuthorizationCode(
-          runtime.definition.key,
-          authorizationUrl,
-        );
-        const parsedCode = parseAuthorizationCodeInput(authorizationCode);
-
-        if (!isNonEmptyString(parsedCode)) {
-          throw new Error(
-            `No authorization code was provided for MCP server ${runtime.definition.key}.`,
-          );
-        }
-
-        await initialTransport.finishAuth(parsedCode);
-
-        try {
-          await initialTransport.close();
-        } catch {
-          // best-effort cleanup before reconnecting with fresh transport
-        }
-
-        const authenticatedTransport = createTransport(runtime.definition, oauthProvider);
-        await client.connect(authenticatedTransport);
-        connectedTransport = authenticatedTransport;
-      } else {
-        throw error;
       }
+
+      return {
+        client,
+        transport: connectedTransport,
+      };
+    };
+
+    if (runtime.definition.type === "remote") {
+      const transportPreferences: readonly Exclude<McpRemoteTransport, "auto">[] =
+        runtime.definition.transport === "auto"
+          ? ["streamable-http", "sse"]
+          : [runtime.definition.transport];
+
+      let lastError: unknown = null;
+      for (const transportPreference of transportPreferences) {
+        try {
+          const connection = await connectWithTransport(transportPreference);
+          connection.client.onclose = () => {
+            runtime.client = null;
+            runtime.transport = null;
+            clearIdleCloseTimer(runtime);
+          };
+
+          runtime.client = connection.client;
+          runtime.transport = connection.transport;
+          return connection.client;
+        } catch (error) {
+          lastError = error;
+          if (
+            runtime.definition.transport !== "auto" ||
+            transportPreference !== "streamable-http" ||
+            !shouldFallbackToSse(error)
+          ) {
+            throw error;
+          }
+        }
+      }
+
+      throw (lastError instanceof Error
+        ? lastError
+        : new Error(`Failed to connect to MCP server ${runtime.definition.key}.`));
     }
+
+    const client = createRuntimeClient(runtime, onToolListChanged);
+    const transport = createTransport(runtime.definition, null);
+    await client.connect(transport);
 
     client.onclose = () => {
       runtime.client = null;
@@ -1058,7 +1289,7 @@ const ensureConnected = async (
     };
 
     runtime.client = client;
-    runtime.transport = connectedTransport;
+    runtime.transport = transport;
     return client;
   })();
 
@@ -1071,6 +1302,7 @@ const ensureConnected = async (
 
 const listAllTools = async (
   client: Client,
+  timeoutMs?: number,
 ): Promise<
   readonly {
     readonly name: string;
@@ -1086,7 +1318,10 @@ const listAllTools = async (
 
   let cursor: string | undefined;
   do {
-    const page = await client.listTools({ cursor });
+    const page = await client.listTools(
+      { cursor },
+      timeoutMs === undefined ? undefined : { timeout: timeoutMs },
+    );
     for (const tool of page.tools) {
       tools.push({
         name: tool.name,
@@ -1098,6 +1333,174 @@ const listAllTools = async (
   } while (typeof cursor === "string" && cursor.length > 0);
 
   return tools;
+};
+
+const listAllPrompts = async (
+  client: Client,
+  timeoutMs?: number,
+): Promise<
+  readonly {
+    readonly name: string;
+    readonly description: string | null;
+    readonly argumentsSummary: string | null;
+  }[]
+> => {
+  const prompts: {
+    name: string;
+    description: string | null;
+    argumentsSummary: string | null;
+  }[] = [];
+
+  let cursor: string | undefined;
+  do {
+    const page = await client.listPrompts(
+      { cursor },
+      timeoutMs === undefined ? undefined : { timeout: timeoutMs },
+    );
+    for (const prompt of page.prompts) {
+      const argumentSummary = Array.isArray(prompt.arguments)
+        ? prompt.arguments
+            .map((argument) => {
+              const required = argument.required === true ? "required" : "optional";
+              return `${argument.name} (${required})`;
+            })
+            .join(", ")
+        : null;
+
+      prompts.push({
+        name: prompt.name,
+        description: typeof prompt.description === "string" ? prompt.description : null,
+        argumentsSummary:
+          argumentSummary !== null && argumentSummary.trim().length > 0
+            ? argumentSummary
+            : null,
+      });
+    }
+    cursor = page.nextCursor;
+  } while (typeof cursor === "string" && cursor.length > 0);
+
+  return prompts;
+};
+
+const listAllResources = async (
+  client: Client,
+  timeoutMs?: number,
+): Promise<
+  readonly {
+    readonly name: string;
+    readonly uri: string;
+    readonly description: string | null;
+    readonly mimeType: string | null;
+  }[]
+> => {
+  const resources: {
+    name: string;
+    uri: string;
+    description: string | null;
+    mimeType: string | null;
+  }[] = [];
+
+  let cursor: string | undefined;
+  do {
+    const page = await client.listResources(
+      { cursor },
+      timeoutMs === undefined ? undefined : { timeout: timeoutMs },
+    );
+    for (const resource of page.resources) {
+      resources.push({
+        name: resource.name,
+        uri: resource.uri,
+        description:
+          typeof resource.description === "string" ? resource.description : null,
+        mimeType: typeof resource.mimeType === "string" ? resource.mimeType : null,
+      });
+    }
+    cursor = page.nextCursor;
+  } while (typeof cursor === "string" && cursor.length > 0);
+
+  return resources;
+};
+
+const coerceStringRecord = (value: unknown): Record<string, string> => {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const coerced: Record<string, string> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (!isNonEmptyString(key)) {
+      continue;
+    }
+
+    if (
+      typeof item === "string" ||
+      typeof item === "number" ||
+      typeof item === "boolean"
+    ) {
+      coerced[key.trim()] = String(item);
+    }
+  }
+
+  return coerced;
+};
+
+const formatPromptMessages = (value: unknown): string => {
+  if (!Array.isArray(value) || value.length === 0) {
+    return "Prompt returned no messages.";
+  }
+
+  const parts: string[] = [];
+  for (const [index, message] of value.entries()) {
+    if (!isRecord(message) || !isNonEmptyString(message.role)) {
+      parts.push(`[${index + 1}] ${renderUnknownAsText(message)}`);
+      continue;
+    }
+
+    const content = message.content;
+    if (isRecord(content) && content.type === "text" && typeof content.text === "string") {
+      parts.push(`[${index + 1}] ${message.role}:\n${content.text}`);
+      continue;
+    }
+
+    parts.push(`[${index + 1}] ${message.role}:\n${renderUnknownAsText(content)}`);
+  }
+
+  return parts.join("\n\n");
+};
+
+const formatReadResourceResult = (value: unknown): string => {
+  if (!isRecord(value) || !Array.isArray(value.contents) || value.contents.length === 0) {
+    return "Resource returned no contents.";
+  }
+
+  const parts: string[] = [];
+  for (const content of value.contents) {
+    if (!isRecord(content) || !isNonEmptyString(content.uri)) {
+      parts.push(renderUnknownAsText(content));
+      continue;
+    }
+
+    const header = [
+      `URI: ${content.uri}`,
+      typeof content.mimeType === "string" ? `Type: ${content.mimeType}` : null,
+    ]
+      .filter((part): part is string => part !== null)
+      .join("\n");
+
+    if (typeof content.text === "string") {
+      parts.push(`${header}\n\n${content.text}`);
+      continue;
+    }
+
+    if (typeof content.blob === "string") {
+      parts.push(`${header}\n\nBinary content omitted (${content.blob.length} base64 chars).`);
+      continue;
+    }
+
+    parts.push(`${header}\n\n${renderUnknownAsText(content)}`);
+  }
+
+  return parts.join("\n\n");
 };
 
 const formatToolContent = (content: unknown): string => {
@@ -1442,6 +1845,15 @@ export default function mcpExtension(pi: ExtensionAPI) {
     queuePersistedDiscoveryWrite();
   };
 
+  const invalidateDiscoveredTools = (serverKey: string) => {
+    const clearedPersistedState = persistedDiscoveryByServer.delete(serverKey);
+    const clearedInMemoryState = discoveredToolsByServer.delete(serverKey);
+
+    if (clearedPersistedState || clearedInMemoryState) {
+      queuePersistedDiscoveryWrite();
+    }
+  };
+
   const ensureDiscoveryCacheLoaded = async (oauthUi: OAuthUi | null): Promise<void> => {
     if (discoveryCacheLoaded) {
       if (oauthUi !== null) {
@@ -1673,6 +2085,33 @@ export default function mcpExtension(pi: ExtensionAPI) {
     return runtime;
   };
 
+  const withConnectedClient = async <T>(
+    definition: McpServerDefinition,
+    requestAuthorizationCode: ((serverKey: string, authorizationUrl: URL) => Promise<string>) | null,
+    operation: (runtime: McpRuntime, client: Client) => Promise<T>,
+  ): Promise<T> => {
+    const runtime = getOrCreateRuntime(definition);
+    const connectionTimeoutMs =
+      requestAuthorizationCode === null
+        ? getRequestTimeoutMs(definition)
+        : Math.max(getRequestTimeoutMs(definition), INTERACTIVE_AUTH_TIMEOUT_MS);
+
+    return await withRuntimeLease(runtime, async () => {
+      const client = await withTimeout(
+        ensureConnected(
+          runtime,
+          requestAuthorizationCode,
+          updatePersistedAuthFromRuntime,
+          invalidateDiscoveredTools,
+        ),
+        connectionTimeoutMs,
+        `Connecting to MCP server ${definition.key}`,
+      );
+
+      return await operation(runtime, client);
+    });
+  };
+
   const ensureServerMetadata = async (
     definition: McpServerDefinition,
     requestAuthorizationCode: ((serverKey: string, authorizationUrl: URL) => Promise<string>) | null,
@@ -1689,26 +2128,19 @@ export default function mcpExtension(pi: ExtensionAPI) {
     const runtime = getOrCreateRuntime(definition);
 
     try {
-      const connectionTimeoutMs =
-        requestAuthorizationCode === null
-          ? CONNECTION_TIMEOUT_MS
-          : INTERACTIVE_AUTH_TIMEOUT_MS;
+      const registeredTools = await withConnectedClient(
+        definition,
+        requestAuthorizationCode,
+        async (_runtime, client) => {
+          const tools = await withTimeout(
+            listAllTools(client, getRequestTimeoutMs(definition)),
+            getRequestTimeoutMs(definition),
+            `Listing tools from MCP server ${definition.key}`,
+          );
 
-      const registeredTools = await withRuntimeLease(runtime, async () => {
-        const client = await withTimeout(
-          ensureConnected(runtime, requestAuthorizationCode, updatePersistedAuthFromRuntime),
-          connectionTimeoutMs,
-          `Connecting to MCP server ${definition.key}`,
-        );
-
-        const tools = await withTimeout(
-          listAllTools(client),
-          connectionTimeoutMs,
-          `Listing tools from MCP server ${definition.key}`,
-        );
-
-        return createRegisteredTools(definition, tools);
-      });
+          return createRegisteredTools(definition, tools);
+        },
+      );
 
       persistDiscoveredTools(definition, registeredTools);
       return registeredTools;
@@ -1734,13 +2166,20 @@ export default function mcpExtension(pi: ExtensionAPI) {
         runtime,
         requestToolAuthorizationCode,
         updatePersistedAuthFromRuntime,
+        invalidateDiscoveredTools,
       );
 
+      const requestOptions = { timeout: getRequestTimeoutMs(runtime.definition) };
+
       try {
-        return await client.callTool({
-          name: registeredTool.mcpToolName,
-          arguments: params,
-        });
+        return await client.callTool(
+          {
+            name: registeredTool.mcpToolName,
+            arguments: params,
+          },
+          undefined,
+          requestOptions,
+        );
       } catch (error) {
         if (error instanceof UnauthorizedError) {
           await closeRuntime(runtime);
@@ -1748,11 +2187,16 @@ export default function mcpExtension(pi: ExtensionAPI) {
             runtime,
             requestToolAuthorizationCode,
             updatePersistedAuthFromRuntime,
+            invalidateDiscoveredTools,
           );
-          return await client.callTool({
-            name: registeredTool.mcpToolName,
-            arguments: params,
-          });
+          return await client.callTool(
+            {
+              name: registeredTool.mcpToolName,
+              arguments: params,
+            },
+            undefined,
+            requestOptions,
+          );
         }
 
         throw error;
@@ -1924,8 +2368,15 @@ export default function mcpExtension(pi: ExtensionAPI) {
     for (const serverKey of Array.from(configuredDefinitionsByKey.keys()).sort((a, b) =>
       a.localeCompare(b),
     )) {
+      const definition = configuredDefinitionsByKey.get(serverKey);
+      const remoteDetails =
+        definition !== undefined && definition.type === "remote"
+          ? ` · ${definition.transport} · ${definition.timeoutMs}ms`
+          : definition !== undefined
+            ? ` · ${definition.type}`
+            : "";
       lines.push(
-        `- ${serverKey} · ${sessionEnabledServers.has(serverKey) ? "enabled" : "disabled"}`,
+        `- ${serverKey} · ${sessionEnabledServers.has(serverKey) ? "enabled" : "disabled"}${remoteDetails}`,
       );
     }
 
@@ -1938,7 +2389,13 @@ export default function mcpExtension(pi: ExtensionAPI) {
     tools: readonly McpRegisteredTool[],
   ): string => {
     const definition = configuredDefinitionsByKey.get(serverKey);
-    const lines = [`MCP server ${serverKey}${definition === undefined ? "" : ` (${definition.type})`}`];
+    const remoteDetails =
+      definition !== undefined && definition.type === "remote"
+        ? ` · transport=${definition.transport} · timeout=${definition.timeoutMs}ms${Object.keys(definition.headers).length === 0 ? "" : ` · headers=${Object.keys(definition.headers).length}`}`
+        : "";
+    const lines = [
+      `MCP server ${serverKey}${definition === undefined ? "" : ` (${definition.type})`}${remoteDetails}`,
+    ];
 
     if (tools.length === 0) {
       lines.push("No tools discovered.");
@@ -1952,6 +2409,69 @@ export default function mcpExtension(pi: ExtensionAPI) {
 
     for (const tool of tools) {
       lines.push(`- ${tool.piToolName}: ${tool.description}`);
+    }
+
+    return lines.join("\n");
+  };
+
+  const renderServerPromptList = (
+    serverKey: string,
+    prompts: readonly {
+      readonly name: string;
+      readonly description: string | null;
+      readonly argumentsSummary: string | null;
+    }[],
+  ): string => {
+    const lines = [`MCP prompts from server ${serverKey}`];
+
+    if (prompts.length === 0) {
+      lines.push("No prompts discovered.");
+      return lines.join("\n");
+    }
+
+    lines.push(
+      `${prompts.length} prompt${prompts.length === 1 ? "" : "s"}. Use \`getPrompt\` with a prompt name to inspect one.`,
+      "",
+    );
+
+    for (const prompt of prompts) {
+      const description = prompt.description ?? "No description.";
+      const argumentSummary =
+        prompt.argumentsSummary === null ? "" : ` Arguments: ${prompt.argumentsSummary}.`;
+      lines.push(`- ${prompt.name}: ${description}${argumentSummary}`);
+    }
+
+    return lines.join("\n");
+  };
+
+  const renderServerResourceList = (
+    serverKey: string,
+    resources: readonly {
+      readonly name: string;
+      readonly uri: string;
+      readonly description: string | null;
+      readonly mimeType: string | null;
+    }[],
+  ): string => {
+    const lines = [`MCP resources from server ${serverKey}`];
+
+    if (resources.length === 0) {
+      lines.push("No resources discovered.");
+      return lines.join("\n");
+    }
+
+    lines.push(
+      `${resources.length} resource${resources.length === 1 ? "" : "s"}. Use \`readResource\` with a URI to inspect one.`,
+      "",
+    );
+
+    for (const resource of resources) {
+      const metadata = [resource.description, resource.mimeType]
+        .filter((part): part is string => part !== null && part.trim().length > 0)
+        .join(" · ");
+      lines.push(
+        `- ${resource.name} (${resource.uri})${metadata.length === 0 ? "" : `: ${metadata}`}`,
+      );
     }
 
     return lines.join("\n");
@@ -2178,6 +2698,18 @@ export default function mcpExtension(pi: ExtensionAPI) {
       tool: Type.Optional(
         Type.String({ description: "Call a tool by full name or raw MCP name" }),
       ),
+      listPrompts: Type.Optional(
+        Type.Boolean({ description: "List prompts exposed by the server" }),
+      ),
+      getPrompt: Type.Optional(
+        Type.String({ description: "Get a prompt by name from the server" }),
+      ),
+      listResources: Type.Optional(
+        Type.Boolean({ description: "List resources exposed by the server" }),
+      ),
+      readResource: Type.Optional(
+        Type.String({ description: "Read a resource by URI from the server" }),
+      ),
       args: Type.Optional(OpenObjectParams),
       refresh: Type.Optional(
         Type.Boolean({ description: "Refresh discovery metadata before reading it" }),
@@ -2281,6 +2813,146 @@ export default function mcpExtension(pi: ExtensionAPI) {
             mode: "describe",
             server: resolvedTool.definition.key,
             mcpTool: resolvedTool.tool.mcpToolName,
+          },
+        );
+      }
+
+      if (params.listPrompts === true) {
+        if (serverKey === undefined) {
+          throw new Error("mcp({ listPrompts: true }) requires a server key.");
+        }
+
+        const definition = configuredDefinitionsByKey.get(serverKey);
+        if (definition === undefined) {
+          throw new Error(`Unknown MCP server: ${serverKey}`);
+        }
+        if (!isServerEnabledForSession(serverKey)) {
+          throw new Error(
+            `MCP server ${serverKey} is disabled in this session. Use /mcp to enable it.`,
+          );
+        }
+
+        const prompts = await withConnectedClient(
+          definition,
+          requestAuthorizationCode,
+          async (_runtime, client) =>
+            await listAllPrompts(client, getRequestTimeoutMs(definition)),
+        );
+
+        return await createProxyTextResult(renderServerPromptList(serverKey, prompts), {
+          mode: "listPrompts",
+          server: serverKey,
+          promptCount: prompts.length,
+        });
+      }
+
+      if (isNonEmptyString(params.getPrompt)) {
+        if (serverKey === undefined) {
+          throw new Error("mcp({ getPrompt: \"...\" }) requires a server key.");
+        }
+
+        const definition = configuredDefinitionsByKey.get(serverKey);
+        if (definition === undefined) {
+          throw new Error(`Unknown MCP server: ${serverKey}`);
+        }
+        if (!isServerEnabledForSession(serverKey)) {
+          throw new Error(
+            `MCP server ${serverKey} is disabled in this session. Use /mcp to enable it.`,
+          );
+        }
+
+        const promptName = params.getPrompt.trim();
+        const promptArguments = coerceStringRecord(params.args);
+        const promptResult = await withConnectedClient(
+          definition,
+          requestAuthorizationCode,
+          async (_runtime, client) =>
+            await client.getPrompt(
+              {
+                name: promptName,
+                arguments:
+                  Object.keys(promptArguments).length === 0 ? undefined : promptArguments,
+              },
+              { timeout: getRequestTimeoutMs(definition) },
+            ),
+        );
+
+        return await createProxyTextResult(
+          [`Prompt: ${promptName}`, "", formatPromptMessages(promptResult.messages)].join(
+            "\n",
+          ),
+          {
+            mode: "getPrompt",
+            server: serverKey,
+            prompt: promptName,
+          },
+        );
+      }
+
+      if (params.listResources === true) {
+        if (serverKey === undefined) {
+          throw new Error("mcp({ listResources: true }) requires a server key.");
+        }
+
+        const definition = configuredDefinitionsByKey.get(serverKey);
+        if (definition === undefined) {
+          throw new Error(`Unknown MCP server: ${serverKey}`);
+        }
+        if (!isServerEnabledForSession(serverKey)) {
+          throw new Error(
+            `MCP server ${serverKey} is disabled in this session. Use /mcp to enable it.`,
+          );
+        }
+
+        const resources = await withConnectedClient(
+          definition,
+          requestAuthorizationCode,
+          async (_runtime, client) =>
+            await listAllResources(client, getRequestTimeoutMs(definition)),
+        );
+
+        return await createProxyTextResult(
+          renderServerResourceList(serverKey, resources),
+          {
+            mode: "listResources",
+            server: serverKey,
+            resourceCount: resources.length,
+          },
+        );
+      }
+
+      if (isNonEmptyString(params.readResource)) {
+        if (serverKey === undefined) {
+          throw new Error("mcp({ readResource: \"...\" }) requires a server key.");
+        }
+
+        const definition = configuredDefinitionsByKey.get(serverKey);
+        if (definition === undefined) {
+          throw new Error(`Unknown MCP server: ${serverKey}`);
+        }
+        if (!isServerEnabledForSession(serverKey)) {
+          throw new Error(
+            `MCP server ${serverKey} is disabled in this session. Use /mcp to enable it.`,
+          );
+        }
+
+        const resourceUri = params.readResource.trim();
+        const resourceResult = await withConnectedClient(
+          definition,
+          requestAuthorizationCode,
+          async (_runtime, client) =>
+            await client.readResource(
+              { uri: resourceUri },
+              { timeout: getRequestTimeoutMs(definition) },
+            ),
+        );
+
+        return await createProxyTextResult(
+          formatReadResourceResult(resourceResult),
+          {
+            mode: "readResource",
+            server: serverKey,
+            uri: resourceUri,
           },
         );
       }

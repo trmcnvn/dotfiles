@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,8 +24,31 @@ import {
   type ThinkingLevel,
   type TextVerbosity,
 } from "./agents.js";
+import {
+  assertChainReadPathsExist,
+  buildChainTask,
+  createChainDir,
+  expandChainTaskTemplate,
+  resolveChainOutputPath,
+  resolveChainReadPaths,
+  resolveChainTaskTemplate,
+  writeChainOutput,
+} from "./chain.js";
+import {
+  findAsyncDir,
+  launchAsyncSubagent,
+  readAsyncResult,
+  readAsyncStatus,
+} from "./async.js";
+import {
+  readSkillSelection,
+  resolveSelectedSkillNames,
+  resolveSkillPaths,
+  type SkillSelection,
+} from "./skills.js";
 
 const CONSULT_SUBAGENT_TOOL = "consult_subagent";
+const SUBAGENT_STATUS_TOOL = "subagent_status";
 const RUNTIME_EXTENSION_PATH = fileURLToPath(new URL("./runtime.ts", import.meta.url));
 const SUBAGENT_PERMISSION_ENV = "PI_SUBAGENT_PERMISSION";
 const SUBAGENT_READ_ONLY_ENV = "PI_SUBAGENT_READ_ONLY";
@@ -34,6 +58,15 @@ const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
 const COLLAPSED_ITEM_COUNT = 10;
 const SUBAGENT_TEMP_OUTPUT_PREFIX = "pi-subagent-";
+const SUBAGENT_INTERNAL_SESSION_ROOT = join(
+  homedir(),
+  ".pi",
+  "agent",
+  "internal",
+  "subagents",
+);
+const SUBAGENT_SESSION_METADATA_FILE = "metadata.json";
+const SUBAGENT_COLLAPSED_PREVIEW_LINES = 12;
 
 type TruncatedOutput = {
   readonly text: string;
@@ -42,7 +75,31 @@ type TruncatedOutput = {
 };
 
 type JsonRecord = Record<string, unknown>;
+type ActiveModel = {
+  readonly provider: string;
+  readonly id: string;
+};
 type SubagentMode = "single" | "parallel" | "chain";
+type SubagentOutputMode = "full" | "collapsed" | "summary";
+
+type PersistedSubagentMetadata = {
+  readonly version: 1;
+  readonly agent: string;
+  readonly cwd: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+};
+
+type SubagentSessionHandle = {
+  readonly sessionId: string;
+  readonly sessionDir: string;
+  readonly sessionFile: string | null;
+};
+
+type ResolvedSubagentSession = {
+  readonly cwd: string;
+  readonly handle: SubagentSessionHandle | null;
+};
 
 type DisplayItem =
   | {
@@ -83,12 +140,26 @@ type SingleResult = {
   readonly stopReason: string | null;
   readonly errorMessage: string | null;
   readonly step: number | null;
+  readonly sessionId: string | null;
+  readonly sessionFile: string | null;
 };
 
 type TaskSpec = {
   readonly agent: string;
   readonly task: string;
   readonly cwd?: string;
+  readonly model?: string;
+  readonly skillSelection: SkillSelection;
+};
+
+type ChainStepSpec = {
+  readonly agent: string;
+  readonly task: string | null;
+  readonly cwd?: string;
+  readonly model?: string;
+  readonly skillSelection: SkillSelection;
+  readonly output?: string;
+  readonly reads: readonly string[];
 };
 
 type SubagentToolDetails = {
@@ -112,7 +183,15 @@ type MutableSingleResult = {
   stopReason: string | null;
   errorMessage: string | null;
   step: number | null;
+  sessionId: string | null;
+  sessionFile: string | null;
 };
+
+const SkillOverrideParam = Type.Union([
+  Type.String(),
+  Type.Array(Type.String()),
+  Type.Literal(false),
+]);
 
 const TaskItem = Type.Object({
   agent: Type.String({
@@ -128,20 +207,46 @@ const TaskItem = Type.Object({
         "Working directory for the subagent process. Defaults to the current project root.",
     }),
   ),
+  model: Type.Optional(
+    Type.String({
+      description: "Optional model override for this task.",
+    }),
+  ),
+  skill: Type.Optional(SkillOverrideParam),
+  skills: Type.Optional(SkillOverrideParam),
 });
 
 const ChainItem = Type.Object({
   agent: Type.String({
     description: "Subagent name from ~/.pi/agent/agents, for example oracle.",
   }),
-  task: Type.String({
-    description:
-      "Sequential task. Use {previous} to include the previous step's output.",
-  }),
+  task: Type.Optional(
+    Type.String({
+      description:
+        "Sequential task. Supports {task}, {previous}, and {chain_dir}. Defaults to {task} for the first step and {previous} afterwards.",
+    }),
+  ),
   cwd: Type.Optional(
     Type.String({
       description:
         "Working directory for the subagent process. Defaults to the current project root.",
+    }),
+  ),
+  model: Type.Optional(
+    Type.String({
+      description: "Optional model override for this step.",
+    }),
+  ),
+  skill: Type.Optional(SkillOverrideParam),
+  skills: Type.Optional(SkillOverrideParam),
+  output: Type.Optional(
+    Type.String({
+      description: "Optional output file written by the parent extension after this step completes.",
+    }),
+  ),
+  reads: Type.Optional(
+    Type.Array(Type.String(), {
+      description: "Optional chain artifact files to read before this step runs.",
     }),
   ),
 });
@@ -155,9 +260,16 @@ const WebfetchAwareSubagentParams = Type.Object({
   task: Type.Optional(
     Type.String({
       description:
-        "Question or task for the subagent. Include the problem, relevant files, and the outcome you want.",
+        "Question or task for the subagent. In chain mode this is the original task available as {task}.",
     }),
   ),
+  model: Type.Optional(
+    Type.String({
+      description: "Optional model override for single mode.",
+    }),
+  ),
+  skill: Type.Optional(SkillOverrideParam),
+  skills: Type.Optional(SkillOverrideParam),
   tasks: Type.Optional(
     Type.Array(TaskItem, {
       description:
@@ -167,13 +279,55 @@ const WebfetchAwareSubagentParams = Type.Object({
   chain: Type.Optional(
     Type.Array(ChainItem, {
       description:
-        "Sequential subagent tasks. Later steps can reference prior output with {previous}.",
+        "Sequential subagent tasks. Later steps can reference prior output with {previous} and shared artifacts with {chain_dir}.",
+    }),
+  ),
+  chainDir: Type.Optional(
+    Type.String({
+      description:
+        "Optional shared directory for chain artifacts. Relative paths resolve against the current working directory.",
     }),
   ),
   cwd: Type.Optional(
     Type.String({
       description:
         "Working directory for the subagent process in single mode. Defaults to the current project root.",
+    }),
+  ),
+  async: Type.Optional(
+    Type.Boolean({
+      description: "Run in the background and inspect progress later with subagent_status.",
+    }),
+  ),
+  persist: Type.Optional(
+    Type.Boolean({
+      description:
+        "Persist child session state in isolated internal storage. Default: false (ephemeral).",
+    }),
+  ),
+  sessionId: Type.Optional(
+    Type.String({
+      description:
+        "Resume a previously persisted single-mode subagent session by its internal session handle.",
+    }),
+  ),
+  outputMode: Type.Optional(
+    Type.String({
+      description:
+        'How much subagent output to return to the parent context: "full", "collapsed", or "summary". Default: "full".',
+    }),
+  ),
+});
+
+const SubagentStatusParams = Type.Object({
+  id: Type.Optional(
+    Type.String({
+      description: "Background run id returned by consult_subagent when async is true.",
+    }),
+  ),
+  dir: Type.Optional(
+    Type.String({
+      description: "Explicit async run directory under ~/.pi/agent/internal/subagents/async/.",
     }),
   ),
 });
@@ -197,45 +351,267 @@ const EMPTY_TURN_USAGE: TurnUsage = {
   totalTokens: 0,
 };
 
+const baseExecArgsForTask = (
+  config: SubagentConfig,
+  model: string,
+  skillPaths: readonly string[],
+): string[] => {
+  const args = [
+    "--mode",
+    "json",
+    "-p",
+    "--no-extensions",
+    "--no-skills",
+    "--no-prompt-templates",
+    "--no-themes",
+    "--extension",
+    RUNTIME_EXTENSION_PATH,
+    "--model",
+    model,
+    "--thinking",
+    config.thinkingLevel,
+    "--append-system-prompt",
+    config.systemPrompt,
+  ];
+
+  for (const skillPath of skillPaths) {
+    args.push("--skill", skillPath);
+  }
+
+  return args;
+};
+
 const execArgsForTask = (
   config: SubagentConfig,
   task: string,
   model: string,
-): readonly string[] => [
-  "--mode",
-  "json",
-  "-p",
-  "--no-session",
-  "--no-extensions",
-  "--no-skills",
-  "--no-prompt-templates",
-  "--no-themes",
-  "--extension",
-  RUNTIME_EXTENSION_PATH,
-  "--model",
-  model,
-  "--thinking",
-  config.thinkingLevel,
-  "--append-system-prompt",
-  config.systemPrompt,
-  `Task: ${task}`,
-];
+  skillPaths: readonly string[],
+  sessionHandle: SubagentSessionHandle | null,
+): readonly string[] => {
+  const args = baseExecArgsForTask(config, model, skillPaths);
 
-const formatSessionModel = (model: {
-  readonly provider: string;
-  readonly id: string;
-}): string => `${model.provider}/${model.id}`;
+  if (sessionHandle === null) {
+    args.push("--no-session");
+  } else {
+    args.push("--session-dir", sessionHandle.sessionDir);
+    if (sessionHandle.sessionFile !== null) {
+      args.push("--session", sessionHandle.sessionFile);
+    }
+  }
+
+  args.push(`Task: ${task}`);
+  return args;
+};
+
+const formatSessionModel = (model: ActiveModel): string =>
+  `${model.provider}/${model.id}`;
 
 const resolveSubagentModel = (
   config: SubagentConfig,
   sessionModel: string,
-): string => config.model ?? sessionModel;
+  modelOverride?: string,
+): string => modelOverride ?? config.model ?? sessionModel;
 
 const isRecord = (value: unknown): value is JsonRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
+
+const isSubagentOutputMode = (value: unknown): value is SubagentOutputMode =>
+  value === "full" || value === "collapsed" || value === "summary";
+
+const parseSubagentOutputMode = (value: unknown): SubagentOutputMode => {
+  if (!isNonEmptyString(value)) {
+    return "full";
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+  return isSubagentOutputMode(normalizedValue) ? normalizedValue : "full";
+};
+
+const assertSessionId = (value: string): string => {
+  const trimmedValue = value.trim();
+  if (!/^[a-zA-Z0-9_-]+$/.test(trimmedValue)) {
+    throw new Error(
+      `Invalid subagent sessionId "${value}". Use the sessionId returned by consult_subagent details.`,
+    );
+  }
+
+  return trimmedValue;
+};
+
+const getMetadataFilePath = (sessionDir: string): string =>
+  join(sessionDir, SUBAGENT_SESSION_METADATA_FILE);
+
+const ensureSubagentSessionRoot = async (): Promise<void> => {
+  await mkdir(SUBAGENT_INTERNAL_SESSION_ROOT, { recursive: true });
+};
+
+const parsePersistedSubagentMetadata = (
+  value: unknown,
+): PersistedSubagentMetadata | null => {
+  if (
+    !isRecord(value) ||
+    value.version !== 1 ||
+    !isNonEmptyString(value.agent) ||
+    !isNonEmptyString(value.cwd) ||
+    !isNonEmptyString(value.createdAt) ||
+    !isNonEmptyString(value.updatedAt)
+  ) {
+    return null;
+  }
+
+  return {
+    version: 1,
+    agent: value.agent.trim(),
+    cwd: value.cwd.trim(),
+    createdAt: value.createdAt.trim(),
+    updatedAt: value.updatedAt.trim(),
+  };
+};
+
+const readPersistedSubagentMetadata = async (
+  sessionDir: string,
+): Promise<PersistedSubagentMetadata | null> => {
+  try {
+    const rawMetadata = await readFile(getMetadataFilePath(sessionDir), "utf8");
+    return parsePersistedSubagentMetadata(JSON.parse(rawMetadata));
+  } catch {
+    return null;
+  }
+};
+
+const writePersistedSubagentMetadata = async (
+  handle: SubagentSessionHandle,
+  agent: string,
+  cwd: string,
+): Promise<void> => {
+  const previousMetadata = await readPersistedSubagentMetadata(handle.sessionDir);
+  const createdAt = previousMetadata?.createdAt ?? new Date().toISOString();
+  const metadata: PersistedSubagentMetadata = {
+    version: 1,
+    agent,
+    cwd,
+    createdAt,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await mkdir(handle.sessionDir, { recursive: true });
+  await writeFile(
+    getMetadataFilePath(handle.sessionDir),
+    `${JSON.stringify(metadata, null, 2)}\n`,
+    "utf8",
+  );
+};
+
+const findPersistedSessionFile = async (sessionDir: string): Promise<string | null> => {
+  let entries: readonly string[];
+  try {
+    entries = await readdir(sessionDir);
+  } catch {
+    return null;
+  }
+
+  const sessionFiles = entries
+    .filter((entry) => entry.endsWith(".jsonl"))
+    .sort((left, right) => right.localeCompare(left));
+
+  const newestSessionFile = sessionFiles[0];
+  return newestSessionFile === undefined ? null : join(sessionDir, newestSessionFile);
+};
+
+const createSubagentSessionHandle = async (): Promise<SubagentSessionHandle> => {
+  await ensureSubagentSessionRoot();
+
+  const sessionId = randomUUID();
+  const sessionDir = join(SUBAGENT_INTERNAL_SESSION_ROOT, sessionId);
+  await mkdir(sessionDir, { recursive: true });
+
+  return {
+    sessionId,
+    sessionDir,
+    sessionFile: null,
+  };
+};
+
+const loadSubagentSessionHandle = async (
+  rawSessionId: string,
+): Promise<SubagentSessionHandle> => {
+  await ensureSubagentSessionRoot();
+
+  const sessionId = assertSessionId(rawSessionId);
+  const sessionDir = join(SUBAGENT_INTERNAL_SESSION_ROOT, sessionId);
+  const sessionFile = await findPersistedSessionFile(sessionDir);
+
+  if (sessionFile === null) {
+    throw new Error(
+      `Unknown subagent sessionId "${sessionId}". It may have been deleted or never persisted successfully.`,
+    );
+  }
+
+  return {
+    sessionId,
+    sessionDir,
+    sessionFile,
+  };
+};
+
+const finalizeSubagentSessionHandle = async (
+  handle: SubagentSessionHandle,
+  agent: string,
+  cwd: string,
+): Promise<SubagentSessionHandle> => {
+  const sessionFile = await findPersistedSessionFile(handle.sessionDir);
+  if (sessionFile === null) {
+    throw new Error(
+      `Persisted subagent session ${handle.sessionId} did not create a session file in ${handle.sessionDir}.`,
+    );
+  }
+
+  const finalizedHandle = {
+    ...handle,
+    sessionFile,
+  };
+  await writePersistedSubagentMetadata(finalizedHandle, agent, cwd);
+  return finalizedHandle;
+};
+
+const resolveSingleModeSession = async (
+  config: SubagentConfig,
+  requestedCwd: string | undefined,
+  fallbackCwd: string,
+  rawSessionId: string | null,
+  persist: boolean,
+): Promise<ResolvedSubagentSession> => {
+  if (rawSessionId !== null) {
+    const handle = await loadSubagentSessionHandle(rawSessionId);
+    const metadata = await readPersistedSubagentMetadata(handle.sessionDir);
+
+    if (metadata !== null && metadata.agent !== config.name) {
+      throw new Error(
+        `Subagent session ${handle.sessionId} belongs to ${metadata.agent}, not ${config.name}. Start a new session or use the matching agent.`,
+      );
+    }
+
+    const resolvedCwd = metadata?.cwd ?? requestedCwd ?? fallbackCwd;
+    if (requestedCwd !== undefined && requestedCwd !== resolvedCwd) {
+      throw new Error(
+        `Subagent session ${handle.sessionId} was created for cwd ${resolvedCwd}. Omit cwd to reuse it, or start a new session.`,
+      );
+    }
+
+    return {
+      cwd: resolvedCwd,
+      handle,
+    };
+  }
+
+  return {
+    cwd: requestedCwd ?? fallbackCwd,
+    handle: persist ? await createSubagentSessionHandle() : null,
+  };
+};
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -349,6 +725,7 @@ const createMutableResult = (
   task: string,
   step: number | null,
   model: string,
+  sessionHandle: SubagentSessionHandle | null,
 ): MutableSingleResult => ({
   agent: config.name,
   task,
@@ -365,6 +742,8 @@ const createMutableResult = (
   stopReason: null,
   errorMessage: null,
   step,
+  sessionId: sessionHandle?.sessionId ?? null,
+  sessionFile: sessionHandle?.sessionFile ?? null,
 });
 
 const snapshotResult = (result: MutableSingleResult): SingleResult => ({
@@ -642,7 +1021,7 @@ const failureSummary = (result: SingleResult | MutableSingleResult): string => {
 const buildSinglePartialText = (result: MutableSingleResult): string =>
   latestVisibleOutput(result);
 
-const buildSingleFinalText = (result: SingleResult): string =>
+const buildSingleFullText = (result: SingleResult): string =>
   isFailure(result)
     ? `Subagent ${result.agent} failed (${result.stopReason ?? `exit ${result.exitCode}`}): ${failureSummary(result)}`
     : normalizeOutput(result.finalOutput);
@@ -655,7 +1034,7 @@ const buildParallelPartialText = (
   return `Parallel: ${done}/${results.length} done, ${running} running...`;
 };
 
-const buildParallelFinalText = (results: readonly SingleResult[]): string =>
+const buildParallelFullText = (results: readonly SingleResult[]): string =>
   results
     .map((result) => {
       const heading = `## ${result.agent}`;
@@ -678,7 +1057,7 @@ const buildChainPartialText = (
   return `Chain: step ${results.length}/${totalSteps} (${current.agent}) — ${latestVisibleOutput(current)}`;
 };
 
-const buildChainFinalText = (results: readonly SingleResult[]): string => {
+const buildChainFullText = (results: readonly SingleResult[]): string => {
   const failedStep = results.find((result) => isFailure(result));
   if (failedStep !== undefined) {
     return `Chain stopped at step ${failedStep.step ?? "?"} (${failedStep.agent}): ${failureSummary(failedStep)}`;
@@ -686,6 +1065,142 @@ const buildChainFinalText = (results: readonly SingleResult[]): string => {
 
   const last = results[results.length - 1];
   return last === undefined ? EMPTY_OUTPUT_MESSAGE : normalizeOutput(last.finalOutput);
+};
+
+const collapseDelegatedText = (value: string): string => {
+  const trimmedValue = value.trim();
+  if (trimmedValue.length === 0) {
+    return EMPTY_OUTPUT_MESSAGE;
+  }
+
+  const lines = trimmedValue.split("\n");
+  if (lines.length <= SUBAGENT_COLLAPSED_PREVIEW_LINES) {
+    return trimmedValue;
+  }
+
+  return `${lines.slice(0, SUBAGENT_COLLAPSED_PREVIEW_LINES).join("\n")}\n... ${lines.length - SUBAGENT_COLLAPSED_PREVIEW_LINES} more lines`;
+};
+
+const buildSingleSummaryText = (result: SingleResult): string =>
+  isFailure(result)
+    ? `Subagent ${result.agent} failed (${result.stopReason ?? `exit ${result.exitCode}`}): ${failureSummary(result)}`
+    : `Subagent ${result.agent} completed successfully.`;
+
+const buildParallelSummaryText = (results: readonly SingleResult[]): string => {
+  const successfulResults = results.filter((result) => !isFailure(result)).length;
+  const lines = [`Parallel: ${successfulResults}/${results.length} subagents succeeded.`];
+
+  for (const result of results) {
+    lines.push(
+      `- ${result.agent}: ${isFailure(result) ? `failed (${result.stopReason ?? `exit ${result.exitCode}`})` : "completed"}`,
+    );
+  }
+
+  return lines.join("\n");
+};
+
+const buildChainSummaryText = (results: readonly SingleResult[]): string => {
+  const failedStep = results.find((result) => isFailure(result));
+  if (failedStep !== undefined) {
+    return `Chain stopped at step ${failedStep.step ?? "?"} (${failedStep.agent}): ${failureSummary(failedStep)}`;
+  }
+
+  const last = results[results.length - 1];
+  return last === undefined
+    ? EMPTY_OUTPUT_MESSAGE
+    : `Chain completed ${results.length}/${results.length} steps. Final agent: ${last.agent}.`;
+};
+
+const buildSessionHandleText = (
+  mode: SubagentMode,
+  results: readonly SingleResult[],
+): string | null => {
+  const persistedResults = results.filter(
+    (result): result is SingleResult & { readonly sessionId: string } =>
+      result.sessionId !== null,
+  );
+
+  if (persistedResults.length === 0) {
+    return null;
+  }
+
+  if (mode === "single") {
+    return `sessionId: ${persistedResults[0].sessionId}`;
+  }
+
+  const lines = ["sessionIds:"];
+  for (const result of persistedResults) {
+    const label =
+      mode === "chain"
+        ? `step ${result.step ?? "?"} ${result.agent}`
+        : result.agent;
+    lines.push(`- ${label}: ${result.sessionId}`);
+  }
+
+  return lines.join("\n");
+};
+
+const buildFinalOutputText = (
+  mode: SubagentMode,
+  results: readonly SingleResult[],
+  outputMode: SubagentOutputMode,
+): string => {
+  const fullText =
+    mode === "single"
+      ? buildSingleFullText(results[0] ?? {
+          agent: "subagent",
+          task: "",
+          exitCode: 1,
+          displayItems: [],
+          finalOutput: "",
+          partialText: null,
+          stderr: "",
+          usage: { ...EMPTY_USAGE },
+          model: "",
+          thinkingLevel: "medium",
+          temperature: null,
+          textVerbosity: null,
+          stopReason: "error",
+          errorMessage: EMPTY_OUTPUT_MESSAGE,
+          step: null,
+          sessionId: null,
+          sessionFile: null,
+        })
+      : mode === "parallel"
+        ? buildParallelFullText(results)
+        : buildChainFullText(results);
+
+  const baseText =
+    outputMode === "full"
+      ? fullText
+      : outputMode === "collapsed"
+        ? collapseDelegatedText(fullText)
+        : mode === "single"
+          ? buildSingleSummaryText(results[0] ?? {
+              agent: "subagent",
+              task: "",
+              exitCode: 1,
+              displayItems: [],
+              finalOutput: "",
+              partialText: null,
+              stderr: "",
+              usage: { ...EMPTY_USAGE },
+              model: "",
+              thinkingLevel: "medium",
+              temperature: null,
+              textVerbosity: null,
+              stopReason: "error",
+              errorMessage: EMPTY_OUTPUT_MESSAGE,
+              step: null,
+              sessionId: null,
+              sessionFile: null,
+            })
+          : mode === "parallel"
+            ? buildParallelSummaryText(results)
+            : buildChainSummaryText(results);
+
+  const sessionHandleText = buildSessionHandleText(mode, results);
+  return sessionHandleText === null ? baseText : `${baseText}\n\n${sessionHandleText}`;
 };
 
 const emitToolUpdate = (
@@ -731,23 +1246,95 @@ const hasParallelMode = (params: JsonRecord): boolean =>
 const hasChainMode = (params: JsonRecord): boolean =>
   Array.isArray(params.chain) && params.chain.length > 0;
 
+const parseModelOverride = (value: unknown, label: string): string | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!isNonEmptyString(value)) {
+    throw new Error(`${label}.model must be a non-empty string when provided.`);
+  }
+
+  return value.trim();
+};
+
+const parseReadsList = (value: unknown, label: string): readonly string[] => {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error(`${label}.reads must be an array of file paths.`);
+  }
+
+  const reads: string[] = [];
+  for (const item of value) {
+    if (!isNonEmptyString(item)) {
+      throw new Error(`${label}.reads must contain only non-empty strings.`);
+    }
+    reads.push(item.trim());
+  }
+
+  return reads;
+};
+
 const parseTaskList = (value: unknown): readonly TaskSpec[] => {
   if (!Array.isArray(value)) {
     return [];
   }
 
   const tasks: TaskSpec[] = [];
-  for (const item of value) {
+  for (const [index, item] of value.entries()) {
     if (!isRecord(item) || !isNonEmptyString(item.agent) || !isNonEmptyString(item.task)) {
       continue;
     }
+
     tasks.push({
       agent: item.agent.trim(),
       task: item.task,
-      cwd: isNonEmptyString(item.cwd) ? item.cwd : undefined,
+      cwd: isNonEmptyString(item.cwd) ? item.cwd.trim() : undefined,
+      model: parseModelOverride(item.model, `tasks[${index}]`),
+      skillSelection: readSkillSelection(item.skill, item.skills, `tasks[${index}]`),
     });
   }
   return tasks;
+};
+
+const parseChainSteps = (value: unknown): readonly ChainStepSpec[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const steps: ChainStepSpec[] = [];
+  for (const [index, item] of value.entries()) {
+    if (!isRecord(item) || !isNonEmptyString(item.agent)) {
+      continue;
+    }
+
+    steps.push({
+      agent: item.agent.trim(),
+      task: isNonEmptyString(item.task) ? item.task : null,
+      cwd: isNonEmptyString(item.cwd) ? item.cwd.trim() : undefined,
+      model: parseModelOverride(item.model, `chain[${index}]`),
+      skillSelection: readSkillSelection(item.skill, item.skills, `chain[${index}]`),
+      output: isNonEmptyString(item.output) ? item.output.trim() : undefined,
+      reads: parseReadsList(item.reads, `chain[${index}]`),
+    });
+  }
+  return steps;
+};
+
+const extractResultText = (value: unknown): string | null => {
+  if (!isRecord(value) || !Array.isArray(value.content)) {
+    return null;
+  }
+
+  const firstText = value.content.find(
+    (item): item is { readonly type: string; readonly text: string } =>
+      isRecord(item) && item.type === "text" && typeof item.text === "string",
+  );
+
+  return firstText?.text ?? null;
 };
 
 const mapWithConcurrencyLimit = async <TInput, TOutput>(
@@ -784,6 +1371,9 @@ const runSingleSubagent = async (
   cwd: string,
   step: number | null,
   sessionModel: string,
+  modelOverride: string | undefined,
+  skillPaths: readonly string[],
+  sessionHandle: SubagentSessionHandle | null,
   signal: AbortSignal | undefined,
   onUpdate: ((result: SingleResult) => void) | undefined,
 ): Promise<SingleResult> => {
@@ -798,15 +1388,19 @@ const runSingleSubagent = async (
     env[SUBAGENT_TEMPERATURE_ENV] = String(config.temperature);
   }
 
-  return new Promise<SingleResult>((resolve, reject) => {
-    const resolvedModel = resolveSubagentModel(config, sessionModel);
-    const result = createMutableResult(config, task, step, resolvedModel);
-    const child = spawn("pi", [...execArgsForTask(config, task, resolvedModel)], {
-      cwd,
-      env,
-      shell: false,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+  return await new Promise<SingleResult>((resolve, reject) => {
+    const resolvedModel = resolveSubagentModel(config, sessionModel, modelOverride);
+    const result = createMutableResult(config, task, step, resolvedModel, sessionHandle);
+    const child = spawn(
+      "pi",
+      [...execArgsForTask(config, task, resolvedModel, skillPaths, sessionHandle)],
+      {
+        cwd,
+        env,
+        shell: false,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
 
     let stdoutBuffer = "";
     let aborted = false;
@@ -896,7 +1490,7 @@ const runSingleSubagent = async (
       );
     });
 
-    child.on("close", (exitCode, signalCode) => {
+    child.on("close", async (exitCode, signalCode) => {
       if (stdoutBuffer.trim().length > 0) {
         handleLine(stdoutBuffer);
       }
@@ -915,7 +1509,25 @@ const runSingleSubagent = async (
           `Subagent process exited via signal ${signalCode} before returning a final message.`;
       }
 
-      resolve(snapshotResult(result));
+      try {
+        if (sessionHandle !== null) {
+          const finalizedHandle = await finalizeSubagentSessionHandle(
+            sessionHandle,
+            config.name,
+            cwd,
+          );
+          result.sessionId = finalizedHandle.sessionId;
+          result.sessionFile = finalizedHandle.sessionFile;
+        }
+
+        resolve(snapshotResult(result));
+      } catch (error) {
+        reject(
+          error instanceof Error
+            ? error
+            : new Error(`Failed to persist subagent session metadata: ${String(error)}`),
+        );
+      }
     });
 
     if (signal !== undefined) {
@@ -928,9 +1540,380 @@ const runSingleSubagent = async (
   });
 };
 
+export type ConsultSubagentExecutionContext = {
+  readonly cwd: string;
+  readonly model: ActiveModel | undefined;
+};
+
+type SubagentToolResult = {
+  readonly content: Array<{ readonly type: "text"; readonly text: string }>;
+  readonly details: unknown;
+  readonly isError?: boolean;
+};
+
+export const executeConsultSubagentSync = async (
+  params: JsonRecord,
+  signal: AbortSignal | undefined,
+  onUpdate: AgentToolUpdateCallback<unknown> | undefined,
+  ctx: ConsultSubagentExecutionContext,
+): Promise<SubagentToolResult> => {
+  const subagents = await loadSubagents(ctx.cwd);
+  if (subagents.length === 0) {
+    throw new Error(
+      "No subagents found in ~/.pi/agent/agents or the nearest .pi/agents. Add a markdown file with frontmatter and a prompt body, then /reload.",
+    );
+  }
+
+  const hasSingle = hasSingleMode(params);
+  const hasParallel = hasParallelMode(params);
+  const hasChain = hasChainMode(params);
+  const modeCount = Number(hasSingle) + Number(hasParallel) + Number(hasChain);
+
+  if (modeCount !== 1) {
+    throw new Error(
+      "Provide exactly one subagent mode: single (agent + task), parallel (tasks), or chain (chain).",
+    );
+  }
+
+  const outputMode = parseSubagentOutputMode(params.outputMode);
+  const rawSessionId = isNonEmptyString(params.sessionId)
+    ? params.sessionId.trim()
+    : null;
+  const persist = params.persist === true || rawSessionId !== null;
+
+  if (rawSessionId !== null && !hasSingle) {
+    throw new Error(
+      "sessionId can only be used with single subagent mode (agent + task).",
+    );
+  }
+
+  if (!hasSingle && params.model !== undefined) {
+    throw new Error("Top-level model override is only supported in single subagent mode.");
+  }
+
+  if (!hasSingle && (params.skill !== undefined || params.skills !== undefined)) {
+    throw new Error(
+      "Top-level skill overrides are only supported in single subagent mode.",
+    );
+  }
+
+  if (!hasChain && isNonEmptyString(params.chainDir)) {
+    throw new Error("chainDir is only supported in chain mode.");
+  }
+
+  const activeModel = ctx.model;
+  if (activeModel === undefined) {
+    throw new Error("No active model is selected for consult_subagent.");
+  }
+
+  const sessionModel = formatSessionModel(activeModel);
+
+  if (hasSingle) {
+    const agentName = isNonEmptyString(params.agent) ? params.agent : null;
+    const taskText = isNonEmptyString(params.task) ? params.task : null;
+    if (agentName === null || taskText === null) {
+      throw new Error("Single subagent mode requires both agent and task.");
+    }
+
+    const config = requireConfig(subagents, agentName);
+    const session = await resolveSingleModeSession(
+      config,
+      isNonEmptyString(params.cwd) ? params.cwd.trim() : undefined,
+      ctx.cwd,
+      rawSessionId,
+      persist,
+    );
+    const modelOverride = parseModelOverride(params.model, "params");
+    const skillSelection = readSkillSelection(params.skill, params.skills, "params");
+    const skillNames = resolveSelectedSkillNames(config.skills, skillSelection);
+    const skillPaths = await resolveSkillPaths(session.cwd, skillNames);
+    const resolvedModel = resolveSubagentModel(config, sessionModel, modelOverride);
+    const partialResults: MutableSingleResult[] = [
+      createMutableResult(config, taskText, null, resolvedModel, session.handle),
+    ];
+    const result = await runSingleSubagent(
+      config,
+      taskText,
+      session.cwd,
+      null,
+      sessionModel,
+      modelOverride,
+      skillPaths,
+      session.handle,
+      signal,
+      onUpdate === undefined
+        ? undefined
+        : (partialResult) => {
+            partialResults[0] = {
+              ...partialResult,
+              displayItems: [...partialResult.displayItems],
+              usage: { ...partialResult.usage },
+            };
+            emitToolUpdate(
+              onUpdate,
+              "single",
+              partialResults,
+              buildSinglePartialText(partialResults[0]),
+            );
+          },
+    );
+
+    const truncatedOutput = await truncateAndPersistOutput(
+      buildFinalOutputText("single", [result], outputMode),
+    );
+
+    return {
+      content: [{ type: "text", text: truncatedOutput.text }],
+      details: {
+        ...createDetails("single", [
+          {
+            ...result,
+            displayItems: [...result.displayItems],
+            usage: { ...result.usage },
+          },
+        ]),
+        outputMode,
+        sessionId: result.sessionId,
+        sessionFile: result.sessionFile,
+        truncated: truncatedOutput.truncated,
+        fullOutputPath: truncatedOutput.fullOutputPath,
+      },
+    };
+  }
+
+  if (hasParallel) {
+    const tasks = parseTaskList(params.tasks);
+    if (tasks.length === 0) {
+      throw new Error("Parallel mode requires at least one valid task.");
+    }
+    if (tasks.length > MAX_PARALLEL_TASKS) {
+      throw new Error(
+        `Too many parallel subagent tasks (${tasks.length}). Max is ${MAX_PARALLEL_TASKS}.`,
+      );
+    }
+
+    const configs = tasks.map((task) => requireConfig(subagents, task.agent));
+    const taskSkillPaths = await Promise.all(
+      tasks.map(async (task, index) => {
+        const resolvedCwd = task.cwd ?? ctx.cwd;
+        const skillNames = resolveSelectedSkillNames(
+          configs[index].skills,
+          task.skillSelection,
+        );
+        return await resolveSkillPaths(resolvedCwd, skillNames);
+      }),
+    );
+    const sessionHandles = persist
+      ? await Promise.all(tasks.map(async () => await createSubagentSessionHandle()))
+      : tasks.map(() => null);
+    const partialResults = tasks.map((task, index) =>
+      createMutableResult(
+        configs[index],
+        task.task,
+        null,
+        resolveSubagentModel(configs[index], sessionModel, task.model),
+        sessionHandles[index],
+      ),
+    );
+
+    const results = await mapWithConcurrencyLimit(
+      tasks,
+      MAX_CONCURRENCY,
+      async (task, index) => {
+        const result = await runSingleSubagent(
+          configs[index],
+          task.task,
+          task.cwd ?? ctx.cwd,
+          null,
+          sessionModel,
+          task.model,
+          taskSkillPaths[index],
+          sessionHandles[index],
+          signal,
+          onUpdate === undefined
+            ? undefined
+            : (partialResult) => {
+                partialResults[index] = {
+                  ...partialResult,
+                  displayItems: [...partialResult.displayItems],
+                  usage: { ...partialResult.usage },
+                };
+                emitToolUpdate(
+                  onUpdate,
+                  "parallel",
+                  partialResults,
+                  buildParallelPartialText(partialResults),
+                );
+              },
+        );
+
+        partialResults[index] = {
+          ...result,
+          displayItems: [...result.displayItems],
+          usage: { ...result.usage },
+        };
+        emitToolUpdate(
+          onUpdate,
+          "parallel",
+          partialResults,
+          buildParallelPartialText(partialResults),
+        );
+        return result;
+      },
+    );
+
+    const truncatedOutput = await truncateAndPersistOutput(
+      buildFinalOutputText("parallel", results, outputMode),
+    );
+
+    return {
+      content: [{ type: "text", text: truncatedOutput.text }],
+      details: {
+        mode: "parallel",
+        results,
+        outputMode,
+        truncated: truncatedOutput.truncated,
+        fullOutputPath: truncatedOutput.fullOutputPath,
+      },
+    };
+  }
+
+  const chain = parseChainSteps(params.chain);
+  if (chain.length === 0) {
+    throw new Error("Chain mode requires at least one valid step.");
+  }
+
+  const topLevelTask = isNonEmptyString(params.task) ? params.task : null;
+  if (topLevelTask === null && (chain[0]?.task ?? "").includes("{task}")) {
+    throw new Error(
+      "Chain mode cannot resolve {task} without a top-level task. Pass task at the top level or remove {task} from the first step.",
+    );
+  }
+
+  const originalTask = topLevelTask ?? chain[0]?.task ?? "";
+  if (originalTask.trim().length === 0) {
+    throw new Error(
+      "Chain mode requires a top-level task or a first step task so {task} can be resolved.",
+    );
+  }
+
+  const chainDir = await createChainDir(
+    isNonEmptyString(params.chainDir) ? params.chainDir.trim() : undefined,
+    ctx.cwd,
+  );
+  const results: SingleResult[] = [];
+  const partialResults: MutableSingleResult[] = [];
+  let previousOutput = "";
+
+  for (let index = 0; index < chain.length; index += 1) {
+    const step = chain[index];
+    const config = requireConfig(subagents, step.agent);
+    const resolvedCwd = step.cwd ?? ctx.cwd;
+    const taskTemplate = resolveChainTaskTemplate(step.task ?? undefined, index === 0);
+    const expandedTask = expandChainTaskTemplate(taskTemplate, {
+      originalTask,
+      previousOutput,
+      chainDir,
+    });
+    const readPaths = resolveChainReadPaths(chainDir, step.reads);
+    await assertChainReadPathsExist(readPaths);
+    const task = buildChainTask(expandedTask, readPaths);
+    const skillNames = resolveSelectedSkillNames(config.skills, step.skillSelection);
+    const skillPaths = await resolveSkillPaths(resolvedCwd, skillNames);
+    const sessionHandle = persist ? await createSubagentSessionHandle() : null;
+    partialResults[index] = createMutableResult(
+      config,
+      task,
+      index + 1,
+      resolveSubagentModel(config, sessionModel, step.model),
+      sessionHandle,
+    );
+
+    const result = await runSingleSubagent(
+      config,
+      task,
+      resolvedCwd,
+      index + 1,
+      sessionModel,
+      step.model,
+      skillPaths,
+      sessionHandle,
+      signal,
+      onUpdate === undefined
+        ? undefined
+        : (partialResult) => {
+            partialResults[index] = {
+              ...partialResult,
+              displayItems: [...partialResult.displayItems],
+              usage: { ...partialResult.usage },
+            };
+            emitToolUpdate(
+              onUpdate,
+              "chain",
+              partialResults,
+              buildChainPartialText(chain.length, partialResults),
+            );
+          },
+    );
+
+    results.push(result);
+    partialResults[index] = {
+      ...result,
+      displayItems: [...result.displayItems],
+      usage: { ...result.usage },
+    };
+    emitToolUpdate(
+      onUpdate,
+      "chain",
+      partialResults,
+      buildChainPartialText(chain.length, partialResults),
+    );
+
+    if (isFailure(result)) {
+      const truncatedOutput = await truncateAndPersistOutput(
+        `${buildFinalOutputText("chain", results, outputMode)}\n\nchainDir: ${chainDir}`,
+      );
+
+      return {
+        content: [{ type: "text", text: truncatedOutput.text }],
+        details: {
+          mode: "chain",
+          results,
+          outputMode,
+          chainDir,
+          truncated: truncatedOutput.truncated,
+          fullOutputPath: truncatedOutput.fullOutputPath,
+        },
+      };
+    }
+
+    previousOutput = result.finalOutput.trim().length > 0 ? result.finalOutput : "";
+    const outputPath = resolveChainOutputPath(chainDir, step.output);
+    if (outputPath !== null) {
+      await writeChainOutput(outputPath, previousOutput);
+    }
+  }
+
+  const truncatedOutput = await truncateAndPersistOutput(
+    `${buildFinalOutputText("chain", results, outputMode)}\n\nchainDir: ${chainDir}`,
+  );
+
+  return {
+    content: [{ type: "text", text: truncatedOutput.text }],
+    details: {
+      mode: "chain",
+      results,
+      outputMode,
+      chainDir,
+      truncated: truncatedOutput.truncated,
+      fullOutputPath: truncatedOutput.fullOutputPath,
+    },
+  };
+};
+
 export default function subagentsExtension(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event) => {
-    const subagents = await loadSubagents();
+    const subagents = await loadSubagents(process.cwd());
     const availableSubagentsPrompt = buildAvailableSubagentsPrompt(subagents);
     if (availableSubagentsPrompt === null) {
       return undefined;
@@ -945,279 +1928,88 @@ export default function subagentsExtension(pi: ExtensionAPI) {
     name: CONSULT_SUBAGENT_TOOL,
     label: "Consult Subagent",
     description:
-      "Consult one or more named subagents from ~/.pi/agent/agents. Each subagent runs in an isolated pi child process with its configured tool permissions. Supports single mode (agent + task), parallel mode (tasks), and chain mode (chain with {previous}).",
+      "Consult one or more named subagents from ~/.pi/agent/agents or the nearest .pi/agents directory. Each subagent runs in an isolated pi child process with its configured tool permissions. Supports single mode, parallel mode, sequential chain mode with {task}/{previous}/{chain_dir}, optional skill and model overrides, and optional async background execution.",
     promptSnippet:
       "Consult named subagents for isolated analysis or implementation, optionally in parallel or as a chain.",
     promptGuidelines: [
       "Use this tool when a task would benefit from a deeper isolated pass before you act.",
       "Choose subagents by name from the available subagents listed in the system prompt.",
+      "Subagents without explicit permissions default to a read-mostly research profile.",
       "Use single mode by default. Use tasks for independent investigations that can run in parallel.",
-      "Use chain when later steps should build on earlier subagent output via {previous}.",
+      "Use chain when later steps should build on earlier subagent output via {previous}, the original request via {task}, or shared artifacts via {chain_dir}.",
+      "Use model and skill overrides when one step needs a different model or a specific skill set.",
+      "Set async: true to run in the background and inspect progress later with subagent_status.",
+      "Set persist: true to keep isolated child state, then reuse the returned sessionId in a later single-mode call to resume it.",
+      "Use outputMode: \"collapsed\" or \"summary\" to keep delegated output compact in the parent context.",
       "Include concrete context in each task: goal, relevant files, suspected issue, constraints, and desired outcome.",
       "Treat subagent output as advisory and decide what to do next yourself.",
     ],
     parameters: WebfetchAwareSubagentParams,
 
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
-      const subagents = await loadSubagents();
-      if (subagents.length === 0) {
-        throw new Error(
-          "No subagents found in ~/.pi/agent/agents. Add a markdown file with frontmatter and a prompt body, then /reload.",
-        );
-      }
-
-      const hasSingle = hasSingleMode(params);
-      const hasParallel = hasParallelMode(params);
-      const hasChain = hasChainMode(params);
-      const modeCount = Number(hasSingle) + Number(hasParallel) + Number(hasChain);
-
-      if (modeCount !== 1) {
-        throw new Error(
-          "Provide exactly one subagent mode: single (agent + task), parallel (tasks), or chain (chain).",
-        );
-      }
-
-      const activeModel = ctx.model;
-      if (activeModel === undefined) {
-        throw new Error("No active model is selected for consult_subagent.");
-      }
-
-      const sessionModel = formatSessionModel(activeModel);
-
-      if (hasSingle) {
-        const agentName = isNonEmptyString(params.agent) ? params.agent : null;
-        const taskText = isNonEmptyString(params.task) ? params.task : null;
-        if (agentName === null || taskText === null) {
-          throw new Error("Single subagent mode requires both agent and task.");
-        }
-
-        const config = requireConfig(subagents, agentName);
-        const resolvedModel = resolveSubagentModel(config, sessionModel);
-        const partialResults: MutableSingleResult[] = [
-          createMutableResult(config, taskText, null, resolvedModel),
-        ];
-        const result = await runSingleSubagent(
-          config,
-          taskText,
-          params.cwd ?? ctx.cwd,
-          null,
-          sessionModel,
-          signal,
-          onUpdate === undefined
-            ? undefined
-            : (partialResult) => {
-                partialResults[0] = {
-                  ...partialResult,
-                  displayItems: [...partialResult.displayItems],
-                  usage: { ...partialResult.usage },
-                };
-                emitToolUpdate(
-                  onUpdate,
-                  "single",
-                  partialResults,
-                  buildSinglePartialText(partialResults[0]),
-                );
-              },
-        );
-
-        const truncatedOutput = await truncateAndPersistOutput(
-          buildSingleFinalText(result),
-        );
-
-        return {
-          content: [{ type: "text", text: truncatedOutput.text }],
-          details: {
-            ...createDetails("single", [
-              {
-                ...result,
-                displayItems: [...result.displayItems],
-                usage: { ...result.usage },
-              },
-            ]),
-            truncated: truncatedOutput.truncated,
-            fullOutputPath: truncatedOutput.fullOutputPath,
-          },
-        };
-      }
-
-      if (hasParallel) {
-        const tasks = parseTaskList(params.tasks);
-        if (tasks.length === 0) {
-          throw new Error("Parallel mode requires at least one valid task.");
-        }
-        if (tasks.length > MAX_PARALLEL_TASKS) {
+      if (params.async === true) {
+        const hasSingle = hasSingleMode(params);
+        const hasParallel = hasParallelMode(params);
+        const hasChain = hasChainMode(params);
+        const modeCount = Number(hasSingle) + Number(hasParallel) + Number(hasChain);
+        if (modeCount !== 1) {
           throw new Error(
-            `Too many parallel subagent tasks (${tasks.length}). Max is ${MAX_PARALLEL_TASKS}.`,
+            "Provide exactly one subagent mode: single (agent + task), parallel (tasks), or chain (chain).",
           );
         }
 
-        const configs = tasks.map((task) => requireConfig(subagents, task.agent));
-        const partialResults = tasks.map((task, index) =>
-          createMutableResult(
-            configs[index],
-            task.task,
-            null,
-            resolveSubagentModel(configs[index], sessionModel),
-          ),
-        );
+        const availableSubagents = await loadSubagents(ctx.cwd);
+        if (availableSubagents.length === 0) {
+          throw new Error(
+            "No subagents found in ~/.pi/agent/agents or the nearest .pi/agents.",
+          );
+        }
 
-        const results = await mapWithConcurrencyLimit(
-          tasks,
-          MAX_CONCURRENCY,
-          async (task, index) => {
-            const result = await runSingleSubagent(
-              configs[index],
-              task.task,
-              task.cwd ?? ctx.cwd,
-              null,
-              sessionModel,
-              signal,
-              onUpdate === undefined
-                ? undefined
-                : (partialResult) => {
-                    partialResults[index] = {
-                      ...partialResult,
-                      displayItems: [...partialResult.displayItems],
-                      usage: { ...partialResult.usage },
-                    };
-                    emitToolUpdate(
-                      onUpdate,
-                      "parallel",
-                      partialResults,
-                      buildParallelPartialText(partialResults),
-                    );
-                  },
-            );
+        const activeModel = ctx.model;
+        if (activeModel === undefined) {
+          throw new Error("No active model is selected for consult_subagent.");
+        }
 
-            partialResults[index] = {
-              ...result,
-              displayItems: [...result.displayItems],
-              usage: { ...result.usage },
-            };
-            emitToolUpdate(
-              onUpdate,
-              "parallel",
-              partialResults,
-              buildParallelPartialText(partialResults),
-            );
-            return result;
-          },
-        );
-
-        const truncatedOutput = await truncateAndPersistOutput(
-          buildParallelFinalText(results),
-        );
+        const launchedRun = await launchAsyncSubagent(params, {
+          cwd: ctx.cwd,
+          model: activeModel,
+        });
 
         return {
-          content: [{ type: "text", text: truncatedOutput.text }],
+          content: [
+            {
+              type: "text",
+              text:
+                `Subagent run started in background.\n\n` +
+                `runId: ${launchedRun.runId}\n` +
+                `statusDir: ${launchedRun.asyncDir}\n\n` +
+                `Use subagent_status with the runId to inspect progress.`,
+            },
+          ],
           details: {
-            mode: "parallel",
-            results,
-            truncated: truncatedOutput.truncated,
-            fullOutputPath: truncatedOutput.fullOutputPath,
+            async: true,
+            runId: launchedRun.runId,
+            asyncDir: launchedRun.asyncDir,
           },
         };
       }
 
-      const chain = parseTaskList(params.chain);
-      if (chain.length === 0) {
-        throw new Error("Chain mode requires at least one valid step.");
-      }
-
-      const results: SingleResult[] = [];
-      const partialResults: MutableSingleResult[] = [];
-      let previousOutput = "";
-
-      for (let index = 0; index < chain.length; index += 1) {
-        const step = chain[index];
-        const config = requireConfig(subagents, step.agent);
-        const task = step.task.replace(/\{previous\}/g, previousOutput);
-        partialResults[index] = createMutableResult(
-          config,
-          task,
-          index + 1,
-          resolveSubagentModel(config, sessionModel),
-        );
-
-        const result = await runSingleSubagent(
-          config,
-          task,
-          step.cwd ?? ctx.cwd,
-          index + 1,
-          sessionModel,
-          signal,
-          onUpdate === undefined
-            ? undefined
-            : (partialResult) => {
-                partialResults[index] = {
-                  ...partialResult,
-                  displayItems: [...partialResult.displayItems],
-                  usage: { ...partialResult.usage },
-                };
-                emitToolUpdate(
-                  onUpdate,
-                  "chain",
-                  partialResults,
-                  buildChainPartialText(chain.length, partialResults),
-                );
-              },
-        );
-
-        results.push(result);
-        partialResults[index] = {
-          ...result,
-          displayItems: [...result.displayItems],
-          usage: { ...result.usage },
-        };
-        emitToolUpdate(
-          onUpdate,
-          "chain",
-          partialResults,
-          buildChainPartialText(chain.length, partialResults),
-        );
-
-        if (isFailure(result)) {
-          const truncatedOutput = await truncateAndPersistOutput(
-            buildChainFinalText(results),
-          );
-
-          return {
-            content: [{ type: "text", text: truncatedOutput.text }],
-            details: {
-              mode: "chain",
-              results,
-              truncated: truncatedOutput.truncated,
-              fullOutputPath: truncatedOutput.fullOutputPath,
-            },
-          };
-        }
-
-        previousOutput = result.finalOutput.trim().length > 0 ? result.finalOutput : "";
-      }
-
-      const truncatedOutput = await truncateAndPersistOutput(
-        buildChainFinalText(results),
-      );
-
-      return {
-        content: [{ type: "text", text: truncatedOutput.text }],
-        details: {
-          mode: "chain",
-          results,
-          truncated: truncatedOutput.truncated,
-          fullOutputPath: truncatedOutput.fullOutputPath,
-        },
-      };
+      return await executeConsultSubagentSync(params, signal, onUpdate, {
+        cwd: ctx.cwd,
+        model: ctx.model,
+      });
     },
 
     renderCall(args, theme) {
       const callArgs: JsonRecord = isRecord(args) ? args : {};
       const chain = Array.isArray(callArgs.chain) ? callArgs.chain : [];
+      const asyncLabel = callArgs.async === true ? ` ${theme.fg("warning", "[async]")}` : "";
 
       if (chain.length > 0) {
         let text =
           theme.fg("toolTitle", theme.bold("consult_subagent ")) +
-          theme.fg("accent", `chain (${chain.length} steps)`);
+          theme.fg("accent", `chain (${chain.length} steps)`) +
+          asyncLabel;
         for (const [index, item] of chain.slice(0, 3).entries()) {
           if (!isRecord(item)) {
             continue;
@@ -1238,7 +2030,8 @@ export default function subagentsExtension(pi: ExtensionAPI) {
       if (tasks.length > 0) {
         let text =
           theme.fg("toolTitle", theme.bold("consult_subagent ")) +
-          theme.fg("accent", `parallel (${tasks.length} tasks)`);
+          theme.fg("accent", `parallel (${tasks.length} tasks)`) +
+          asyncLabel;
         for (const item of tasks.slice(0, 3)) {
           if (!isRecord(item)) {
             continue;
@@ -1258,7 +2051,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
       const task = typeof callArgs.task === "string" ? callArgs.task : "";
       const preview = task.length > 80 ? `${task.slice(0, 80)}...` : task;
       return new Text(
-        `${theme.fg("toolTitle", theme.bold("consult_subagent "))}${theme.fg("accent", agent)}\n  ${theme.fg("dim", preview)}`,
+        `${theme.fg("toolTitle", theme.bold("consult_subagent "))}${theme.fg("accent", agent)}${asyncLabel}\n  ${theme.fg("dim", preview)}`,
         0,
         0,
       );
@@ -1378,6 +2171,15 @@ export default function subagentsExtension(pi: ExtensionAPI) {
         if (usage.length > 0) {
           container.addChild(new Spacer(1));
           container.addChild(new Text(theme.fg("dim", usage), 0, 0));
+        }
+
+        if (subagentResult.sessionId !== null) {
+          const sessionLabel =
+            subagentResult.sessionFile === null
+              ? `session: ${subagentResult.sessionId}`
+              : `session: ${subagentResult.sessionId} · ${shortenHomePath(subagentResult.sessionFile)}`;
+          container.addChild(new Spacer(1));
+          container.addChild(new Text(theme.fg("dim", sessionLabel), 0, 0));
         }
       };
 
@@ -1563,6 +2365,85 @@ export default function subagentsExtension(pi: ExtensionAPI) {
       }
 
       return container;
+    },
+  });
+
+  pi.registerTool({
+    name: SUBAGENT_STATUS_TOOL,
+    label: "Subagent Status",
+    description: "Inspect the status of a background consult_subagent run by id or async directory.",
+    parameters: SubagentStatusParams,
+
+    async execute(_toolCallId, params) {
+      const asyncDir = isNonEmptyString(params.dir)
+        ? params.dir.trim()
+        : isNonEmptyString(params.id)
+          ? await findAsyncDir(params.id)
+          : null;
+
+      if (asyncDir === null) {
+        throw new Error("Provide a background run id or async directory.");
+      }
+
+      const status = await readAsyncStatus(asyncDir);
+      if (status === null) {
+        throw new Error(
+          `Could not read background subagent status from ${asyncDir}. The run may not exist anymore.`,
+        );
+      }
+
+      const result = await readAsyncResult(asyncDir);
+      const lines = [
+        `runId: ${status.runId}`,
+        `state: ${status.state}`,
+        `mode: ${status.mode}`,
+        `progress: ${status.completedItems}/${status.totalItems}`,
+        `updatedAt: ${status.updatedAt}`,
+      ];
+
+      if (status.chainDir !== null) {
+        lines.push(`chainDir: ${status.chainDir}`);
+      }
+
+      if (status.errorMessage !== null) {
+        lines.push(`error: ${status.errorMessage}`);
+      }
+
+      const resultText = extractResultText(result);
+      if (resultText !== null) {
+        lines.push("", resultText);
+      } else if (status.latestSummary !== null) {
+        lines.push("", status.latestSummary);
+      }
+
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+        details: {
+          asyncDir,
+          status,
+          result,
+        },
+      };
+    },
+
+    renderCall(args, theme) {
+      const callArgs: JsonRecord = isRecord(args) ? args : {};
+      const label = isNonEmptyString(callArgs.id)
+        ? callArgs.id.trim()
+        : isNonEmptyString(callArgs.dir)
+          ? callArgs.dir.trim()
+          : "...";
+      return new Text(
+        `${theme.fg("toolTitle", theme.bold("subagent_status "))}${theme.fg("accent", label)}`,
+        0,
+        0,
+      );
+    },
+
+    renderResult(result) {
+      const firstContent = result.content[0];
+      const text = firstContent?.type === "text" ? firstContent.text : EMPTY_OUTPUT_MESSAGE;
+      return new Text(text, 0, 0);
     },
   });
 }

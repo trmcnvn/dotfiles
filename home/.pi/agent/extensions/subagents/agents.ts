@@ -1,9 +1,11 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { parseFrontmatter } from "@mariozechner/pi-coding-agent";
 
-export const SUBAGENT_DIR = join(homedir(), ".pi", "agent", "agents");
+export const USER_SUBAGENT_DIR = join(homedir(), ".pi", "agent", "agents");
+const PROJECT_SUBAGENT_DIRNAME = ".pi";
+const PROJECT_SUBAGENT_BASENAME = "agents";
 export const DEFAULT_THINKING_LEVEL = "medium";
 
 export const THINKING_LEVELS = [
@@ -19,6 +21,7 @@ export const TEXT_VERBOSITY_LEVELS = ["low", "medium", "high"] as const;
 export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 export type TextVerbosity = (typeof TEXT_VERBOSITY_LEVELS)[number];
 export type PermissionEffect = "allow" | "deny";
+export type SubagentSource = "user" | "project";
 export type SubagentPermissionSource =
   | "default"
   | "permission"
@@ -35,6 +38,8 @@ type SubagentFrontmatter = Readonly<{
   description?: unknown;
   model?: unknown;
   tools?: unknown;
+  skill?: unknown;
+  skills?: unknown;
   permission?: unknown;
   permissions?: unknown;
   readOnly?: unknown;
@@ -48,7 +53,9 @@ type SubagentFrontmatter = Readonly<{
 export type SubagentConfig = {
   readonly name: string;
   readonly description: string;
+  readonly source: SubagentSource;
   readonly model: string | null;
+  readonly skills: readonly string[];
   readonly permissions: SubagentPermissionPolicy | null;
   readonly permissionSource: SubagentPermissionSource;
   readonly readOnly: boolean;
@@ -309,7 +316,10 @@ const buildSystemPrompt = (
   return `${trimmedPrompt}\n\nPreferred response verbosity: ${textVerbosity}.`;
 };
 
-const loadSubagentFile = async (filePath: string): Promise<SubagentConfig | null> => {
+const loadSubagentFile = async (
+  filePath: string,
+  source: SubagentSource,
+): Promise<SubagentConfig | null> => {
   let rawConfig: string;
   try {
     rawConfig = await readFile(filePath, "utf8");
@@ -326,13 +336,16 @@ const loadSubagentFile = async (filePath: string): Promise<SubagentConfig | null
   }
 
   const permissionResolution = resolvePermissionPolicy(frontmatter);
+  const skills = parseStringList(frontmatter.skill ?? frontmatter.skills);
 
   return {
     name,
     description: parseDescription(frontmatter.description, name),
+    source,
     model: isNonEmptyString(frontmatter.model)
       ? frontmatter.model.trim()
       : null,
+    skills,
     permissions: permissionResolution.policy,
     permissionSource: permissionResolution.source,
     readOnly: permissionResolution.readOnly,
@@ -346,26 +359,78 @@ const loadSubagentFile = async (filePath: string): Promise<SubagentConfig | null
   };
 };
 
-export const loadSubagents = async (): Promise<readonly SubagentConfig[]> => {
+const isDirectory = async (path: string): Promise<boolean> => {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+export const findNearestProjectSubagentDir = async (
+  cwd: string,
+): Promise<string | null> => {
+  let currentDir = cwd;
+
+  while (true) {
+    const candidate = join(
+      currentDir,
+      PROJECT_SUBAGENT_DIRNAME,
+      PROJECT_SUBAGENT_BASENAME,
+    );
+    if (await isDirectory(candidate)) {
+      return candidate;
+    }
+
+    const parentDir = dirname(currentDir);
+    if (parentDir === currentDir) {
+      return null;
+    }
+    currentDir = parentDir;
+  }
+};
+
+const loadSubagentsFromDirectory = async (
+  directory: string,
+  source: SubagentSource,
+): Promise<readonly SubagentConfig[]> => {
   let entries: readonly string[];
   try {
-    entries = await readdir(SUBAGENT_DIR);
+    entries = await readdir(directory);
   } catch {
     return [];
   }
 
   const filePaths = entries
-    .filter((entry) => entry.endsWith(".md"))
+    .filter((entry) => entry.endsWith(".md") && !entry.endsWith(".chain.md"))
     .sort((left, right) => left.localeCompare(right))
-    .map((entry) => join(SUBAGENT_DIR, entry));
+    .map((entry) => join(directory, entry));
 
-  const subagents = await Promise.all(filePaths.map(loadSubagentFile));
-  const configs = subagents.filter(
-    (subagent): subagent is SubagentConfig => subagent !== null,
+  const subagents = await Promise.all(
+    filePaths.map(async (filePath) => await loadSubagentFile(filePath, source)),
   );
 
+  return subagents.filter(
+    (subagent): subagent is SubagentConfig => subagent !== null,
+  );
+};
+
+export const loadSubagents = async (
+  cwd: string = process.cwd(),
+): Promise<readonly SubagentConfig[]> => {
+  const projectDirectory = await findNearestProjectSubagentDir(cwd);
+  const [projectSubagents, userSubagents] = await Promise.all([
+    projectDirectory === null
+      ? Promise.resolve<readonly SubagentConfig[]>([])
+      : loadSubagentsFromDirectory(projectDirectory, "project"),
+    loadSubagentsFromDirectory(USER_SUBAGENT_DIR, "user"),
+  ]);
+
   const deduped = new Map<string, SubagentConfig>();
-  for (const config of configs) {
+  for (const config of projectSubagents) {
+    deduped.set(config.name.toLowerCase(), config);
+  }
+  for (const config of userSubagents) {
     deduped.set(config.name.toLowerCase(), config);
   }
 
@@ -376,33 +441,50 @@ export const loadSubagents = async (): Promise<readonly SubagentConfig[]> => {
 
 export const findSubagentByName = async (
   name: string,
+  cwd: string = process.cwd(),
 ): Promise<SubagentConfig | null> => {
   const normalizedName = name.trim().toLowerCase();
   if (normalizedName.length === 0) {
     return null;
   }
 
-  const subagents = await loadSubagents();
+  const subagents = await loadSubagents(cwd);
   return (
     subagents.find((subagent) => subagent.name.toLowerCase() === normalizedName) ??
     null
   );
 };
 
-const formatAgentSetting = (label: string, value: string | number | null): string =>
-  value === null ? "" : `, ${label}: ${value}`;
-
-const permissionSourceLabel = (source: SubagentPermissionSource): string => {
+const permissionSourceLabel = (source: SubagentPermissionSource): string | null => {
   switch (source) {
     case "permission":
-      return "custom-permissions";
+      return "custom permissions";
     case "legacy-tools":
-      return "legacy-tools";
+      return "legacy tools";
     case "read-only":
       return "read-only";
     case "default":
-      return "default";
+      return null;
   }
+};
+
+const formatSubagentMetadata = (subagent: SubagentConfig): string => {
+  const metadata: string[] = [];
+
+  if (subagent.source === "project") {
+    metadata.push("project");
+  }
+
+  if (subagent.model !== null) {
+    metadata.push(`model: ${subagent.model}`);
+  }
+
+  const permissionLabel = permissionSourceLabel(subagent.permissionSource);
+  if (permissionLabel !== null) {
+    metadata.push(permissionLabel);
+  }
+
+  return metadata.length === 0 ? "" : ` [${metadata.join("; ")}]`;
 };
 
 export const buildAvailableSubagentsPrompt = (
@@ -414,7 +496,7 @@ export const buildAvailableSubagentsPrompt = (
 
   const lines = subagents.map(
     (subagent) =>
-      `- ${subagent.name}: ${subagent.description} [model: ${subagent.model ?? "session"}, thinking: ${subagent.thinkingLevel}${formatAgentSetting("temperature", subagent.temperature)}${formatAgentSetting("verbosity", subagent.textVerbosity)}, permissions: ${permissionSourceLabel(subagent.permissionSource)}]`,
+      `- ${subagent.name}: ${subagent.description}${formatSubagentMetadata(subagent)}`,
   );
 
   return [
