@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.58.4",
+  "lastChangelogVersion": "0.60.0",
   "defaultProvider": "opencode",
   "defaultModel": "gpt-5.4",
   "defaultThinkingLevel": "xhigh",
@@ -10,7 +10,7 @@
     "https://github.com/davebcn87/pi-autoresearch",
     "npm:@plannotator/pi-extension"
   ],
-  "hideThinkingBlock": false,
+  "hideThinkingBlock": true,
   "compaction": {
     "enabled": false
   },

@@ -6,7 +6,7 @@ import {
   type ExtensionAPI,
   type SessionEntry,
 } from "@mariozechner/pi-coding-agent";
-import { resolveToolModel } from "../helpers/model-routing.js";
+import { resolveToolModel } from "../../helpers/model-routing.js";
 
 const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history and the user's goal for a new thread, generate a focused prompt that:
 

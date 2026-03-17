@@ -1,94 +1,50 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  formatSize,
-  truncateHead,
-} from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { callExaMcpText, isRecord } from "../exa/shared.js";
 
 const WEBSEARCH_TOOL = "websearch";
-const SEARCH_USER_AGENT =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 pi-websearch/1.0";
-const SEARCH_TIMEOUT_SECONDS = 20;
-
-const EXA_SEARCH_ENDPOINT =
-  process.env.EXA_SEARCH_ENDPOINT?.trim() || "https://api.exa.ai/search";
-const EXA_MCP_ENDPOINT =
-  process.env.EXA_MCP_ENDPOINT?.trim() || "https://mcp.exa.ai/mcp";
-const EXA_DEFAULT_TEXT_MAX_CHARACTERS = 600;
-
-const DUCKDUCKGO_HTML_ENDPOINT = "https://duckduckgo.com/html/";
-
-type ExecResult = {
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly code: number;
-  readonly killed: boolean;
-};
-
-type JsonRecord = Record<string, unknown>;
-
-type WebResult = {
-  readonly title: string;
-  readonly url: string;
-  readonly snippet: string | null;
-};
-
-type WebsearchDetails = {
-  readonly query: string;
-  readonly limit: number;
-  readonly resultCount: number;
-  readonly engine: "exa" | "duckduckgo";
-  readonly requestId: string | null;
-  readonly resolvedSearchType: string | null;
-  readonly costDollarsTotal: number | null;
-  readonly truncated: boolean;
-  readonly fullOutputPath: string | null;
-};
-
-type TruncateContentResult = {
-  readonly text: string;
-  readonly truncated: boolean;
-  readonly fullOutputPath: string | null;
-};
-
-type WebsearchToolResult = {
-  content: { type: "text"; text: string }[];
-  details: WebsearchDetails;
-};
-
-type WebsearchDetailsInput = {
-  readonly query: string;
-  readonly limit: number;
-  readonly resultCount: number;
-  readonly engine: "exa" | "duckduckgo";
-  readonly requestId?: string | null;
-  readonly resolvedSearchType?: string | null;
-  readonly costDollarsTotal?: number | null;
-  readonly truncated?: boolean;
-  readonly fullOutputPath?: string | null;
-};
+const DEFAULT_NUM_RESULTS = 8;
+const DEFAULT_TIMEOUT_MS = 25_000;
+const CURRENT_YEAR = new Date().getFullYear();
 
 const WebsearchParams = Type.Object({
   query: Type.String({
-    description: "Natural-language web query.",
+    description: "Websearch query",
   }),
-  limit: Type.Optional(
+  numResults: Type.Optional(
     Type.Integer({
-      minimum: 1,
-      maximum: 10,
-      default: 5,
-      description: "Max number of results to return (1-10).",
+      description: "Number of search results to return (default: 8)",
+    }),
+  ),
+  livecrawl: Type.Optional(
+    Type.Union([Type.Literal("fallback"), Type.Literal("preferred")], {
+      description:
+        "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
+    }),
+  ),
+  type: Type.Optional(
+    Type.Union([Type.Literal("auto"), Type.Literal("fast"), Type.Literal("deep")], {
+      description:
+        "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
+    }),
+  ),
+  contextMaxCharacters: Type.Optional(
+    Type.Number({
+      description:
+        "Maximum characters for context string optimized for LLMs (default: 10000)",
     }),
   ),
 });
 
-const isRecord = (value: unknown): value is JsonRecord =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+type WebsearchDetails = {
+  readonly query: string;
+  readonly numResults: number;
+  readonly livecrawl: "fallback" | "preferred";
+  readonly type: "auto" | "fast" | "deep";
+  readonly contextMaxCharacters: number | null;
+  readonly engine: "exa";
+  readonly resultCount: number;
+};
 
 const isToolConflictError = (error: unknown, toolName: string): boolean => {
   const message =
@@ -103,650 +59,92 @@ const isToolConflictError = (error: unknown, toolName: string): boolean => {
   return message.includes(`Tool "${toolName}" conflicts`);
 };
 
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0;
-
-const clampInteger = (
-  value: unknown,
-  fallback: number,
-  min: number,
-  max: number,
-): number => {
+const normalizeInteger = (value: unknown, fallback: number): number => {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
   }
 
-  const rounded = Math.trunc(value);
-  if (rounded < min) {
-    return min;
-  }
-  if (rounded > max) {
-    return max;
-  }
-  return rounded;
+  const normalized = Math.trunc(value);
+  return normalized > 0 ? normalized : fallback;
 };
 
-const normalizeWhitespace = (value: string): string =>
-  value.replace(/\s+/g, " ").trim();
+const normalizeOptionalNumber = (value: unknown): number | undefined => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
 
-const buildWebsearchDetails = ({
-  query,
-  limit,
-  resultCount,
-  engine,
-  requestId = null,
-  resolvedSearchType = null,
-  costDollarsTotal = null,
-  truncated = false,
-  fullOutputPath = null,
-}: WebsearchDetailsInput): WebsearchDetails => ({
-  query,
-  limit,
-  resultCount,
-  engine,
-  requestId,
-  resolvedSearchType,
-  costDollarsTotal,
-  truncated,
-  fullOutputPath,
-});
-
-const decodeHtmlEntities = (value: string): string => {
-  const namedEntities: Readonly<Record<string, string>> = {
-    amp: "&",
-    lt: "<",
-    gt: ">",
-    quot: '"',
-    apos: "'",
-    nbsp: " ",
-  };
-
-  return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (_match, entity) => {
-    if (entity.startsWith("#x") || entity.startsWith("#X")) {
-      const codePoint = Number.parseInt(entity.slice(2), 16);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : "";
-    }
-
-    if (entity.startsWith("#")) {
-      const codePoint = Number.parseInt(entity.slice(1), 10);
-      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : "";
-    }
-
-    return namedEntities[entity] ?? "";
-  });
+  return value;
 };
 
-const stripHtmlTags = (value: string): string =>
-  value
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ");
-
-const htmlToText = (value: string): string =>
-  normalizeWhitespace(decodeHtmlEntities(stripHtmlTags(value)));
-
-const truncateContent = async (content: string): Promise<TruncateContentResult> => {
-  const truncation = truncateHead(content, {
-    maxLines: DEFAULT_MAX_LINES,
-    maxBytes: DEFAULT_MAX_BYTES,
-  });
-
-  if (!truncation.truncated) {
-    return {
-      text: truncation.content,
-      truncated: false,
-      fullOutputPath: null,
-    };
-  }
-
-  const omittedLines = truncation.totalLines - truncation.outputLines;
-  const omittedBytes = truncation.totalBytes - truncation.outputBytes;
-
-  let fullOutputPath: string | null = null;
-  try {
-    const tempDir = await mkdtemp(join(tmpdir(), "pi-websearch-"));
-    fullOutputPath = join(tempDir, "output.txt");
-    await writeFile(fullOutputPath, content, "utf8");
-  } catch {
-    fullOutputPath = null;
-  }
-
-  const truncationNoticeParts = [
-    `Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).`,
-    `${omittedLines} lines (${formatSize(omittedBytes)}) omitted.`,
-    fullOutputPath === null
-      ? "Could not persist full output to a temp file."
-      : `Full output saved to: ${fullOutputPath}`,
-  ];
-
-  return {
-    text: [truncation.content, `[${truncationNoticeParts.join(" ")}]`].join("\n\n"),
-    truncated: true,
-    fullOutputPath,
-  };
-};
-
-const runCurl = async (
-  pi: ExtensionAPI,
-  args: readonly string[],
-  signal: AbortSignal | undefined,
-): Promise<string> => {
-  const result = (await pi.exec("curl", [...args], {
-    signal,
-    timeout: (SEARCH_TIMEOUT_SECONDS + 5) * 1000,
-  })) as ExecResult;
-
-  if (result.code !== 0) {
-    throw new Error(
-      `curl failed: ${result.stderr || result.stdout || "unknown error"}`,
-    );
-  }
-
-  return result.stdout;
-};
-
-const parseExaErrorMessage = (value: unknown): string => {
-  if (!isRecord(value)) {
-    return "unknown API error";
-  }
-
-  const parts: string[] = [];
-  if (isNonEmptyString(value.error)) {
-    parts.push(value.error.trim());
-  }
-  if (isNonEmptyString(value.message)) {
-    parts.push(value.message.trim());
-  }
-
-  return parts.length > 0 ? parts.join(". ") : "unknown API error";
-};
-
-const fetchJson = async (
-  url: string,
-  init: {
-    readonly method: string;
-    readonly headers: Record<string, string>;
-    readonly body: string;
-  },
-  signal: AbortSignal | undefined,
-): Promise<unknown> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_SECONDS * 1000);
-
-  const forwardAbort = () => {
-    controller.abort();
-  };
-
-  if (signal !== undefined) {
-    if (signal.aborted) {
-      controller.abort();
-    } else {
-      signal.addEventListener("abort", forwardAbort, { once: true });
-    }
-  }
-
-  try {
-    const response = await fetch(url, {
-      method: init.method,
-      headers: init.headers,
-      body: init.body,
-      signal: controller.signal,
-    });
-
-    const responseText = await response.text();
-
-    let parsedBody: unknown = null;
-    if (responseText.trim().length > 0) {
-      try {
-        parsedBody = JSON.parse(responseText);
-      } catch {
-        throw new Error("websearch received non-JSON response from Exa.");
-      }
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        `Exa websearch request failed with status ${response.status}: ${parseExaErrorMessage(parsedBody)}`,
-      );
-    }
-
-    return parsedBody;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
-      if (signal?.aborted) {
-        throw new Error("websearch request was aborted.");
-      }
-      throw new Error(
-        `websearch request timed out after ${SEARCH_TIMEOUT_SECONDS} seconds.`,
-      );
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-    if (signal !== undefined) {
-      signal.removeEventListener("abort", forwardAbort);
-    }
-  }
-};
-
-const parseWebResultSnippet = (value: unknown): string | null => {
-  if (isNonEmptyString(value)) {
-    const text = normalizeWhitespace(value);
-    return text.length > 0 ? text : null;
-  }
-
-  if (Array.isArray(value)) {
-    const text = normalizeWhitespace(
-      value.filter((item): item is string => isNonEmptyString(item)).join(" "),
-    );
-    return text.length > 0 ? text : null;
-  }
-
-  return null;
-};
-
-const parseExaWebResults = (
-  response: unknown,
-  limit: number,
-): {
-  readonly results: readonly WebResult[];
-  readonly requestId: string | null;
-  readonly resolvedSearchType: string | null;
-  readonly costDollarsTotal: number | null;
-} => {
-  if (!isRecord(response)) {
-    throw new Error("websearch received an unexpected response shape from Exa.");
-  }
-
-  const rawResults = Array.isArray(response.results) ? response.results : [];
-  const results: WebResult[] = [];
-
-  for (const rawResult of rawResults) {
-    if (!isRecord(rawResult) || !isNonEmptyString(rawResult.url)) {
-      continue;
-    }
-
-    const url = rawResult.url.trim();
-    const title = isNonEmptyString(rawResult.title) ? rawResult.title.trim() : url;
-
-    const snippet =
-      parseWebResultSnippet(rawResult.text) ??
-      parseWebResultSnippet(rawResult.highlights);
-
-    results.push({ title, url, snippet });
-
-    if (results.length >= limit) {
-      break;
-    }
-  }
-
-  const requestId = isNonEmptyString(response.requestId)
-    ? response.requestId.trim()
-    : null;
-
-  const resolvedSearchType = isNonEmptyString(response.resolvedSearchType)
-    ? response.resolvedSearchType.trim()
-    : null;
-
-  let costDollarsTotal: number | null = null;
-  if (isRecord(response.costDollars) && typeof response.costDollars.total === "number") {
-    const total = response.costDollars.total;
-    if (Number.isFinite(total)) {
-      costDollarsTotal = total;
-    }
-  }
-
-  return {
-    results,
-    requestId,
-    resolvedSearchType,
-    costDollarsTotal,
-  };
-};
-
-const parseExaMcpWebsearchText = (responseBody: string): string => {
-  const outputChunks: string[] = [];
-
-  for (const line of responseBody.split("\n")) {
-    if (!line.startsWith("data:")) {
-      continue;
-    }
-
-    const payload = line.slice("data:".length).trim();
-    if (payload.length === 0 || payload === "[DONE]") {
-      continue;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(payload);
-    } catch {
-      continue;
-    }
-
-    if (!isRecord(parsed) || !isRecord(parsed.result)) {
-      continue;
-    }
-
-    const content = Array.isArray(parsed.result.content) ? parsed.result.content : [];
-    for (const item of content) {
-      if (!isRecord(item) || item.type !== "text" || !isNonEmptyString(item.text)) {
-        continue;
-      }
-
-      outputChunks.push(item.text.trim());
-    }
-  }
-
-  if (outputChunks.length === 0) {
-    throw new Error("websearch received an empty response from Exa MCP.");
-  }
-
-  return outputChunks.join("\n\n");
-};
-
-const countExaMcpResults = (output: string): number => {
+const countResults = (output: string): number => {
   const matches = output.match(/^URL:\s+/gm);
   return matches === null ? 0 : matches.length;
 };
 
-const fetchExaMcpWebsearchText = async (
-  pi: ExtensionAPI,
-  query: string,
-  limit: number,
-  signal: AbortSignal | undefined,
-): Promise<string> => {
-  const requestBody = JSON.stringify({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "tools/call",
-    params: {
-      name: "web_search_exa",
-      arguments: {
-        query,
-        numResults: limit,
-        type: "auto",
-        livecrawl: "fallback",
-      },
-    },
-  });
-
-  const responseBody = await runCurl(
-    pi,
-    [
-      "--location",
-      "--silent",
-      "--show-error",
-      "--compressed",
-      "--max-time",
-      String(SEARCH_TIMEOUT_SECONDS),
-      "--request",
-      "POST",
-      "--header",
-      "accept: application/json, text/event-stream",
-      "--header",
-      "content-type: application/json",
-      "--data-binary",
-      requestBody,
-      EXA_MCP_ENDPOINT,
-    ],
-    signal,
-  );
-
-  return parseExaMcpWebsearchText(responseBody);
-};
-
-const decodeDuckDuckGoResultUrl = (href: string): string | null => {
-  const trimmed = href.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
-  }
-
-  if (trimmed.startsWith("//")) {
-    return `https:${trimmed}`;
-  }
-
-  if (trimmed.startsWith("/l/?")) {
-    const params = new URLSearchParams(trimmed.slice("/l/?".length));
-    const target = params.get("uddg");
-    if (isNonEmptyString(target)) {
-      try {
-        return decodeURIComponent(target);
-      } catch {
-        return target;
-      }
-    }
-  }
-
-  return null;
-};
-
-const parseDuckDuckGoSnippet = (snippetHtml: string | undefined): string | null => {
-  const parsed = htmlToText(snippetHtml ?? "");
-  return parsed.length > 0 ? parsed : null;
-};
-
-const parseDuckDuckGoWebResults = (
-  responseBody: string,
-  limit: number,
-): readonly WebResult[] => {
-  const results: WebResult[] = [];
-  const seenUrls = new Set<string>();
-
-  const resultMatches = responseBody.matchAll(
-    /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
-  );
-
-  for (const match of resultMatches) {
-    const rawHref = match[1] ?? "";
-    const url = decodeDuckDuckGoResultUrl(rawHref);
-    if (url === null || seenUrls.has(url)) {
-      continue;
-    }
-
-    const rawTitle = match[2] ?? "";
-    const title = htmlToText(rawTitle);
-    if (title.length === 0) {
-      continue;
-    }
-
-    const blockStart = match.index ?? 0;
-    const snippetWindow = responseBody.slice(blockStart, blockStart + 1600);
-
-    const snippetMatch =
-      snippetWindow.match(
-        /<(?:a|div)[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/(?:a|div)>/i,
-      ) ?? null;
-
-    const snippet =
-      snippetMatch === null ? null : parseDuckDuckGoSnippet(snippetMatch[1]);
-
-    seenUrls.add(url);
-    results.push({ title, url, snippet });
-
-    if (results.length >= limit) {
-      break;
-    }
-  }
-
-  return results;
-};
-
-const fetchDuckDuckGoWebResults = async (
-  pi: ExtensionAPI,
-  query: string,
-  limit: number,
-  signal: AbortSignal | undefined,
-): Promise<readonly WebResult[]> => {
-  const params = new URLSearchParams();
-  params.set("q", query);
-
-  const responseBody = await runCurl(
-    pi,
-    [
-      "--location",
-      "--silent",
-      "--show-error",
-      "--compressed",
-      "--max-time",
-      String(SEARCH_TIMEOUT_SECONDS),
-      "--user-agent",
-      SEARCH_USER_AGENT,
-      `${DUCKDUCKGO_HTML_ENDPOINT}?${params.toString()}`,
-    ],
-    signal,
-  );
-
-  return parseDuckDuckGoWebResults(responseBody, limit);
-};
-
-const renderWebResults = (query: string, results: readonly WebResult[]): string => {
-  if (results.length === 0) {
-    return `No web results found for query: ${query}`;
-  }
-
-  const lines: string[] = [`Top ${results.length} web results for "${query}":`];
-  for (const [index, result] of results.entries()) {
-    lines.push(`${index + 1}. [${result.title}](${result.url})`);
-    if (result.snippet !== null) {
-      lines.push(`   ${result.snippet}`);
-    }
-  }
-
-  return lines.join("\n");
-};
-
-const getExaApiKey = (): string | null => {
-  const rawKey = process.env.EXA_API_KEY;
-  return isNonEmptyString(rawKey) ? rawKey.trim() : null;
-};
+const buildDescription = (): string =>
+  [
+    "Search the web using Exa AI - performs real-time web searches and can scrape content from specific URLs.",
+    "Provides up-to-date information for current events and recent data.",
+    "Supports configurable result counts and returns the content from the most relevant websites.",
+    `The current year is ${CURRENT_YEAR}. Use this year in searches for recent information or current events.`,
+  ].join(" ");
 
 export const registerWebsearchTool = (pi: ExtensionAPI): void => {
   try {
     pi.registerTool({
       name: WEBSEARCH_TOOL,
       label: "Web Search",
-      description:
-        "Search the public web with Exa. Uses Exa MCP by default, Exa API when EXA_API_KEY is set, and falls back to DuckDuckGo if MCP fails. Output is truncated to context-safe limits; when truncated, full output is saved to a temp file.",
-      promptSnippet: "Search the public web for current information.",
+      description: buildDescription(),
+      promptSnippet:
+        "Search the web using Exa AI for up-to-date information beyond the model knowledge cutoff.",
       promptGuidelines: [
-        "Primary engine is Exa via Exa MCP (no API key required).",
-        "If EXA_API_KEY is set, websearch uses Exa's direct API.",
-        "DuckDuckGo is only a fallback when Exa MCP is unavailable.",
-        "Use for broad web research when you do not already have a specific URL.",
-        "Keep queries specific to improve result quality.",
-        "Prefer webfetch when you already know the exact URL to read.",
+        "Supports live crawling modes: 'fallback' (backup if cached unavailable) or 'preferred' (prioritize live crawling).",
+        "Search types: 'auto' (balanced), 'fast' (quick results), 'deep' (comprehensive search).",
+        "Use contextMaxCharacters to control context length for LLM-friendly output when needed.",
+        `When searching for recent information, include the current year (${CURRENT_YEAR}) in the query.`,
       ],
       parameters: WebsearchParams,
 
-      async execute(_toolCallId, params, signal): Promise<WebsearchToolResult> {
+      async execute(_toolCallId, params, signal) {
         const query = params.query.trim();
         if (query.length === 0) {
           throw new Error("websearch query must not be empty.");
         }
 
-        const limit = clampInteger(params.limit, 5, 1, 10);
-        const apiKey = getExaApiKey();
+        const numResults = normalizeInteger(params.numResults, DEFAULT_NUM_RESULTS);
+        const livecrawl = params.livecrawl ?? "fallback";
+        const type = params.type ?? "auto";
+        const contextMaxCharacters = normalizeOptionalNumber(params.contextMaxCharacters);
 
-        if (apiKey === null) {
-          try {
-            const mcpOutput = await fetchExaMcpWebsearchText(pi, query, limit, signal);
-            const truncatedOutput = await truncateContent(mcpOutput);
-
-            return {
-              content: [{ type: "text", text: truncatedOutput.text }],
-              details: buildWebsearchDetails({
-                query,
-                limit,
-                resultCount: countExaMcpResults(mcpOutput),
-                engine: "exa",
-                truncated: truncatedOutput.truncated,
-                fullOutputPath: truncatedOutput.fullOutputPath,
-              }),
-            };
-          } catch {
-            const fallbackResults = await fetchDuckDuckGoWebResults(
-              pi,
-              query,
-              limit,
-              signal,
-            );
-
-            const renderedFallbackResults = renderWebResults(query, fallbackResults);
-            const truncatedOutput = await truncateContent(renderedFallbackResults);
-
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: truncatedOutput.text,
-                },
-              ],
-              details: buildWebsearchDetails({
-                query,
-                limit,
-                resultCount: fallbackResults.length,
-                engine: "duckduckgo",
-                truncated: truncatedOutput.truncated,
-                fullOutputPath: truncatedOutput.fullOutputPath,
-              }),
-            };
-          }
-        }
-
-        const requestBody = JSON.stringify({
-          query,
-          numResults: limit,
-          type: "auto",
-          useAutoprompt: true,
-          contents: {
-            text: {
-              maxCharacters: EXA_DEFAULT_TEXT_MAX_CHARACTERS,
-            },
+        const output = await callExaMcpText({
+          toolName: "web_search_exa",
+          toolArguments: {
+            query,
+            type,
+            numResults,
+            livecrawl,
+            contextMaxCharacters,
           },
+          timeoutMs: DEFAULT_TIMEOUT_MS,
+          signal,
+          emptyResponseMessage: "No search results found. Please try a different query.",
+          errorLabel: "Search error",
+          timeoutMessage: "Search request timed out",
         });
 
-        const rawResponse = await fetchJson(
-          EXA_SEARCH_ENDPOINT,
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              "user-agent": SEARCH_USER_AGENT,
-              "x-api-key": apiKey,
-            },
-            body: requestBody,
-          },
-          signal,
-        );
-
-        const parsed = parseExaWebResults(rawResponse, limit);
-
-        const renderedResults = renderWebResults(query, parsed.results);
-        const truncatedOutput = await truncateContent(renderedResults);
+        const details: WebsearchDetails = {
+          query,
+          numResults,
+          livecrawl,
+          type,
+          contextMaxCharacters: contextMaxCharacters ?? null,
+          engine: "exa",
+          resultCount: countResults(output),
+        };
 
         return {
-          content: [
-            {
-              type: "text",
-              text: truncatedOutput.text,
-            },
-          ],
-          details: buildWebsearchDetails({
-            query,
-            limit,
-            resultCount: parsed.results.length,
-            engine: "exa",
-            requestId: parsed.requestId,
-            resolvedSearchType: parsed.resolvedSearchType,
-            costDollarsTotal: parsed.costDollarsTotal,
-            truncated: truncatedOutput.truncated,
-            fullOutputPath: truncatedOutput.fullOutputPath,
-          }),
+          content: [{ type: "text", text: output }],
+          details,
         };
       },
     });

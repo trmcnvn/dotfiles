@@ -4,7 +4,7 @@ import type {
   ExtensionContext,
   SessionEntry,
 } from "@mariozechner/pi-coding-agent";
-import { resolveToolModel } from "../helpers/model-routing.js";
+import { resolveToolModel } from "../../helpers/model-routing.js";
 
 const MAX_TITLE_LENGTH = 72;
 const FALLBACK_WORD_LIMIT = 8;

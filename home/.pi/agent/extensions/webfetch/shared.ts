@@ -1,100 +1,23 @@
-import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 import { lookup } from "node:dns/promises";
-import {
-  mkdir,
-  mkdtemp,
-  readFile,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  formatSize,
-  truncateHead,
-} from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
+import { isRecord } from "../exa/shared.js";
 
 const WEBFETCH_TOOL = "webfetch";
-const WEBFETCH_CACHE_DIR = join(homedir(), ".cache", "pi-webfetch");
-const WEBFETCH_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
-const MAX_FETCH_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
+const DEFAULT_TIMEOUT_MS = 30 * 1000;
+const MAX_TIMEOUT_MS = 120 * 1000;
 const MAX_REDIRECTS = 8;
-const CURL_TIMEOUT_SECONDS = 30;
-const CURL_USER_AGENT =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 pi-webfetch/1.0";
-const INSECURE_TLS_WARNING =
-  "Warning: TLS certificate validation failed for this page, so the content was fetched without certificate verification.";
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";
+const HONEST_USER_AGENT = "opencode";
 const OUTPUT_EMPTY_MESSAGE = "The fetched page did not contain any readable content.";
 const MARKDOWN_WRAPPER_START = "<div>";
 const MARKDOWN_WRAPPER_END = "</div>";
-const OBJECTIVE_FALLBACK_BLOCKS = 12;
-const OBJECTIVE_SELECTED_BLOCKS = 8;
-const STOP_WORDS = new Set([
-  "a",
-  "an",
-  "and",
-  "are",
-  "as",
-  "at",
-  "be",
-  "by",
-  "for",
-  "from",
-  "how",
-  "if",
-  "in",
-  "into",
-  "is",
-  "it",
-  "of",
-  "on",
-  "or",
-  "that",
-  "the",
-  "their",
-  "this",
-  "to",
-  "what",
-  "when",
-  "where",
-  "which",
-  "why",
-  "with",
-  "you",
-  "your",
-]);
-
-type CacheStatus = "hit" | "miss" | "refetched";
-
-type CachedDocument = {
-  readonly url: string;
-  readonly finalUrl: string;
-  readonly fetchedAt: number;
-  readonly title: string | null;
-  readonly markdown: string;
-  readonly insecureTlsFallback: boolean;
-};
-
-type FetchDocumentResult = {
-  readonly document: CachedDocument;
-  readonly cacheStatus: CacheStatus;
-};
-
-type WebfetchDetails = {
-  readonly url: string;
-  readonly finalUrl: string;
-  readonly objective: string | null;
-  readonly cacheStatus: CacheStatus;
-  readonly fetchedAt: number;
-  readonly insecureTlsFallback: boolean;
-  readonly title: string | null;
-};
 
 type ExecResult = {
   readonly stdout: string;
@@ -103,37 +26,35 @@ type ExecResult = {
   readonly killed: boolean;
 };
 
+type WebfetchFormat = "text" | "markdown" | "html";
+
+type WebfetchDetails = {
+  readonly url: string;
+  readonly finalUrl: string;
+  readonly format: WebfetchFormat;
+  readonly contentType: string;
+  readonly mimeType: string | null;
+  readonly responseBytes: number;
+  readonly title: string | null;
+};
+
 const WebfetchParams = Type.Object({
   url: Type.String({
-    description: "The URL of the web page to read.",
+    description: "The URL to fetch content from",
   }),
-  objective: Type.Optional(
-    Type.String({
+  format: Type.Optional(
+    Type.Union([Type.Literal("text"), Type.Literal("markdown"), Type.Literal("html")], {
+      default: "markdown",
       description:
-        "Research goal for relevant excerpts. If omitted, the full page content is returned as Markdown.",
+        "The format to return the content in (text, markdown, or html). Defaults to markdown.",
     }),
   ),
-  forceRefetch: Type.Optional(
-    Type.Boolean({
-      description:
-        "Force a live fetch instead of using a cached copy that may be a few days old.",
-      default: false,
+  timeout: Type.Optional(
+    Type.Number({
+      description: "Optional timeout in seconds (max 120)",
     }),
   ),
 });
-
-const execOptions = (
-  signal: AbortSignal | undefined,
-): { readonly signal: AbortSignal | undefined; readonly timeout: number } => ({
-  signal,
-  timeout: (CURL_TIMEOUT_SECONDS + 5) * 1000,
-});
-
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0;
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isToolConflictError = (error: unknown, toolName: string): boolean => {
   const message =
@@ -147,6 +68,9 @@ const isToolConflictError = (error: unknown, toolName: string): boolean => {
 
   return message.includes(`Tool "${toolName}" conflicts`);
 };
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().length > 0;
 
 const isPrivateIpv4 = (hostname: string): boolean => {
   const match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
@@ -254,117 +178,90 @@ const validateUrl = async (value: string): Promise<URL> => {
   return parsedUrl;
 };
 
-const cacheKeyForUrl = (url: string): string =>
-  createHash("sha256").update(url).digest("hex");
-
-const cachePathForUrl = (url: string): string =>
-  join(WEBFETCH_CACHE_DIR, `${cacheKeyForUrl(url)}.json`);
-
-const writeFileAtomic = async (
-  targetPath: string,
-  content: string,
-): Promise<void> => {
-  const tempPath = `${targetPath}.tmp`;
-  await writeFile(tempPath, content, "utf8");
-  await rename(tempPath, targetPath);
-};
-
-const loadCachedDocument = async (
-  url: string,
-): Promise<CachedDocument | null> => {
-  const path = cachePathForUrl(url);
-
-  try {
-    const [rawDocument, info] = await Promise.all([
-      readFile(path, "utf8"),
-      stat(path),
-    ]);
-    const ageMs = Date.now() - info.mtimeMs;
-    if (ageMs > WEBFETCH_CACHE_TTL_MS) {
-      return null;
-    }
-
-    const parsedDocument: unknown = JSON.parse(rawDocument);
-    if (!isRecord(parsedDocument)) {
-      return null;
-    }
-
-    const { finalUrl, fetchedAt, title, markdown, insecureTlsFallback } = parsedDocument;
-    if (
-      !isNonEmptyString(finalUrl) ||
-      typeof fetchedAt !== "number" ||
-      !isNonEmptyString(markdown) ||
-      typeof insecureTlsFallback !== "boolean"
-    ) {
-      return null;
-    }
-
-    return {
-      url,
-      finalUrl,
-      fetchedAt,
-      title: typeof title === "string" ? title : null,
-      markdown,
-      insecureTlsFallback,
-    };
-  } catch {
-    return null;
-  }
-};
-
-const saveCachedDocument = async (document: CachedDocument): Promise<void> => {
-  await mkdir(WEBFETCH_CACHE_DIR, { recursive: true });
-  await writeFileAtomic(cachePathForUrl(document.url), JSON.stringify(document));
-};
-
-const buildCurlArgs = (
-  url: string,
-  outputPath: string,
-  insecure: boolean,
-): readonly string[] => {
-  const args = [
-    "--location",
-    "--fail",
-    "--silent",
-    "--show-error",
-    "--compressed",
-    "--connect-timeout",
-    "15",
-    "--max-time",
-    String(CURL_TIMEOUT_SECONDS),
-    "--max-filesize",
-    String(MAX_FETCH_FILE_BYTES),
-    "--max-redirs",
-    String(MAX_REDIRECTS),
-    "--proto",
-    "=http,https",
-    "--proto-redir",
-    "=http,https",
-    "--user-agent",
-    CURL_USER_AGENT,
-    "--output",
-    outputPath,
-    "--write-out",
-    "%{url_effective}",
-  ];
-
-  if (insecure) {
-    args.push("--insecure");
+const normalizeTimeoutMs = (value: unknown): number => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return DEFAULT_TIMEOUT_MS;
   }
 
-  args.push(url);
-  return args;
+  return Math.min(Math.trunc(value * 1000), MAX_TIMEOUT_MS);
 };
 
-const isTlsVerificationFailure = (result: ExecResult): boolean => {
-  const stderr = result.stderr.toLowerCase();
-  return (
-    result.code === 60 ||
-    stderr.includes("certificate") ||
-    stderr.includes("issuer") ||
-    stderr.includes("ssl")
-  );
+const createTimedSignal = (
+  timeoutMs: number,
+  parentSignal: AbortSignal | undefined,
+): {
+  readonly signal: AbortSignal;
+  readonly cleanup: () => void;
+} => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  const forwardAbort = () => {
+    controller.abort();
+  };
+
+  if (parentSignal !== undefined) {
+    if (parentSignal.aborted) {
+      controller.abort();
+    } else {
+      parentSignal.addEventListener("abort", forwardAbort, { once: true });
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeout);
+      if (parentSignal !== undefined) {
+        parentSignal.removeEventListener("abort", forwardAbort);
+      }
+    },
+  };
 };
+
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.name === "AbortError";
+
+const normalizeWhitespace = (value: string): string =>
+  value.replace(/\s+/g, " ").trim();
+
+const decodeHtmlEntities = (value: string): string => {
+  const namedEntities: Readonly<Record<string, string>> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+  };
+
+  return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (_match, entity) => {
+    if (entity.startsWith("#x") || entity.startsWith("#X")) {
+      const codePoint = Number.parseInt(entity.slice(2), 16);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : "";
+    }
+
+    if (entity.startsWith("#")) {
+      const codePoint = Number.parseInt(entity.slice(1), 10);
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : "";
+    }
+
+    return namedEntities[entity] ?? "";
+  });
+};
+
+const stripHtmlTags = (value: string): string =>
+  value
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, " ")
+    .replace(/<object[\s\S]*?<\/object>/gi, " ")
+    .replace(/<embed[\s\S]*?<\/embed>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+
+const htmlToText = (value: string): string =>
+  normalizeWhitespace(decodeHtmlEntities(stripHtmlTags(value)));
 
 const extractTitle = (html: string): string | null => {
   const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
@@ -372,7 +269,7 @@ const extractTitle = (html: string): string | null => {
     return null;
   }
 
-  const title = match[1].replace(/\s+/g, " ").trim();
+  const title = normalizeWhitespace(decodeHtmlEntities(match[1] ?? ""));
   return title.length > 0 ? title : null;
 };
 
@@ -392,235 +289,134 @@ const stripWrapperDiv = (markdown: string): string => {
 
 const convertHtmlToMarkdown = async (
   pi: ExtensionAPI,
-  htmlPath: string,
+  html: string,
   signal: AbortSignal | undefined,
+  timeoutMs: number,
 ): Promise<string> => {
-  const result = (await pi.exec(
-    "pandoc",
-    ["--from", "html", "--to", "gfm", "--wrap=none", htmlPath],
-    execOptions(signal),
-  )) as ExecResult;
-
-  if (result.code !== 0) {
-    throw new Error(
-      `pandoc failed while converting fetched HTML to Markdown: ${result.stderr || result.stdout || "unknown error"}`,
-    );
-  }
-
-  const markdown = stripWrapperDiv(result.stdout);
-  return markdown.length > 0 ? markdown : OUTPUT_EMPTY_MESSAGE;
-};
-
-const tokenizeObjective = (objective: string): readonly string[] => {
-  const tokens = objective
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .split(/\s+/)
-    .filter((token) => token.length >= 3 && !STOP_WORDS.has(token));
-
-  return Array.from(new Set(tokens));
-};
-
-const isHeadingBlock = (block: string): boolean => /^#{1,6}\s/.test(block.trim());
-
-const escapeRegExp = (value: string): string =>
-  value.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
-
-const countOccurrences = (text: string, token: string): number => {
-  const matches = text.match(new RegExp(`\\b${escapeRegExp(token)}\\b`, "g"));
-  return matches?.length ?? 0;
-};
-
-const scoreBlock = (block: string, tokens: readonly string[]): number => {
-  const lowerBlock = block.toLowerCase();
-  let score = 0;
-
-  for (const token of tokens) {
-    const occurrences = countOccurrences(lowerBlock, token);
-    if (occurrences > 0) {
-      score += 2 + occurrences;
-    }
-  }
-
-  return isHeadingBlock(block) ? score * 0.5 : score;
-};
-
-const splitMarkdownBlocks = (markdown: string): readonly string[] =>
-  markdown
-    .split(/\n\s*\n+/)
-    .map((block) => block.trim())
-    .filter((block) => block.length > 0);
-
-const selectRelevantBlocks = (
-  blocks: readonly string[],
-  objective: string,
-): string => {
-  const tokens = tokenizeObjective(objective);
-  if (tokens.length === 0) {
-    return blocks.slice(0, OBJECTIVE_FALLBACK_BLOCKS).join("\n\n");
-  }
-
-  const scoredBlocks = blocks
-    .map((block, index) => ({
-      index,
-      score: scoreBlock(block, tokens),
-    }))
-    .filter((entry) => entry.score > 0)
-    .sort((left, right) => right.score - left.score)
-    .slice(0, OBJECTIVE_SELECTED_BLOCKS);
-
-  if (scoredBlocks.length === 0) {
-    return [
-      `No strongly matching excerpts were found for this objective: ${objective}`,
-      blocks.slice(0, OBJECTIVE_FALLBACK_BLOCKS).join("\n\n"),
-    ].join("\n\n");
-  }
-
-  const selectedIndexes = new Set<number>();
-  for (const { index } of scoredBlocks) {
-    selectedIndexes.add(index);
-    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
-      if (isHeadingBlock(blocks[cursor])) {
-        selectedIndexes.add(cursor);
-        break;
-      }
-      if (!isHeadingBlock(blocks[cursor]) && blocks[cursor].length > 120) {
-        break;
-      }
-    }
-  }
-
-  const orderedBlocks = blocks.filter((_block, index) => selectedIndexes.has(index));
-  return orderedBlocks.join("\n\n");
-};
-
-const renderDocument = (
-  document: CachedDocument,
-  objective: string | undefined,
-): string => {
-  const body = isNonEmptyString(objective)
-    ? [
-        `Relevant excerpts for objective: ${objective.trim()}`,
-        selectRelevantBlocks(splitMarkdownBlocks(document.markdown), objective.trim()),
-      ].join("\n\n")
-    : document.markdown;
-
-  const prelude: string[] = [];
-  if (document.insecureTlsFallback) {
-    prelude.push(INSECURE_TLS_WARNING);
-  }
-  if (document.title !== null) {
-    prelude.push(`Title: ${document.title}`);
-  }
-  if (document.finalUrl !== document.url) {
-    prelude.push(`Final URL: ${document.finalUrl}`);
-  }
-
-  return [...prelude, body].filter((part) => part.trim().length > 0).join("\n\n");
-};
-
-const truncateContent = (content: string): string => {
-  const truncation = truncateHead(content, {
-    maxLines: DEFAULT_MAX_LINES,
-    maxBytes: DEFAULT_MAX_BYTES,
-  });
-
-  if (!truncation.truncated) {
-    return truncation.content;
-  }
-
-  return [
-    truncation.content,
-    `[Output truncated: ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).]`,
-  ].join("\n\n");
-};
-
-const fetchDocument = async (
-  pi: ExtensionAPI,
-  normalizedUrl: string,
-  forceRefetch: boolean,
-  signal: AbortSignal | undefined,
-): Promise<FetchDocumentResult> => {
-  if (!forceRefetch) {
-    const cachedDocument = await loadCachedDocument(normalizedUrl);
-    if (cachedDocument !== null) {
-      return {
-        document: cachedDocument,
-        cacheStatus: "hit",
-      };
-    }
-  }
-
   const tempDir = await mkdtemp(join(tmpdir(), "pi-webfetch-"));
   const htmlPath = join(tempDir, "page.html");
 
   try {
-    const secureResult = (await pi.exec(
-      "curl",
-      [...buildCurlArgs(normalizedUrl, htmlPath, false)],
-      execOptions(signal),
+    await writeFile(htmlPath, html, "utf8");
+    const result = (await pi.exec(
+      "pandoc",
+      ["--from", "html", "--to", "gfm", "--wrap=none", htmlPath],
+      {
+        signal,
+        timeout: timeoutMs + 5000,
+      },
     )) as ExecResult;
 
-    let finalFetchResult = secureResult;
-    let insecureTlsFallback = false;
-
-    if (secureResult.code !== 0) {
-      if (!isTlsVerificationFailure(secureResult)) {
-        throw new Error(
-          `Failed to fetch ${normalizedUrl}: ${secureResult.stderr || secureResult.stdout || "unknown error"}`,
-        );
-      }
-
-      const insecureResult = (await pi.exec(
-        "curl",
-        [...buildCurlArgs(normalizedUrl, htmlPath, true)],
-        execOptions(signal),
-      )) as ExecResult;
-
-      if (insecureResult.code !== 0) {
-        throw new Error(
-          `Failed to fetch ${normalizedUrl} after retrying without TLS verification: ${insecureResult.stderr || insecureResult.stdout || "unknown error"}`,
-        );
-      }
-
-      finalFetchResult = insecureResult;
-      insecureTlsFallback = true;
-    }
-
-    const finalUrl = finalFetchResult.stdout.trim() || normalizedUrl;
-    await validateUrl(finalUrl);
-
-    const htmlInfo = await stat(htmlPath);
-    if (htmlInfo.size > MAX_FETCH_FILE_BYTES) {
+    if (result.code !== 0) {
       throw new Error(
-        `Fetched page exceeded the ${formatSize(MAX_FETCH_FILE_BYTES)} safety limit before conversion.`,
+        `pandoc failed while converting fetched HTML to Markdown: ${result.stderr || result.stdout || "unknown error"}`,
       );
     }
 
-    const [html, markdown] = await Promise.all([
-      readFile(htmlPath, "utf8"),
-      convertHtmlToMarkdown(pi, htmlPath, signal),
-    ]);
-
-    const document: CachedDocument = {
-      url: normalizedUrl,
-      finalUrl,
-      fetchedAt: Date.now(),
-      title: extractTitle(html),
-      markdown,
-      insecureTlsFallback,
-    };
-
-    await saveCachedDocument(document);
-
-    return {
-      document,
-      cacheStatus: forceRefetch ? "refetched" : "miss",
-    };
+    const markdown = stripWrapperDiv(result.stdout);
+    return markdown.length > 0 ? markdown : OUTPUT_EMPTY_MESSAGE;
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
 };
+
+const getAcceptHeader = (format: WebfetchFormat): string => {
+  switch (format) {
+    case "markdown":
+      return "text/markdown;q=1.0, text/x-markdown;q=0.9, text/plain;q=0.8, text/html;q=0.7, */*;q=0.1";
+    case "text":
+      return "text/plain;q=1.0, text/markdown;q=0.9, text/html;q=0.8, */*;q=0.1";
+    case "html":
+      return "text/html;q=1.0, application/xhtml+xml;q=0.9, text/plain;q=0.8, text/markdown;q=0.7, */*;q=0.1";
+  }
+};
+
+const fetchOnce = async (
+  url: string,
+  format: WebfetchFormat,
+  signal: AbortSignal,
+  userAgent: string,
+): Promise<Response> => {
+  try {
+    return await fetch(url, {
+      signal,
+      redirect: "manual",
+      headers: {
+        "User-Agent": userAgent,
+        Accept: getAcceptHeader(format),
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : "unknown error";
+    throw new Error(`Failed to fetch ${url}: ${message}`);
+  }
+};
+
+const fetchWithCloudflareRetry = async (
+  url: string,
+  format: WebfetchFormat,
+  signal: AbortSignal,
+): Promise<Response> => {
+  const initial = await fetchOnce(url, format, signal, BROWSER_USER_AGENT);
+
+  if (initial.status === 403 && initial.headers.get("cf-mitigated") === "challenge") {
+    return fetchOnce(url, format, signal, HONEST_USER_AGENT);
+  }
+
+  return initial;
+};
+
+const isRedirectStatus = (status: number): boolean =>
+  status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
+
+const fetchWithRedirects = async (
+  initialUrl: string,
+  format: WebfetchFormat,
+  signal: AbortSignal,
+): Promise<{
+  readonly response: Response;
+  readonly finalUrl: string;
+}> => {
+  let currentUrl = initialUrl;
+
+  for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+    const response = await fetchWithCloudflareRetry(currentUrl, format, signal);
+
+    if (!isRedirectStatus(response.status)) {
+      return {
+        response,
+        finalUrl: currentUrl,
+      };
+    }
+
+    if (redirectCount === MAX_REDIRECTS) {
+      throw new Error(
+        `Too many redirects while fetching ${initialUrl} (exceeded ${MAX_REDIRECTS}).`,
+      );
+    }
+
+    const location = response.headers.get("location");
+    if (!isNonEmptyString(location)) {
+      throw new Error(`Redirect response from ${currentUrl} did not include a Location header.`);
+    }
+
+    const nextUrl = new URL(location, currentUrl).toString();
+    currentUrl = (await validateUrl(nextUrl)).toString();
+  }
+
+  throw new Error(`Failed to fetch ${initialUrl}: redirect handling terminated unexpectedly.`);
+};
+
+const parseMimeType = (contentType: string): string =>
+  contentType.split(";")[0]?.trim().toLowerCase() || "";
+
+const isImageMimeType = (mime: string): boolean =>
+  mime.startsWith("image/") && mime !== "image/svg+xml" && mime !== "image/vnd.fastbidsheet";
 
 export const registerWebfetchTool = (pi: ExtensionAPI): void => {
   try {
@@ -628,43 +424,144 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
       name: WEBFETCH_TOOL,
       label: "Web Fetch",
       description:
-        "Fetch a web page at a given URL but suppress the fetched content in tool output. Returns only an acknowledgement with the URL that was fetched.",
+        "Fetch content from a specified URL, convert to the requested format, and return it directly. Use this when you need to retrieve and analyze web content.",
       promptSnippet:
-        "Fetch a public web page URL and return only an acknowledgement that includes the fetched URL.",
+        "Fetch content from a specific URL and return it as markdown, text, html, or an inline image.",
       promptGuidelines: [
-        "Use this tool for public Internet URLs only.",
-        "Pass forceRefetch: true when freshness matters, such as release notes, changelogs, or live documentation.",
-        "The tool output is intentionally suppressed; it only acknowledges that the URL was called.",
-        "Do not use this for localhost or private-network URLs.",
+        "Prefer this tool when you already know the exact URL to retrieve.",
+        "Use format: 'markdown' (default), 'text', or 'html' based on the task.",
+        "The URL must be a fully formed public Internet http:// or https:// URL.",
+        "This tool rejects localhost and private-network targets.",
       ],
       parameters: WebfetchParams,
 
       async execute(_toolCallId, params, signal) {
         const normalizedUrl = (await validateUrl(params.url)).toString();
-        const fetchedDocument = await fetchDocument(
-          pi,
-          normalizedUrl,
-          params.forceRefetch ?? false,
-          signal,
-        );
-        void truncateContent(renderDocument(fetchedDocument.document, params.objective));
+        const format = params.format ?? "markdown";
+        const timeoutMs = normalizeTimeoutMs(params.timeout);
+        const timeoutSeconds = Math.max(1, Math.floor(timeoutMs / 1000));
+        const { signal: requestSignal, cleanup } = createTimedSignal(timeoutMs, signal);
 
-        const details: WebfetchDetails = {
-          url: fetchedDocument.document.url,
-          finalUrl: fetchedDocument.document.finalUrl,
-          objective: isNonEmptyString(params.objective) ? params.objective.trim() : null,
-          cacheStatus: fetchedDocument.cacheStatus,
-          fetchedAt: fetchedDocument.document.fetchedAt,
-          insecureTlsFallback: fetchedDocument.document.insecureTlsFallback,
-          title: fetchedDocument.document.title,
-        };
+        try {
+          const { response, finalUrl } = await fetchWithRedirects(
+            normalizedUrl,
+            format,
+            requestSignal,
+          );
 
-        return {
-          content: [
-            { type: "text", text: `webfetch called for URL: ${fetchedDocument.document.url}` },
-          ],
-          details,
-        };
+          if (!response.ok) {
+            throw new Error(`Request failed with status code: ${response.status}`);
+          }
+
+          const contentLength = response.headers.get("content-length");
+          if (isNonEmptyString(contentLength)) {
+            const parsedLength = Number.parseInt(contentLength, 10);
+            if (Number.isFinite(parsedLength) && parsedLength > MAX_RESPONSE_SIZE) {
+              throw new Error("Response too large (exceeds 5MB limit)");
+            }
+          }
+
+          const arrayBuffer = await response.arrayBuffer();
+          if (arrayBuffer.byteLength > MAX_RESPONSE_SIZE) {
+            throw new Error("Response too large (exceeds 5MB limit)");
+          }
+
+          const contentType = response.headers.get("content-type") || "";
+          const mimeType = parseMimeType(contentType);
+          const title = isNonEmptyString(contentType)
+            ? `${normalizedUrl} (${contentType})`
+            : normalizedUrl;
+
+          const details: WebfetchDetails = {
+            url: normalizedUrl,
+            finalUrl,
+            format,
+            contentType,
+            mimeType: mimeType.length > 0 ? mimeType : null,
+            responseBytes: arrayBuffer.byteLength,
+            title,
+          };
+
+          if (isImageMimeType(mimeType)) {
+            return {
+              content: [
+                { type: "text", text: "Image fetched successfully" },
+                {
+                  type: "image",
+                  data: Buffer.from(arrayBuffer).toString("base64"),
+                  mimeType,
+                },
+              ],
+              details,
+            };
+          }
+
+          const content = new TextDecoder().decode(arrayBuffer);
+
+          switch (format) {
+            case "markdown": {
+              if (contentType.includes("text/html")) {
+                const markdown = await convertHtmlToMarkdown(
+                  pi,
+                  content,
+                  requestSignal,
+                  timeoutMs,
+                );
+                return {
+                  content: [{ type: "text", text: markdown }],
+                  details: {
+                    ...details,
+                    title: extractTitle(content) ?? title,
+                  },
+                };
+              }
+
+              return {
+                content: [{ type: "text", text: content }],
+                details,
+              };
+            }
+
+            case "text": {
+              if (contentType.includes("text/html")) {
+                const text = htmlToText(content);
+                return {
+                  content: [{ type: "text", text: text.length > 0 ? text : OUTPUT_EMPTY_MESSAGE }],
+                  details: {
+                    ...details,
+                    title: extractTitle(content) ?? title,
+                  },
+                };
+              }
+
+              return {
+                content: [{ type: "text", text: content }],
+                details,
+              };
+            }
+
+            case "html": {
+              return {
+                content: [{ type: "text", text: content }],
+                details: {
+                  ...details,
+                  title: contentType.includes("text/html") ? extractTitle(content) ?? title : title,
+                },
+              };
+            }
+          }
+        } catch (error) {
+          if (isAbortError(error)) {
+            if (signal?.aborted) {
+              throw new Error("Request was aborted.");
+            }
+            throw new Error(`Request timed out after ${timeoutSeconds} seconds.`);
+          }
+
+          throw error;
+        } finally {
+          cleanup();
+        }
       },
     });
   } catch (error) {

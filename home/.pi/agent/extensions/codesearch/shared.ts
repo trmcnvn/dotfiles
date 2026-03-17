@@ -1,99 +1,35 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
-  formatSize,
-  truncateHead,
-} from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { callExaMcpText, isRecord } from "../exa/shared.js";
 
 const CODESEARCH_TOOL = "codesearch";
-const SEARCH_USER_AGENT =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36 pi-codesearch/1.0";
-const SEARCH_TIMEOUT_SECONDS = 30;
-const EXA_MCP_ENDPOINT =
-  process.env.EXA_MCP_ENDPOINT?.trim() || "https://mcp.exa.ai/mcp";
-
-type ExecResult = {
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly code: number;
-  readonly killed: boolean;
-};
-
-type JsonRecord = Record<string, unknown>;
-
-type CodesearchDetails = {
-  readonly query: string;
-  readonly tokensNum: number;
-  readonly resultCount: number;
-  readonly engine: "exa";
-  readonly languages: readonly string[];
-  readonly repo: string | null;
-  readonly path: string | null;
-  readonly truncated: boolean;
-  readonly fullOutputPath: string | null;
-};
-
-type TruncateContentResult = {
-  readonly text: string;
-  readonly truncated: boolean;
-  readonly fullOutputPath: string | null;
-};
+const DEFAULT_TOKENS = 5000;
+const MIN_TOKENS = 1000;
+const MAX_TOKENS = 50000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 const CodesearchParams = Type.Object({
   query: Type.String({
     description:
-      "Search query to find relevant code context for APIs, libraries, SDKs, and frameworks.",
+      "Search query to find relevant context for APIs, Libraries, and SDKs. For example, 'React useState hook examples', 'Python pandas dataframe filtering', 'Express.js middleware', 'Next js partial prerendering configuration'",
   }),
   tokensNum: Type.Optional(
     Type.Integer({
-      minimum: 1000,
-      maximum: 50000,
-      default: 5000,
+      minimum: MIN_TOKENS,
+      maximum: MAX_TOKENS,
+      default: DEFAULT_TOKENS,
       description:
-        "Number of context tokens to return (1000-50000). Higher values return broader context.",
-    }),
-  ),
-  language: Type.Optional(
-    Type.Array(Type.String(), {
-      description:
-        "Optional language hints (legacy compatibility), for example [\"TypeScript\", \"TSX\"].",
-    }),
-  ),
-  repo: Type.Optional(
-    Type.String({
-      description: "Optional repository hint (legacy compatibility).",
-    }),
-  ),
-  path: Type.Optional(
-    Type.String({
-      description: "Optional file path hint (legacy compatibility).",
-    }),
-  ),
-  page: Type.Optional(
-    Type.Integer({
-      minimum: 1,
-      maximum: 20,
-      default: 1,
-      description: "Legacy parameter ignored for Exa MCP mode.",
-    }),
-  ),
-  limit: Type.Optional(
-    Type.Integer({
-      minimum: 1,
-      maximum: 10,
-      default: 5,
-      description: "Legacy hint for concise examples in returned context.",
+        "Number of tokens to return (1000-50000). Default is 5000 tokens. Adjust this value based on how much context you need - use lower values for focused queries and higher values for comprehensive documentation.",
     }),
   ),
 });
 
-const isRecord = (value: unknown): value is JsonRecord =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+type CodesearchDetails = {
+  readonly query: string;
+  readonly tokensNum: number;
+  readonly engine: "exa";
+  readonly resultCount: number;
+};
 
 const isToolConflictError = (error: unknown, toolName: string): boolean => {
   const message =
@@ -108,179 +44,24 @@ const isToolConflictError = (error: unknown, toolName: string): boolean => {
   return message.includes(`Tool "${toolName}" conflicts`);
 };
 
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0;
-
-const clampInteger = (
-  value: unknown,
-  fallback: number,
-  min: number,
-  max: number,
-): number => {
+const clampTokens = (value: unknown): number => {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    return fallback;
+    return DEFAULT_TOKENS;
   }
 
-  const rounded = Math.trunc(value);
-  if (rounded < min) {
-    return min;
+  const normalized = Math.trunc(value);
+  if (normalized < MIN_TOKENS) {
+    return MIN_TOKENS;
   }
-  if (rounded > max) {
-    return max;
+  if (normalized > MAX_TOKENS) {
+    return MAX_TOKENS;
   }
-  return rounded;
-};
-
-const normalizeStringList = (value: unknown): readonly string[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  const normalized: string[] = [];
-  for (const item of value) {
-    if (isNonEmptyString(item)) {
-      normalized.push(item.trim());
-    }
-  }
-
-  return Array.from(new Set(normalized));
-};
-
-const truncateContent = async (content: string): Promise<TruncateContentResult> => {
-  const truncation = truncateHead(content, {
-    maxLines: DEFAULT_MAX_LINES,
-    maxBytes: DEFAULT_MAX_BYTES,
-  });
-
-  if (!truncation.truncated) {
-    return {
-      text: truncation.content,
-      truncated: false,
-      fullOutputPath: null,
-    };
-  }
-
-  const omittedLines = truncation.totalLines - truncation.outputLines;
-  const omittedBytes = truncation.totalBytes - truncation.outputBytes;
-
-  let fullOutputPath: string | null = null;
-  try {
-    const tempDir = await mkdtemp(join(tmpdir(), "pi-codesearch-"));
-    fullOutputPath = join(tempDir, "output.txt");
-    await writeFile(fullOutputPath, content, "utf8");
-  } catch {
-    fullOutputPath = null;
-  }
-
-  const truncationNoticeParts = [
-    `Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).`,
-    `${omittedLines} lines (${formatSize(omittedBytes)}) omitted.`,
-    fullOutputPath === null
-      ? "Could not persist full output to a temp file."
-      : `Full output saved to: ${fullOutputPath}`,
-  ];
-
-  return {
-    text: [truncation.content, `[${truncationNoticeParts.join(" ")}]`].join("\n\n"),
-    truncated: true,
-    fullOutputPath,
-  };
-};
-
-const runCurl = async (
-  pi: ExtensionAPI,
-  args: readonly string[],
-  signal: AbortSignal | undefined,
-): Promise<string> => {
-  const result = (await pi.exec("curl", [...args], {
-    signal,
-    timeout: (SEARCH_TIMEOUT_SECONDS + 5) * 1000,
-  })) as ExecResult;
-
-  if (result.code !== 0) {
-    throw new Error(
-      `codesearch request failed: ${result.stderr || result.stdout || "unknown error"}`,
-    );
-  }
-
-  return result.stdout;
-};
-
-const parseExaMcpCodesearchText = (responseBody: string): string => {
-  const outputChunks: string[] = [];
-
-  for (const line of responseBody.split("\n")) {
-    if (!line.startsWith("data:")) {
-      continue;
-    }
-
-    const payload = line.slice("data:".length).trim();
-    if (payload.length === 0 || payload === "[DONE]") {
-      continue;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(payload);
-    } catch {
-      continue;
-    }
-
-    if (!isRecord(parsed) || !isRecord(parsed.result)) {
-      continue;
-    }
-
-    const content = Array.isArray(parsed.result.content) ? parsed.result.content : [];
-    for (const item of content) {
-      if (!isRecord(item) || item.type !== "text" || !isNonEmptyString(item.text)) {
-        continue;
-      }
-
-      outputChunks.push(item.text.trim());
-    }
-  }
-
-  if (outputChunks.length === 0) {
-    throw new Error("codesearch received an empty response from Exa MCP.");
-  }
-
-  return outputChunks.join("\n\n");
+  return normalized;
 };
 
 const countReferencedUrls = (content: string): number => {
   const matches = content.match(/^https?:\/\//gm);
   return matches === null ? 0 : matches.length;
-};
-
-const buildEffectiveQuery = (params: {
-  readonly query: string;
-  readonly limit: number;
-  readonly languages: readonly string[];
-  readonly repo: string | null;
-  readonly path: string | null;
-}): string => {
-  const hints: string[] = [];
-
-  if (params.languages.length > 0) {
-    hints.push(`Prefer examples in these languages: ${params.languages.join(", ")}`);
-  }
-  if (params.repo !== null) {
-    hints.push(`Prefer examples from repository: ${params.repo}`);
-  }
-  if (params.path !== null) {
-    hints.push(`Prefer examples related to path: ${params.path}`);
-  }
-  if (params.limit !== 5) {
-    hints.push(`Aim for approximately ${params.limit} concise, high-signal examples.`);
-  }
-
-  if (hints.length === 0) {
-    return params.query;
-  }
-
-  return [params.query, "", "Additional constraints:", ...hints.map((hint) => `- ${hint}`)].join(
-    "\n",
-  );
 };
 
 export const registerCodesearchTool = (pi: ExtensionAPI): void => {
@@ -289,14 +70,13 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
       name: CODESEARCH_TOOL,
       label: "Code Search",
       description:
-        "Search and retrieve relevant code context using Exa Code via Exa MCP. Output is truncated to context-safe limits; when truncated, full output is saved to a temp file.",
+        "Search and get relevant context for programming tasks using Exa Code. Returns comprehensive code examples, documentation, and API references.",
       promptSnippet:
-        "Search for real code examples and API context across libraries, SDKs, and frameworks.",
+        "Search and get relevant programming context using Exa Code for libraries, SDKs, APIs, and frameworks.",
       promptGuidelines: [
-        "Uses Exa MCP get_code_context_exa (no API key required).",
-        "Use for programming tasks where examples or API context are needed quickly.",
-        "Write specific queries with framework/library names for better relevance.",
-        "Use tokensNum to control context breadth (default 5000).",
+        "Use this tool for programming questions and implementation tasks.",
+        "Use lower tokensNum values for focused answers and higher values for broader documentation context.",
+        "Write specific queries with framework, library, or API names for the best results.",
       ],
       parameters: CodesearchParams,
 
@@ -306,74 +86,31 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
           throw new Error("codesearch query must not be empty.");
         }
 
-        const tokensNum = clampInteger(params.tokensNum, 5000, 1000, 50000);
-        const limit = clampInteger(params.limit, 5, 1, 10);
-        const languages = normalizeStringList(params.language);
-        const repo = isNonEmptyString(params.repo) ? params.repo.trim() : null;
-        const path = isNonEmptyString(params.path) ? params.path.trim() : null;
+        const tokensNum = clampTokens(params.tokensNum);
 
-        const effectiveQuery = buildEffectiveQuery({
-          query,
-          limit,
-          languages,
-          repo,
-          path,
-        });
-
-        const requestBody = JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "tools/call",
-          params: {
-            name: "get_code_context_exa",
-            arguments: {
-              query: effectiveQuery,
-              tokensNum,
-            },
+        const output = await callExaMcpText({
+          toolName: "get_code_context_exa",
+          toolArguments: {
+            query,
+            tokensNum,
           },
-        });
-
-        const responseBody = await runCurl(
-          pi,
-          [
-            "--location",
-            "--silent",
-            "--show-error",
-            "--compressed",
-            "--max-time",
-            String(SEARCH_TIMEOUT_SECONDS),
-            "--request",
-            "POST",
-            "--header",
-            "accept: application/json, text/event-stream",
-            "--header",
-            "content-type: application/json",
-            "--header",
-            `user-agent: ${SEARCH_USER_AGENT}`,
-            "--data-binary",
-            requestBody,
-            EXA_MCP_ENDPOINT,
-          ],
+          timeoutMs: DEFAULT_TIMEOUT_MS,
           signal,
-        );
-
-        const output = parseExaMcpCodesearchText(responseBody);
-        const truncatedOutput = await truncateContent(output);
+          emptyResponseMessage:
+            "No code snippets or documentation found. Please try a different query, be more specific about the library or programming concept, or check the spelling of framework names.",
+          errorLabel: "Code search error",
+          timeoutMessage: "Code search request timed out",
+        });
 
         const details: CodesearchDetails = {
           query,
           tokensNum,
-          resultCount: countReferencedUrls(output),
           engine: "exa",
-          languages,
-          repo,
-          path,
-          truncated: truncatedOutput.truncated,
-          fullOutputPath: truncatedOutput.fullOutputPath,
+          resultCount: countReferencedUrls(output),
         };
 
         return {
-          content: [{ type: "text", text: truncatedOutput.text }],
+          content: [{ type: "text", text: output }],
           details,
         };
       },
