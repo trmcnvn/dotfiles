@@ -1,14 +1,15 @@
 {
-  "lastChangelogVersion": "0.60.0",
+  "lastChangelogVersion": "0.65.0",
   "defaultProvider": "opencode",
-  "defaultModel": "gpt-5.4",
-  "defaultThinkingLevel": "xhigh",
+  "defaultModel": "claude-opus-4-6",
+  "defaultThinkingLevel": "high",
   "theme": "catppuccin-mocha",
   "collapseChangelog": true,
   "quietStartup": true,
   "packages": [
     "https://github.com/davebcn87/pi-autoresearch",
-    "npm:@plannotator/pi-extension"
+    "npm:@plannotator/pi-extension",
+    "npm:pi-upgrade"
   ],
   "hideThinkingBlock": true,
   "compaction": {

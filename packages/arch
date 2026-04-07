@@ -43,17 +43,11 @@ tree-sitter-cli
 
 # VCS
 jujutsu
-jjui-bin
 
 # Media
 ffmpeg
 imagemagick
 mpv
-
-# Desktop (Hyprland)
-hyprland
-waybar
-satty
 
 # Fonts
 noto-fonts
@@ -67,4 +61,3 @@ ghostty-git
 obs-studio
 spotify
 vesktop-bin
-walker
