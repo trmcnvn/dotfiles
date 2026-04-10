@@ -23,7 +23,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 		end
 
 		if client:supports_method("textDocument/documentColor") then
-			vim.lsp.document_color.enable(true, ev.buf, { style = "virtual" })
+			vim.lsp.document_color.enable(true, { bufnr = ev.buf }, { style = "virtual" })
 		end
 
 		if client:supports_method("textDocument/foldingRange") then

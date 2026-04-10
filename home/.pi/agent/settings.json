@@ -1,8 +1,8 @@
 {
-  "lastChangelogVersion": "0.65.0",
+  "lastChangelogVersion": "0.66.0",
   "defaultProvider": "opencode",
-  "defaultModel": "claude-opus-4-6",
-  "defaultThinkingLevel": "high",
+  "defaultModel": "gpt-5.4",
+  "defaultThinkingLevel": "xhigh",
   "theme": "catppuccin-mocha",
   "collapseChangelog": true,
   "quietStartup": true,
