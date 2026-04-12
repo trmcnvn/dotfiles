@@ -9,7 +9,7 @@ wget
 nushell
 
 # Editor (AUR)
-neovim-nightly-bin
+neovim
 
 # CLI tools
 bat
@@ -20,7 +20,6 @@ fzf
 gum
 jq
 ripgrep
-tldr
 tokei
 tree
 yq
@@ -55,9 +54,9 @@ noto-fonts-emoji
 ttf-jetbrains-mono-nerd
 
 # Apps (AUR)
-bitwarden-bin
+bitwarden
 helium-browser-bin
-ghostty-git
+ghostty
 obs-studio
 spotify
 vesktop-bin

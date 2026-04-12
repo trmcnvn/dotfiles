@@ -235,7 +235,8 @@ cmd_init() {
             install_paru
             msg "Installing packages..."
             # Filter comments and empty lines, then install
-            grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | paru -S --needed -
+            # grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | xargs -r paru -S --needed
+	    paru -Syu --needed $(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$')
             ;;
         macos)
             install_homebrew

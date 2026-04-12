@@ -1,6 +1,5 @@
 # Ghostty
 auto-update-channel = tip
-config-file = ?config.linux
 
 # Font
 font-family = MonoLisa
@@ -10,7 +9,7 @@ font-style-bold = Regular
 font-style-bold-italic = Regular Italic
 font-feature = zero
 font-feature = ss02
-font-size = 12
+font-size = 10
 
 # General font settings
 font-thicken = true
