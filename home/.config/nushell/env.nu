@@ -79,3 +79,4 @@ if not ($jj_cache | path exists) {
         "" | save --force $jj_cache
     }
 }
+
