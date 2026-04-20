@@ -1,49 +1,70 @@
+# Core
+# No direct Homebrew equivalent: base-devel
+brew "git"
+brew "openssh"
+brew "stow"
+brew "unzip"
+brew "wget"
+
+# Shell
+brew "nushell"
+
+# Editor
+brew "neovim"
+
 # CLI tools
 brew "bat"
 brew "btop"
 brew "difftastic"
-brew "doctl"
-brew "dust"
 brew "fd"
-brew "nushell"
-brew "ffmpeg"
 brew "fzf"
-brew "gh"
-brew "git"
-brew "gnupg"
 brew "gum"
+brew "jq"
+brew "ripgrep"
+brew "tokei"
+brew "tmux"
+brew "tree"
+brew "yq"
+brew "zoxide"
+
+# Dev tools
+# macOS runtime equivalent for Arch docker + docker-compose
+cask "orbstack"
+brew "docker-compose"
+brew "doctl"
+brew "gh"
 brew "helm"
 brew "helmfile"
-brew "imagemagick"
-brew "jj"
-brew "jq"
 brew "kubernetes-cli"
 brew "kustomize"
 brew "lazydocker"
 brew "lazygit"
 brew "lua-language-server"
 brew "mise"
-brew "mpv"
-brew "neovim", args: ["HEAD"]
-brew "postgresql@16"
-brew "redis"
-brew "ripgrep"
-brew "stow"
-brew "tldr"
-brew "tokei"
-brew "tree"
-brew "tree-sitter"
-brew "yq"
-brew "zoxide"
+brew "tree-sitter-cli"
 
-# Casks
+# VCS
+brew "jj"
+
+# Media
+brew "ffmpeg"
+brew "imagemagick"
+brew "mpv"
+
+# Fonts
+cask "font-noto-sans"
+cask "font-noto-serif"
+cask "font-noto-sans-mono"
+cask "font-noto-sans-cjk"
+cask "font-noto-serif-cjk"
+cask "font-noto-color-emoji"
+cask "font-jetbrains-mono-nerd-font"
+
+# Apps
 cask "bitwarden"
-cask "orbstack"
+cask "discord"
+cask "helium-browser"
 cask "ghostty"
-cask "google-chrome"
-cask "iina"
-cask "kap"
-cask "numi"
 cask "obs"
-cask "raycast"
 cask "spotify"
+cask "telegram"

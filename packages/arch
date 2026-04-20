@@ -1,6 +1,7 @@
 # Core
 base-devel
 git
+openssh
 stow
 unzip
 wget
@@ -15,6 +16,7 @@ neovim
 bat
 btop
 difftastic
+tmux
 fd
 fzf
 gum
@@ -50,13 +52,15 @@ mpv
 
 # Fonts
 noto-fonts
+noto-fonts-cjk
 noto-fonts-emoji
 ttf-jetbrains-mono-nerd
 
 # Apps (AUR)
 bitwarden
+discord
 helium-browser-bin
 ghostty
 obs-studio
 spotify
-vesktop-bin
+telegram-desktop
