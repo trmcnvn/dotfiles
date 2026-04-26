@@ -43,6 +43,17 @@
       "type": "remote",
       "url": "https://mcp.sentry.dev/mcp",
       "enabled": false
+    },
+    "computer-use": {
+      "type": "local",
+      "command": "/home/trmcnvn/.local/bin/pi-mcp-computer-use",
+      "args": [
+        "--split",
+        "--images-as-files"
+      ],
+      "cwd": "/home/trmcnvn/Code/mcp-computer-use",
+      "enabled": true,
+      "outputMode": "full"
     }
   }
 }

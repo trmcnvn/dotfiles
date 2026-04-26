@@ -1,4 +1,20 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  DEFAULT_MAX_BYTES,
+  DEFAULT_MAX_LINES,
+  formatSize,
+  truncateHead,
+} from "@mariozechner/pi-coding-agent";
+
 type JsonRecord = Record<string, unknown>;
+
+type TruncatedToolText = {
+  readonly text: string;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
+};
 
 const DEFAULT_EXA_MCP_ENDPOINT =
   process.env.EXA_MCP_ENDPOINT?.trim() || "https://mcp.exa.ai/mcp";
@@ -8,6 +24,46 @@ export const isRecord = (value: unknown): value is JsonRecord =>
 
 export const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
+
+export const truncateToolText = async (content: string): Promise<TruncatedToolText> => {
+  const truncation = truncateHead(content, {
+    maxLines: DEFAULT_MAX_LINES,
+    maxBytes: DEFAULT_MAX_BYTES,
+  });
+
+  if (!truncation.truncated) {
+    return {
+      text: truncation.content,
+      truncated: false,
+      fullOutputPath: null,
+    };
+  }
+
+  let fullOutputPath: string | null = null;
+  try {
+    const tempDir = await mkdtemp(join(tmpdir(), "pi-tool-output-"));
+    fullOutputPath = join(tempDir, "output.txt");
+    await writeFile(fullOutputPath, content, "utf8");
+  } catch {
+    fullOutputPath = null;
+  }
+
+  const omittedLines = truncation.totalLines - truncation.outputLines;
+  const omittedBytes = truncation.totalBytes - truncation.outputBytes;
+  const notice = [
+    `Output truncated: showing ${truncation.outputLines} of ${truncation.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}).`,
+    `${omittedLines} lines (${formatSize(omittedBytes)}) omitted.`,
+    fullOutputPath === null
+      ? "Could not persist full output to a temp file."
+      : `Full output saved to: ${fullOutputPath}`,
+  ].join(" ");
+
+  return {
+    text: `${truncation.content}\n\n[${notice}]`,
+    truncated: true,
+    fullOutputPath,
+  };
+};
 
 const buildAbortSignal = (
   timeoutMs: number,

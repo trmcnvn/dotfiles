@@ -1,6 +1,6 @@
 import { Type } from "@sinclair/typebox";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { callExaMcpText, isRecord } from "../exa/shared.js";
+import { callExaMcpText, isRecord, truncateToolText } from "../exa/shared.js";
 
 const CODESEARCH_TOOL = "codesearch";
 const DEFAULT_TOKENS = 5000;
@@ -29,6 +29,8 @@ type CodesearchDetails = {
   readonly tokensNum: number;
   readonly engine: "exa";
   readonly resultCount: number;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
 };
 
 const isToolConflictError = (error: unknown, toolName: string): boolean => {
@@ -74,9 +76,9 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
       promptSnippet:
         "Search and get relevant programming context using Exa Code for libraries, SDKs, APIs, and frameworks.",
       promptGuidelines: [
-        "Use this tool for programming questions and implementation tasks.",
-        "Use lower tokensNum values for focused answers and higher values for broader documentation context.",
-        "Write specific queries with framework, library, or API names for the best results.",
+        "Use codesearch for programming questions and implementation tasks.",
+        "Use lower codesearch tokensNum values for focused answers and higher values for broader documentation context.",
+        "Write specific codesearch queries with framework, library, or API names for the best results.",
       ],
       parameters: CodesearchParams,
 
@@ -102,15 +104,18 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
           timeoutMessage: "Code search request timed out",
         });
 
+        const truncatedOutput = await truncateToolText(output);
         const details: CodesearchDetails = {
           query,
           tokensNum,
           engine: "exa",
           resultCount: countReferencedUrls(output),
+          truncated: truncatedOutput.truncated,
+          fullOutputPath: truncatedOutput.fullOutputPath,
         };
 
         return {
-          content: [{ type: "text", text: output }],
+          content: [{ type: "text", text: truncatedOutput.text }],
           details,
         };
       },

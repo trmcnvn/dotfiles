@@ -13,6 +13,7 @@ const FALLBACK_SOUND_PATH =
   platform() === "darwin"
     ? "/System/Library/Sounds/Submarine.aiff"
     : "/usr/share/sounds/freedesktop/stereo/message.oga";
+const FETCH_TIMEOUT_MS = 15_000;
 
 type JsonRecord = Record<string, unknown>;
 type CategoryMap = Readonly<Record<string, readonly string[]>>;
@@ -140,24 +141,58 @@ const writeFileAtomic = async (
   await rename(tmpPath, targetPath);
 };
 
-const fetchOrThrow = async (url: string): Promise<Response> => {
-  const response = await fetch(url);
+const createFetchTimeoutSignal = (): {
+  readonly signal: AbortSignal;
+  readonly cleanup: () => void;
+} => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  timeout.unref?.();
+
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeout),
+  };
+};
+
+const fetchOrThrow = async (url: string, signal: AbortSignal): Promise<Response> => {
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} for ${url}`);
   }
   return response;
 };
 
-const fetchText = async (url: string): Promise<string> => {
-  const response = await fetchOrThrow(url);
-  return response.text();
+const withFetchTimeout = async <T>(
+  url: string,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> => {
+  const { signal, cleanup } = createFetchTimeoutSignal();
+
+  try {
+    return await operation(signal);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Timed out after ${Math.round(FETCH_TIMEOUT_MS / 1000)}s fetching ${url}`);
+    }
+    throw error;
+  } finally {
+    cleanup();
+  }
 };
 
-const fetchBinary = async (url: string): Promise<Buffer> => {
-  const response = await fetchOrThrow(url);
-  const buffer = await response.arrayBuffer();
-  return Buffer.from(buffer);
-};
+const fetchText = async (url: string): Promise<string> =>
+  await withFetchTimeout(url, async (signal) => {
+    const response = await fetchOrThrow(url, signal);
+    return await response.text();
+  });
+
+const fetchBinary = async (url: string): Promise<Buffer> =>
+  await withFetchTimeout(url, async (signal) => {
+    const response = await fetchOrThrow(url, signal);
+    const buffer = await response.arrayBuffer();
+    return Buffer.from(buffer);
+  });
 
 const encodePathForUrl = (relativePath: string): string =>
   relativePath.split("/").map(encodeURIComponent).join("/");

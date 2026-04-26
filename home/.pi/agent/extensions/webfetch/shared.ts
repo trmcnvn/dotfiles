@@ -1,11 +1,12 @@
 import { Buffer } from "node:buffer";
 import { lookup } from "node:dns/promises";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { isIP } from "node:net";
+import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import { isRecord } from "../exa/shared.js";
+import { isRecord, truncateToolText } from "../exa/shared.js";
 
 const WEBFETCH_TOOL = "webfetch";
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
@@ -16,14 +17,26 @@ const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";
 const HONEST_USER_AGENT = "opencode";
 const OUTPUT_EMPTY_MESSAGE = "The fetched page did not contain any readable content.";
-const MARKDOWN_WRAPPER_START = "<div>";
-const MARKDOWN_WRAPPER_END = "</div>";
+type DnsLookupAddress = {
+  readonly address: string;
+  readonly family: 4 | 6;
+};
 
-type ExecResult = {
-  readonly stdout: string;
-  readonly stderr: string;
-  readonly code: number;
-  readonly killed: boolean;
+type HeaderReader = {
+  get(name: string): string | null;
+};
+
+type WebfetchResponse = {
+  readonly status: number;
+  readonly ok: boolean;
+  readonly headers: HeaderReader;
+  readonly body: Buffer;
+};
+
+type ValidatedUrl = {
+  readonly url: URL;
+  readonly address: string;
+  readonly family: 4 | 6;
 };
 
 type WebfetchFormat = "text" | "markdown" | "html";
@@ -36,6 +49,8 @@ type WebfetchDetails = {
   readonly mimeType: string | null;
   readonly responseBytes: number;
   readonly title: string | null;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
 };
 
 const WebfetchParams = Type.Object({
@@ -43,7 +58,7 @@ const WebfetchParams = Type.Object({
     description: "The URL to fetch content from",
   }),
   format: Type.Optional(
-    Type.Union([Type.Literal("text"), Type.Literal("markdown"), Type.Literal("html")], {
+    StringEnum(["text", "markdown", "html"] as const, {
       default: "markdown",
       description:
         "The format to return the content in (text, markdown, or html). Defaults to markdown.",
@@ -72,50 +87,87 @@ const isToolConflictError = (error: unknown, toolName: string): boolean => {
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
-const isPrivateIpv4 = (hostname: string): boolean => {
-  const match = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+const normalizeHostname = (hostname: string): string => {
+  const normalized = hostname.trim().toLowerCase().replace(/\.+$/, "");
+  return normalized.startsWith("[") && normalized.endsWith("]")
+    ? normalized.slice(1, -1)
+    : normalized;
+};
+
+const normalizeResolvedAddress = (address: string): string => {
+  const normalizedAddress = normalizeHostname(address);
+  return normalizedAddress.startsWith("::ffff:")
+    ? normalizedAddress.slice("::ffff:".length)
+    : normalizedAddress;
+};
+
+const parseIpv4Octets = (address: string): readonly [number, number, number, number] | null => {
+  const match = address.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (match === null) {
-    return false;
+    return null;
   }
 
   const octets = match.slice(1).map((part) => Number(part));
   if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return null;
+  }
+
+  const [first, second, third, fourth] = octets;
+  return first === undefined || second === undefined || third === undefined || fourth === undefined
+    ? null
+    : [first, second, third, fourth];
+};
+
+const isNonGlobalIpv4 = (address: string): boolean => {
+  const octets = parseIpv4Octets(address);
+  if (octets === null) {
     return false;
   }
 
-  const [first, second] = octets;
+  const [first, second, third] = octets;
   return (
     first === 0 ||
     first === 10 ||
     first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
     (first === 169 && second === 254) ||
     (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 168)
+    (first === 192 && second === 0 && (third === 0 || third === 2)) ||
+    (first === 192 && second === 88 && third === 99) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    (first === 198 && second === 51 && third === 100) ||
+    (first === 203 && second === 0 && third === 113) ||
+    first >= 224
   );
 };
 
-const isPrivateIpv6 = (hostname: string): boolean => {
-  const normalizedHostname = hostname.toLowerCase();
+const isNonGlobalIpv6 = (address: string): boolean => {
+  const normalizedAddress = normalizeResolvedAddress(address);
+  if (isIP(normalizedAddress) !== 6) {
+    return false;
+  }
+
   return (
-    normalizedHostname === "::1" ||
-    normalizedHostname === "::" ||
-    normalizedHostname.startsWith("fc") ||
-    normalizedHostname.startsWith("fd") ||
-    normalizedHostname.startsWith("fe8") ||
-    normalizedHostname.startsWith("fe9") ||
-    normalizedHostname.startsWith("fea") ||
-    normalizedHostname.startsWith("feb")
+    normalizedAddress === "::" ||
+    normalizedAddress === "::1" ||
+    normalizedAddress.startsWith("fc") ||
+    normalizedAddress.startsWith("fd") ||
+    normalizedAddress.startsWith("fe8") ||
+    normalizedAddress.startsWith("fe9") ||
+    normalizedAddress.startsWith("fea") ||
+    normalizedAddress.startsWith("feb") ||
+    normalizedAddress.startsWith("ff") ||
+    normalizedAddress.startsWith("100:") ||
+    normalizedAddress.startsWith("2001:2:") ||
+    normalizedAddress.startsWith("2001:db8") ||
+    normalizedAddress.startsWith("2001:0db8")
   );
 };
 
-const normalizeHostname = (hostname: string): string =>
-  hostname.toLowerCase().replace(/\.+$/, "");
-
-const normalizeResolvedAddress = (address: string): string => {
-  const normalizedAddress = address.toLowerCase();
-  return normalizedAddress.startsWith("::ffff:")
-    ? normalizedAddress.slice("::ffff:".length)
-    : normalizedAddress;
+const isNonGlobalAddress = (address: string): boolean => {
+  const normalizedAddress = normalizeResolvedAddress(address);
+  return isNonGlobalIpv4(normalizedAddress) || isNonGlobalIpv6(normalizedAddress);
 };
 
 const isBlockedHostname = (hostname: string): boolean => {
@@ -124,21 +176,19 @@ const isBlockedHostname = (hostname: string): boolean => {
     normalizedHostname === "localhost" ||
     normalizedHostname.endsWith(".local") ||
     normalizedHostname.endsWith(".localdomain") ||
-    isPrivateIpv4(normalizedHostname) ||
-    isPrivateIpv6(normalizedHostname)
+    isNonGlobalAddress(normalizedHostname)
   );
 };
 
 const validateResolvedAddress = (address: string, url: URL): void => {
-  const normalizedAddress = normalizeResolvedAddress(address);
-  if (isPrivateIpv4(normalizedAddress) || isPrivateIpv6(normalizedAddress)) {
+  if (isNonGlobalAddress(address)) {
     throw new Error(
-      `Refusing to fetch ${url.toString()} because ${address} resolves to a private-network address.`,
+      `Refusing to fetch ${url.toString()} because ${address} resolves to a non-public network address.`,
     );
   }
 };
 
-const validateUrl = async (value: string): Promise<URL> => {
+const validateUrl = async (value: string): Promise<ValidatedUrl> => {
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(value.trim());
@@ -152,22 +202,27 @@ const validateUrl = async (value: string): Promise<URL> => {
     );
   }
 
-  if (isBlockedHostname(parsedUrl.hostname)) {
+  const lookupHostname = normalizeHostname(parsedUrl.hostname);
+  if (isBlockedHostname(lookupHostname)) {
     throw new Error(
       `Refusing to fetch ${parsedUrl.toString()} because webfetch is for Internet URLs only, not localhost or private-network addresses.`,
     );
   }
 
-  let resolvedAddresses: readonly { address: string }[];
+  let resolvedAddresses: readonly DnsLookupAddress[];
   try {
-    resolvedAddresses = await lookup(parsedUrl.hostname, {
+    const lookupResults = await lookup(lookupHostname, {
       all: true,
       verbatim: true,
     });
+    resolvedAddresses = lookupResults.filter(
+      (resolvedAddress): resolvedAddress is DnsLookupAddress =>
+        resolvedAddress.family === 4 || resolvedAddress.family === 6,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown DNS error";
     throw new Error(
-      `Failed to resolve ${parsedUrl.hostname} before fetching ${parsedUrl.toString()}: ${message}`,
+      `Failed to resolve ${lookupHostname} before fetching ${parsedUrl.toString()}: ${message}`,
     );
   }
 
@@ -175,7 +230,16 @@ const validateUrl = async (value: string): Promise<URL> => {
     validateResolvedAddress(resolvedAddress.address, parsedUrl);
   }
 
-  return parsedUrl;
+  const [selectedAddress] = resolvedAddresses;
+  if (selectedAddress === undefined) {
+    throw new Error(`Failed to resolve ${lookupHostname}: DNS returned no usable addresses.`);
+  }
+
+  return {
+    url: parsedUrl,
+    address: selectedAddress.address,
+    family: selectedAddress.family,
+  };
 };
 
 const normalizeTimeoutMs = (value: unknown): number => {
@@ -273,51 +337,60 @@ const extractTitle = (html: string): string | null => {
   return title.length > 0 ? title : null;
 };
 
-const stripWrapperDiv = (markdown: string): string => {
-  const trimmedMarkdown = markdown.trim();
-  if (
-    trimmedMarkdown.startsWith(MARKDOWN_WRAPPER_START) &&
-    trimmedMarkdown.endsWith(MARKDOWN_WRAPPER_END)
-  ) {
-    return trimmedMarkdown
-      .slice(MARKDOWN_WRAPPER_START.length, -MARKDOWN_WRAPPER_END.length)
-      .trim();
-  }
+const htmlPreContentToText = (value: string): string =>
+  decodeHtmlEntities(value.replace(/<[^>]+>/g, "")).trim();
 
-  return trimmedMarkdown;
-};
+const normalizeMarkdown = (value: string): string =>
+  decodeHtmlEntities(value)
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+$/g, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
-const convertHtmlToMarkdown = async (
-  pi: ExtensionAPI,
-  html: string,
-  signal: AbortSignal | undefined,
-  timeoutMs: number,
-): Promise<string> => {
-  const tempDir = await mkdtemp(join(tmpdir(), "pi-webfetch-"));
-  const htmlPath = join(tempDir, "page.html");
+const convertHtmlToMarkdown = (html: string): string => {
+  const markdown = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, " ")
+    .replace(/<object[\s\S]*?<\/object>/gi, " ")
+    .replace(/<embed[\s\S]*?<\/embed>/gi, " ")
+    .replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_match, code) =>
+      `\n\n\`\`\`\n${htmlPreContentToText(String(code))}\n\`\`\`\n\n`,
+    )
+    .replace(/<pre[^>]*>([\s\S]*?)<\/pre>/gi, (_match, code) =>
+      `\n\n\`\`\`\n${htmlPreContentToText(String(code))}\n\`\`\`\n\n`,
+    )
+    .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_match, level, inner) => {
+      const headingLevel = Number(level);
+      const prefix = Number.isInteger(headingLevel) ? "#".repeat(headingLevel) : "#";
+      return `\n\n${prefix} ${htmlToText(String(inner))}\n\n`;
+    })
+    .replace(/<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi, (_match, _quote, href, inner) => {
+      const text = htmlToText(String(inner));
+      const url = decodeHtmlEntities(String(href)).trim();
+      return text.length === 0 || url.length === 0 ? text : `[${text}](${url})`;
+    })
+    .replace(/<(strong|b)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, inner) =>
+      `**${htmlToText(String(inner))}**`,
+    )
+    .replace(/<(em|i)[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, inner) =>
+      `_${htmlToText(String(inner))}_`,
+    )
+    .replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, (_match, inner) =>
+      `\`${htmlToText(String(inner)).replace(/`/g, "\\`")}\``,
+    )
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_match, inner) =>
+      `\n- ${htmlToText(String(inner))}`,
+    )
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|section|article|header|footer|main|nav|blockquote|ul|ol|table|tr)>/gi, "\n\n")
+    .replace(/<(p|div|section|article|header|footer|main|nav|blockquote|ul|ol|table|tr)[^>]*>/gi, "\n\n")
+    .replace(/<[^>]+>/g, " ");
 
-  try {
-    await writeFile(htmlPath, html, "utf8");
-    const result = (await pi.exec(
-      "pandoc",
-      ["--from", "html", "--to", "gfm", "--wrap=none", htmlPath],
-      {
-        signal,
-        timeout: timeoutMs + 5000,
-      },
-    )) as ExecResult;
-
-    if (result.code !== 0) {
-      throw new Error(
-        `pandoc failed while converting fetched HTML to Markdown: ${result.stderr || result.stdout || "unknown error"}`,
-      );
-    }
-
-    const markdown = stripWrapperDiv(result.stdout);
-    return markdown.length > 0 ? markdown : OUTPUT_EMPTY_MESSAGE;
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
+  const normalizedMarkdown = normalizeMarkdown(markdown);
+  return normalizedMarkdown.length > 0 ? normalizedMarkdown : OUTPUT_EMPTY_MESSAGE;
 };
 
 const getAcceptHeader = (format: WebfetchFormat): string => {
@@ -331,37 +404,133 @@ const getAcceptHeader = (format: WebfetchFormat): string => {
   }
 };
 
+const createAbortError = (): Error => {
+  const error = new Error("Request aborted.");
+  error.name = "AbortError";
+  return error;
+};
+
+const createHeaderReader = (headers: IncomingHttpHeaders): HeaderReader => ({
+  get(name: string): string | null {
+    const value = headers[name.toLowerCase()];
+    if (Array.isArray(value)) {
+      return value.join(", ");
+    }
+    return typeof value === "string" ? value : null;
+  },
+});
+
 const fetchOnce = async (
   url: string,
   format: WebfetchFormat,
   signal: AbortSignal,
   userAgent: string,
-): Promise<Response> => {
-  try {
-    return await fetch(url, {
-      signal,
-      redirect: "manual",
-      headers: {
-        "User-Agent": userAgent,
-        Accept: getAcceptHeader(format),
-        "Accept-Language": "en-US,en;q=0.9",
+): Promise<WebfetchResponse> => {
+  const validated = await validateUrl(url);
+  const requestUrl = validated.url;
+  const request = requestUrl.protocol === "https:" ? httpsRequest : httpRequest;
+
+  return await new Promise<WebfetchResponse>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(createAbortError());
+      return;
+    }
+
+    let settled = false;
+    const cleanup = () => {
+      signal.removeEventListener("abort", abortRequest);
+    };
+    const finishReject = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const finishResolve = (response: WebfetchResponse) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve(response);
+    };
+    const abortRequest = () => {
+      clientRequest.destroy(createAbortError());
+    };
+
+    const clientRequest = request(
+      {
+        protocol: requestUrl.protocol,
+        hostname: validated.address,
+        family: validated.family,
+        port: requestUrl.port,
+        path: `${requestUrl.pathname}${requestUrl.search}`,
+        method: "GET",
+        ...(requestUrl.protocol === "https:"
+          ? { servername: normalizeHostname(requestUrl.hostname) }
+          : {}),
+        headers: {
+          "User-Agent": userAgent,
+          Accept: getAcceptHeader(format),
+          "Accept-Language": "en-US,en;q=0.9",
+          Host: requestUrl.host,
+        },
       },
-    });
-  } catch (error) {
+      (response) => {
+        const chunks: Buffer[] = [];
+        let responseBytes = 0;
+
+        response.on("data", (chunk: Buffer | string) => {
+          if (settled) {
+            return;
+          }
+
+          const chunkBuffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          responseBytes += chunkBuffer.byteLength;
+
+          if (responseBytes > MAX_RESPONSE_SIZE) {
+            finishReject(new Error("Response too large (exceeds 5MB limit)"));
+            response.destroy();
+            return;
+          }
+
+          chunks.push(chunkBuffer);
+        });
+
+        response.on("end", () => {
+          const status = response.statusCode ?? 0;
+          finishResolve({
+            status,
+            ok: status >= 200 && status < 300,
+            headers: createHeaderReader(response.headers),
+            body: Buffer.concat(chunks),
+          });
+        });
+
+        response.on("error", finishReject);
+      },
+    );
+
+    clientRequest.on("error", finishReject);
+    signal.addEventListener("abort", abortRequest, { once: true });
+    clientRequest.end();
+  }).catch((error: unknown) => {
     if (isAbortError(error)) {
       throw error;
     }
 
     const message = error instanceof Error ? error.message : "unknown error";
     throw new Error(`Failed to fetch ${url}: ${message}`);
-  }
+  });
 };
 
 const fetchWithCloudflareRetry = async (
   url: string,
   format: WebfetchFormat,
   signal: AbortSignal,
-): Promise<Response> => {
+): Promise<WebfetchResponse> => {
   const initial = await fetchOnce(url, format, signal, BROWSER_USER_AGENT);
 
   if (initial.status === 403 && initial.headers.get("cf-mitigated") === "challenge") {
@@ -379,7 +548,7 @@ const fetchWithRedirects = async (
   format: WebfetchFormat,
   signal: AbortSignal,
 ): Promise<{
-  readonly response: Response;
+  readonly response: WebfetchResponse;
   readonly finalUrl: string;
 }> => {
   let currentUrl = initialUrl;
@@ -406,7 +575,7 @@ const fetchWithRedirects = async (
     }
 
     const nextUrl = new URL(location, currentUrl).toString();
-    currentUrl = (await validateUrl(nextUrl)).toString();
+    currentUrl = (await validateUrl(nextUrl)).url.toString();
   }
 
   throw new Error(`Failed to fetch ${initialUrl}: redirect handling terminated unexpectedly.`);
@@ -428,15 +597,15 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
       promptSnippet:
         "Fetch content from a specific URL and return it as markdown, text, html, or an inline image.",
       promptGuidelines: [
-        "Prefer this tool when you already know the exact URL to retrieve.",
-        "Use format: 'markdown' (default), 'text', or 'html' based on the task.",
-        "The URL must be a fully formed public Internet http:// or https:// URL.",
-        "This tool rejects localhost and private-network targets.",
+        "Prefer webfetch when you already know the exact URL to retrieve.",
+        "Use webfetch format: 'markdown' (default), 'text', or 'html' based on the task.",
+        "webfetch URLs must be fully formed public Internet http:// or https:// URLs.",
+        "webfetch rejects localhost and private-network targets.",
       ],
       parameters: WebfetchParams,
 
       async execute(_toolCallId, params, signal) {
-        const normalizedUrl = (await validateUrl(params.url)).toString();
+        const normalizedUrl = (await validateUrl(params.url)).url.toString();
         const format = params.format ?? "markdown";
         const timeoutMs = normalizeTimeoutMs(params.timeout);
         const timeoutSeconds = Math.max(1, Math.floor(timeoutMs / 1000));
@@ -461,8 +630,8 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
             }
           }
 
-          const arrayBuffer = await response.arrayBuffer();
-          if (arrayBuffer.byteLength > MAX_RESPONSE_SIZE) {
+          const responseBody = response.body;
+          if (responseBody.byteLength > MAX_RESPONSE_SIZE) {
             throw new Error("Response too large (exceeds 5MB limit)");
           }
 
@@ -478,8 +647,10 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
             format,
             contentType,
             mimeType: mimeType.length > 0 ? mimeType : null,
-            responseBytes: arrayBuffer.byteLength,
+            responseBytes: responseBody.byteLength,
             title,
+            truncated: false,
+            fullOutputPath: null,
           };
 
           if (isImageMimeType(mimeType)) {
@@ -488,7 +659,7 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
                 { type: "text", text: "Image fetched successfully" },
                 {
                   type: "image",
-                  data: Buffer.from(arrayBuffer).toString("base64"),
+                  data: responseBody.toString("base64"),
                   mimeType,
                 },
               ],
@@ -496,58 +667,50 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
             };
           }
 
-          const content = new TextDecoder().decode(arrayBuffer);
+          const content = new TextDecoder().decode(responseBody);
+          const createTextResponse = async (
+            text: string,
+            detailOverrides: Partial<WebfetchDetails> = {},
+          ) => {
+            const truncatedText = await truncateToolText(text);
+            return {
+              content: [{ type: "text" as const, text: truncatedText.text }],
+              details: {
+                ...details,
+                ...detailOverrides,
+                truncated: truncatedText.truncated,
+                fullOutputPath: truncatedText.fullOutputPath,
+              },
+            };
+          };
 
           switch (format) {
             case "markdown": {
               if (contentType.includes("text/html")) {
-                const markdown = await convertHtmlToMarkdown(
-                  pi,
-                  content,
-                  requestSignal,
-                  timeoutMs,
-                );
-                return {
-                  content: [{ type: "text", text: markdown }],
-                  details: {
-                    ...details,
-                    title: extractTitle(content) ?? title,
-                  },
-                };
+                const markdown = convertHtmlToMarkdown(content);
+                return await createTextResponse(markdown, {
+                  title: extractTitle(content) ?? title,
+                });
               }
 
-              return {
-                content: [{ type: "text", text: content }],
-                details,
-              };
+              return await createTextResponse(content);
             }
 
             case "text": {
               if (contentType.includes("text/html")) {
                 const text = htmlToText(content);
-                return {
-                  content: [{ type: "text", text: text.length > 0 ? text : OUTPUT_EMPTY_MESSAGE }],
-                  details: {
-                    ...details,
-                    title: extractTitle(content) ?? title,
-                  },
-                };
+                return await createTextResponse(text.length > 0 ? text : OUTPUT_EMPTY_MESSAGE, {
+                  title: extractTitle(content) ?? title,
+                });
               }
 
-              return {
-                content: [{ type: "text", text: content }],
-                details,
-              };
+              return await createTextResponse(content);
             }
 
             case "html": {
-              return {
-                content: [{ type: "text", text: content }],
-                details: {
-                  ...details,
-                  title: contentType.includes("text/html") ? extractTitle(content) ?? title : title,
-                },
-              };
+              return await createTextResponse(content, {
+                title: contentType.includes("text/html") ? extractTitle(content) ?? title : title,
+              });
             }
           }
         } catch (error) {

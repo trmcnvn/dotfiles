@@ -1,6 +1,7 @@
 import { Type } from "@sinclair/typebox";
+import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { callExaMcpText, isRecord } from "../exa/shared.js";
+import { callExaMcpText, isRecord, truncateToolText } from "../exa/shared.js";
 
 const WEBSEARCH_TOOL = "websearch";
 const DEFAULT_NUM_RESULTS = 8;
@@ -17,13 +18,13 @@ const WebsearchParams = Type.Object({
     }),
   ),
   livecrawl: Type.Optional(
-    Type.Union([Type.Literal("fallback"), Type.Literal("preferred")], {
+    StringEnum(["fallback", "preferred"] as const, {
       description:
         "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
     }),
   ),
   type: Type.Optional(
-    Type.Union([Type.Literal("auto"), Type.Literal("fast"), Type.Literal("deep")], {
+    StringEnum(["auto", "fast", "deep"] as const, {
       description:
         "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
     }),
@@ -44,6 +45,8 @@ type WebsearchDetails = {
   readonly contextMaxCharacters: number | null;
   readonly engine: "exa";
   readonly resultCount: number;
+  readonly truncated: boolean;
+  readonly fullOutputPath: string | null;
 };
 
 const isToolConflictError = (error: unknown, toolName: string): boolean => {
@@ -98,10 +101,10 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
       promptSnippet:
         "Search the web using Exa AI for up-to-date information beyond the model knowledge cutoff.",
       promptGuidelines: [
-        "Supports live crawling modes: 'fallback' (backup if cached unavailable) or 'preferred' (prioritize live crawling).",
-        "Search types: 'auto' (balanced), 'fast' (quick results), 'deep' (comprehensive search).",
-        "Use contextMaxCharacters to control context length for LLM-friendly output when needed.",
-        `When searching for recent information, include the current year (${CURRENT_YEAR}) in the query.`,
+        "websearch supports live crawling modes: 'fallback' (backup if cached unavailable) or 'preferred' (prioritize live crawling).",
+        "websearch search types are 'auto' (balanced), 'fast' (quick results), and 'deep' (comprehensive search).",
+        "Use websearch contextMaxCharacters to control context length for LLM-friendly output when needed.",
+        `When using websearch for recent information, include the current year (${CURRENT_YEAR}) in the query.`,
       ],
       parameters: WebsearchParams,
 
@@ -132,6 +135,7 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
           timeoutMessage: "Search request timed out",
         });
 
+        const truncatedOutput = await truncateToolText(output);
         const details: WebsearchDetails = {
           query,
           numResults,
@@ -140,10 +144,12 @@ export const registerWebsearchTool = (pi: ExtensionAPI): void => {
           contextMaxCharacters: contextMaxCharacters ?? null,
           engine: "exa",
           resultCount: countResults(output),
+          truncated: truncatedOutput.truncated,
+          fullOutputPath: truncatedOutput.fullOutputPath,
         };
 
         return {
-          content: [{ type: "text", text: output }],
+          content: [{ type: "text", text: truncatedOutput.text }],
           details,
         };
       },

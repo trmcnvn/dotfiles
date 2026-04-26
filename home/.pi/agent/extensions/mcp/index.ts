@@ -740,7 +740,7 @@ const parseMcpConfig = (rawConfig: string, configPath: string): McpConfig => {
     }
 
     const key = sanitizeNameToken(rawKey);
-    const enabled = rawValue.enabled !== false;
+    const enabled = rawValue.enabled === true;
     const outputMode = resolveServerOutputMode(rawValue);
     const outputModesByTool = resolveServerOutputModesByTool(rawValue);
 
@@ -994,18 +994,40 @@ const parseAuthorizationCodeInput = (input: string): string | null => {
   return trimmed;
 };
 
-const renderCallbackHtml = (title: string, message: string): string =>
-  [
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>\"']/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case "\"":
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return char;
+    }
+  });
+
+const renderCallbackHtml = (title: string, message: string): string => {
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
+
+  return [
     "<!doctype html>",
     "<html>",
     "  <head><meta charset=\"utf-8\"><title>Pi MCP OAuth</title></head>",
     "  <body style=\"font-family: sans-serif; padding: 24px;\">",
-    `    <h2>${title}</h2>`,
-    `    <p>${message}</p>`,
+    `    <h2>${safeTitle}</h2>`,
+    `    <p>${safeMessage}</p>`,
     "    <p>You can close this tab and return to Pi.</p>",
     "  </body>",
     "</html>",
   ].join("\n");
+};
 
 const waitForOAuthCallbackCode = async (
   serverKey: string,
@@ -2627,8 +2649,8 @@ export default function mcpExtension(pi: ExtensionAPI) {
     ctx: ExtensionContext,
     sortedServerNames: readonly string[],
     desiredEnabledServers: ReadonlySet<string>,
-  ): Promise<string | null> =>
-    await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+  ): Promise<string | null | undefined> =>
+    await ctx.ui.custom<string | null | undefined>((tui, theme, _kb, done) => {
       const items: SelectItem[] = [
         { value: "__done__", label: "Done" },
         { value: "__enable_all__", label: "Enable all" },
@@ -3051,7 +3073,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
           desiredEnabledServers,
         );
 
-        if (choice === null || choice === "__done__") {
+        if (choice === undefined || choice === null || choice === "__done__") {
           break;
         }
 
@@ -3108,15 +3130,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
           }
         : null;
 
-    const startupInitialization = initializeFromConfig(oauthUi);
-
-    if (!ctx.hasUI) {
-      return startupInitialization.then(() => {
-        return restoreSessionServerSelectionFromBranch(ctx);
-      });
-    }
-
-    void startupInitialization
+    return initializeFromConfig(oauthUi)
       .then(() => {
         return restoreSessionServerSelectionFromBranch(ctx);
       })
@@ -3131,10 +3145,6 @@ export default function mcpExtension(pi: ExtensionAPI) {
   });
 
   pi.on("session_tree", async (_event, ctx) => {
-    await restoreSessionServerSelectionFromBranch(ctx);
-  });
-
-  pi.on("session_fork", async (_event, ctx) => {
     await restoreSessionServerSelectionFromBranch(ctx);
   });
 

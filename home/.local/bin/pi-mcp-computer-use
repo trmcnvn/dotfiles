@@ -1,0 +1,45 @@
+#!/bin/sh
+set -eu
+
+binary="/home/trmcnvn/Code/mcp-computer-use/target/release/mcp-computer-use"
+
+runtime_dir=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+export XDG_RUNTIME_DIR="$runtime_dir"
+
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -S "$runtime_dir/bus" ]; then
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus"
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+    env_output=$(systemctl --user show-environment 2>/dev/null || true)
+
+    import_env_var() {
+        name=$1
+        value=$(printf '%s\n' "$env_output" | awk -v key="$name" 'index($0, key "=") == 1 { print substr($0, length(key) + 2); exit }')
+        if [ -n "$value" ]; then
+            export "$name=$value"
+        fi
+    }
+
+    import_env_var DISPLAY
+    import_env_var WAYLAND_DISPLAY
+    import_env_var XAUTHORITY
+    import_env_var XDG_CURRENT_DESKTOP
+    import_env_var XDG_SESSION_TYPE
+    import_env_var XDG_RUNTIME_DIR
+    import_env_var DBUS_SESSION_BUS_ADDRESS
+fi
+
+: "${DISPLAY:=:0}"
+: "${WAYLAND_DISPLAY:=wayland-0}"
+: "${XDG_CURRENT_DESKTOP:=KDE}"
+: "${XDG_SESSION_TYPE:=wayland}"
+export DISPLAY WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE
+
+if [ ! -x "$binary" ]; then
+    echo "mcp-computer-use release binary is not executable: $binary" >&2
+    echo "Build it with: cd /home/trmcnvn/Code/mcp-computer-use && cargo build --release" >&2
+    exit 127
+fi
+
+exec "$binary" "$@"
