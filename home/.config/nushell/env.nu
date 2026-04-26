@@ -27,10 +27,6 @@ $env.CARGO_HOME = ($env.XDG_DATA_HOME | path join "cargo")
 # Bun
 $env.BUN_INSTALL = ($env.HOME | path join ".bun")
 
-# OpenCode
-$env.OPENCODE_EXPERIMENTAL_LSP_TOOL = "1"
-$env.OPENCODE_ENABLE_EXA = "1"
-
 # Script search path (must be set here so config.nu can `source` from scripts/)
 $env.NU_LIB_DIRS = [
     ($env.XDG_CONFIG_HOME | path join "nushell" "scripts")
@@ -39,8 +35,7 @@ $env.NU_LIB_DIRS = [
 # Extra PATH entries — must be set before mise captures its baseline
 $env.PATH = ($env.PATH | prepend [
     ($env.HOME | path join ".local" "bin")
-    ($env.HOME | path join ".local" "share" "omarchy" "bin")
-    ($env.HOME | path join "code" "dotfiles")
+    ($env.HOME | path join "Code" "dotfiles")
     ($env.CARGO_HOME | path join "bin")
     ($env.BUN_INSTALL | path join "bin")
 ])

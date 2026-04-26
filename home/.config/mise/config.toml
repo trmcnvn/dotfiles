@@ -8,6 +8,7 @@ node = "latest"
 bun = "latest"
 fnox = "latest"
 bitwarden = "latest"
+vp = "latest"
 
 [settings]
 always_keep_download = false

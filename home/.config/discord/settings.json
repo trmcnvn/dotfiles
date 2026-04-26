@@ -1,0 +1,9 @@
+{
+  "openH264Enabled": true,
+  "offloadAdmControls": true,
+  "chromiumSwitches": {},
+  "BACKGROUND_COLOR": "#000000",
+  "IS_MAXIMIZED": false,
+  "IS_MINIMIZED": false,
+  "SKIP_HOST_UPDATE": true
+}
