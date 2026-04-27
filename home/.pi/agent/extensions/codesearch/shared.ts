@@ -7,6 +7,8 @@ const DEFAULT_TOKENS = 5000;
 const MIN_TOKENS = 1000;
 const MAX_TOKENS = 50000;
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_RESULT_COUNT = 8;
+const ESTIMATED_CHARACTERS_PER_TOKEN = 4;
 
 const CodesearchParams = Type.Object({
   query: Type.String({
@@ -62,9 +64,23 @@ const clampTokens = (value: unknown): number => {
 };
 
 const countReferencedUrls = (content: string): number => {
-  const matches = content.match(/^https?:\/\//gm);
-  return matches === null ? 0 : matches.length;
+  const urlLineMatches = content.match(/^URL:\s+\S+/gm);
+  if (urlLineMatches !== null) {
+    return urlLineMatches.length;
+  }
+
+  const bareUrlMatches = content.match(/^https?:\/\//gm);
+  return bareUrlMatches === null ? 0 : bareUrlMatches.length;
 };
+
+const tokensToContextMaxCharacters = (tokensNum: number): number =>
+  tokensNum * ESTIMATED_CHARACTERS_PER_TOKEN;
+
+const buildCodeSearchQuery = (query: string): string =>
+  [
+    query,
+    "Prioritize official documentation, API references, and real code examples.",
+  ].join("\n\n");
 
 export const registerCodesearchTool = (pi: ExtensionAPI): void => {
   try {
@@ -72,9 +88,9 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
       name: CODESEARCH_TOOL,
       label: "Code Search",
       description:
-        "Search and get relevant context for programming tasks using Exa Code. Returns comprehensive code examples, documentation, and API references.",
+        "Search and get relevant context for programming tasks using Exa. Returns code examples, documentation, and API references.",
       promptSnippet:
-        "Search and get relevant programming context using Exa Code for libraries, SDKs, APIs, and frameworks.",
+        "Search and get relevant programming context using Exa for libraries, SDKs, APIs, and frameworks.",
       promptGuidelines: [
         "Use codesearch for programming questions and implementation tasks.",
         "Use lower codesearch tokensNum values for focused answers and higher values for broader documentation context.",
@@ -91,10 +107,13 @@ export const registerCodesearchTool = (pi: ExtensionAPI): void => {
         const tokensNum = clampTokens(params.tokensNum);
 
         const output = await callExaMcpText({
-          toolName: "get_code_context_exa",
+          toolName: "web_search_exa",
           toolArguments: {
-            query,
-            tokensNum,
+            query: buildCodeSearchQuery(query),
+            type: "auto",
+            numResults: DEFAULT_RESULT_COUNT,
+            livecrawl: "fallback",
+            contextMaxCharacters: tokensToContextMaxCharacters(tokensNum),
           },
           timeoutMs: DEFAULT_TIMEOUT_MS,
           signal,
