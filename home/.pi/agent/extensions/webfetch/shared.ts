@@ -2,11 +2,12 @@ import { Buffer } from "node:buffer";
 import { lookup } from "node:dns/promises";
 import { request as httpRequest, type IncomingHttpHeaders } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { isIP } from "node:net";
 import { StringEnum } from "@mariozechner/pi-ai";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { isRecord, truncateToolText } from "../exa/shared.js";
+import { isBlockedHostname, isNonGlobalAddress, normalizeHostname } from "./address-filter.js";
+import { buildBatchWebfetchOutput, type BatchWebfetchResult } from "./batch-output.js";
 
 const WEBFETCH_TOOL = "webfetch";
 const BATCH_WEBFETCH_TOOL = "batch_webfetch";
@@ -113,99 +114,6 @@ const isToolConflictError = (error: unknown, toolName: string): boolean => {
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
-
-const normalizeHostname = (hostname: string): string => {
-  const normalized = hostname.trim().toLowerCase().replace(/\.+$/, "");
-  return normalized.startsWith("[") && normalized.endsWith("]")
-    ? normalized.slice(1, -1)
-    : normalized;
-};
-
-const normalizeResolvedAddress = (address: string): string => {
-  const normalizedAddress = normalizeHostname(address);
-  return normalizedAddress.startsWith("::ffff:")
-    ? normalizedAddress.slice("::ffff:".length)
-    : normalizedAddress;
-};
-
-const parseIpv4Octets = (address: string): readonly [number, number, number, number] | null => {
-  const match = address.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (match === null) {
-    return null;
-  }
-
-  const octets = match.slice(1).map((part) => Number(part));
-  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
-    return null;
-  }
-
-  const [first, second, third, fourth] = octets;
-  return first === undefined || second === undefined || third === undefined || fourth === undefined
-    ? null
-    : [first, second, third, fourth];
-};
-
-const isNonGlobalIpv4 = (address: string): boolean => {
-  const octets = parseIpv4Octets(address);
-  if (octets === null) {
-    return false;
-  }
-
-  const [first, second, third] = octets;
-  return (
-    first === 0 ||
-    first === 10 ||
-    first === 127 ||
-    (first === 100 && second >= 64 && second <= 127) ||
-    (first === 169 && second === 254) ||
-    (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 0 && (third === 0 || third === 2)) ||
-    (first === 192 && second === 88 && third === 99) ||
-    (first === 192 && second === 168) ||
-    (first === 198 && (second === 18 || second === 19)) ||
-    (first === 198 && second === 51 && third === 100) ||
-    (first === 203 && second === 0 && third === 113) ||
-    first >= 224
-  );
-};
-
-const isNonGlobalIpv6 = (address: string): boolean => {
-  const normalizedAddress = normalizeResolvedAddress(address);
-  if (isIP(normalizedAddress) !== 6) {
-    return false;
-  }
-
-  return (
-    normalizedAddress === "::" ||
-    normalizedAddress === "::1" ||
-    normalizedAddress.startsWith("fc") ||
-    normalizedAddress.startsWith("fd") ||
-    normalizedAddress.startsWith("fe8") ||
-    normalizedAddress.startsWith("fe9") ||
-    normalizedAddress.startsWith("fea") ||
-    normalizedAddress.startsWith("feb") ||
-    normalizedAddress.startsWith("ff") ||
-    normalizedAddress.startsWith("100:") ||
-    normalizedAddress.startsWith("2001:2:") ||
-    normalizedAddress.startsWith("2001:db8") ||
-    normalizedAddress.startsWith("2001:0db8")
-  );
-};
-
-const isNonGlobalAddress = (address: string): boolean => {
-  const normalizedAddress = normalizeResolvedAddress(address);
-  return isNonGlobalIpv4(normalizedAddress) || isNonGlobalIpv6(normalizedAddress);
-};
-
-const isBlockedHostname = (hostname: string): boolean => {
-  const normalizedHostname = normalizeHostname(hostname);
-  return (
-    normalizedHostname === "localhost" ||
-    normalizedHostname.endsWith(".local") ||
-    normalizedHostname.endsWith(".localdomain") ||
-    isNonGlobalAddress(normalizedHostname)
-  );
-};
 
 const validateResolvedAddress = (address: string, url: URL): void => {
   if (isNonGlobalAddress(address)) {
@@ -886,14 +794,14 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
       async execute(_toolCallId, params, signal) {
         const requests = params.requests.slice(0, MAX_BATCH_REQUESTS);
         const concurrency = normalizeBatchConcurrency(params.concurrency);
-        const results = await runBounded(requests, concurrency, async (request, index) => {
+        const results = await runBounded<WebfetchInput, BatchWebfetchResult>(requests, concurrency, async (request, index) => {
           try {
             const result = await fetchWebContent(request, signal);
             const textPart = result.content.find((part) => part.type === "text");
             return {
               index,
               url: request.url,
-              ok: true,
+              ok: true as const,
               content: textPart?.type === "text" ? textPart.text : "",
               details: result.details,
             };
@@ -902,30 +810,28 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
             return {
               index,
               url: request.url,
-              ok: false,
+              ok: false as const,
               error: message,
             };
           }
         });
 
-        const succeeded = results.filter((result) => result.ok).length;
-        const failed = results.length - succeeded;
-        const summary = results
-          .map((result) => `${result.index + 1}. ${result.ok ? "✓" : "✗"} ${result.url}${result.ok ? "" : ` — ${result.error}`}`)
-          .join("\n");
+        const batchOutput = await buildBatchWebfetchOutput(results, truncateToolText);
 
         return {
           content: [
             {
               type: "text" as const,
-              text: `Fetched ${succeeded}/${results.length} URL(s) successfully (${failed} failed).\n${summary}`,
+              text: batchOutput.text,
             },
           ],
           details: {
             concurrency,
             results,
+            truncated: batchOutput.truncated,
+            fullOutputPath: batchOutput.fullOutputPath,
           },
-          isError: succeeded === 0,
+          isError: batchOutput.succeeded === 0,
         };
       },
     });

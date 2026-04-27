@@ -34,6 +34,12 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { Container, SelectList, Text, type SelectItem } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
+import {
+  exposesRawMcpOutputDetails,
+  formatMcpToolErrorMessage,
+  formatMcpToolOutput,
+  type McpToolOutputMode,
+} from "./output-policy.js";
 
 const MCP_CONFIG_PATH =
   process.env.PI_MCP_CONFIG_PATH ?? join(homedir(), ".pi", "agent", "mcp.json");
@@ -44,13 +50,11 @@ const CONNECTION_TIMEOUT_MS = 15_000;
 const INTERACTIVE_AUTH_TIMEOUT_MS = 10 * 60_000;
 const OAUTH_CALLBACK_WAIT_TIMEOUT_MS = 5 * 60_000;
 const OAUTH_CALLBACK_BASE_URL = "http://127.0.0.1:54545/callback";
-const MCP_COLLAPSED_PREVIEW_LINES = 14;
 const MCP_DISCOVERY_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
 const IDLE_CONNECTION_TIMEOUT_MS = 10 * 60_000;
 const MCP_SESSION_CONFIG_TYPE = "mcp-proxy-session-config";
 
 type JsonRecord = Record<string, unknown>;
-type McpToolOutputMode = "full" | "collapsed" | "muted";
 type McpRemoteTransport = "auto" | "streamable-http" | "sse";
 
 type McpServerDefinition =
@@ -535,42 +539,6 @@ const truncateContent = async (content: string): Promise<TruncateContentResult> 
     text: [truncation.content, `[${truncationNoticeParts.join(" ")}]`].join("\n\n"),
     truncated: true,
     fullOutputPath,
-  };
-};
-
-const countLines = (value: string): number => {
-  if (value.length === 0) {
-    return 0;
-  }
-
-  return value.split("\n").length;
-};
-
-const takePreviewLines = (
-  value: string,
-  lineLimit: number,
-): {
-  readonly preview: string;
-  readonly omittedLineCount: number;
-} => {
-  if (lineLimit <= 0 || value.length === 0) {
-    return {
-      preview: "",
-      omittedLineCount: countLines(value),
-    };
-  }
-
-  const lines = value.split("\n");
-  if (lines.length <= lineLimit) {
-    return {
-      preview: value,
-      omittedLineCount: 0,
-    };
-  }
-
-  return {
-    preview: lines.slice(0, lineLimit).join("\n"),
-    omittedLineCount: lines.length - lineLimit,
   };
 };
 
@@ -2544,30 +2512,6 @@ export default function mcpExtension(pi: ExtensionAPI) {
     return lines.join("\n");
   };
 
-  const formatGatewayToolOutput = (
-    tool: McpRegisteredTool,
-    output: string,
-  ): string => {
-    if (tool.outputMode === "muted") {
-      return "(output hidden by MCP outputMode configuration)";
-    }
-
-    if (tool.outputMode === "collapsed") {
-      const { preview, omittedLineCount } = takePreviewLines(
-        output,
-        MCP_COLLAPSED_PREVIEW_LINES,
-      );
-
-      if (omittedLineCount === 0) {
-        return preview;
-      }
-
-      return `${preview}\n... ${omittedLineCount} more lines`;
-    }
-
-    return output;
-  };
-
   const createProxyTextResult = async (
     text: string,
     details: JsonRecord,
@@ -2787,15 +2731,22 @@ export default function mcpExtension(pi: ExtensionAPI) {
 
         if (result.isError) {
           throw new Error(
-            `MCP tool ${resolvedTool.definition.key}/${resolvedTool.tool.mcpToolName} returned an error: ${result.output.text}`,
+            formatMcpToolErrorMessage(
+              resolvedTool.definition.key,
+              resolvedTool.tool.mcpToolName,
+              resolvedTool.tool.outputMode,
+              result.output.text,
+            ),
           );
         }
+
+        const exposesRawOutput = exposesRawMcpOutputDetails(resolvedTool.tool.outputMode);
 
         return {
           content: [
             {
               type: "text",
-              text: formatGatewayToolOutput(resolvedTool.tool, result.output.text),
+              text: formatMcpToolOutput(resolvedTool.tool.outputMode, result.output.text),
             },
           ],
           details: {
@@ -2804,8 +2755,8 @@ export default function mcpExtension(pi: ExtensionAPI) {
             mcpTool: resolvedTool.tool.mcpToolName,
             outputMode: resolvedTool.tool.outputMode,
             truncated: result.output.truncated,
-            fullOutputPath: result.output.fullOutputPath,
-            structuredContent: result.structuredContent,
+            fullOutputPath: exposesRawOutput ? result.output.fullOutputPath : null,
+            structuredContent: exposesRawOutput ? result.structuredContent : null,
           },
         };
       }

@@ -10,14 +10,7 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Markdown, type MarkdownTheme } from "@mariozechner/pi-tui";
-
-/**
- * Send a desktop notification via OSC 777 escape sequence.
- */
-const notify = (title: string, body: string): void => {
-	// OSC 777 format: ESC ] 777 ; notify ; title ; body BEL
-	process.stdout.write(`\x1b]777;notify;${title};${body}\x07`);
-};
+import { emitOsc777Notification } from "./osc-notification.js";
 
 const isTextPart = (part: unknown): part is { type: "text"; text: string } =>
 	Boolean(part && typeof part === "object" && "type" in part && part.type === "text" && "text" in part);
@@ -80,9 +73,9 @@ const formatNotification = (text: string | null): { title: string; body: string 
 };
 
 export default function (pi: ExtensionAPI) {
-	pi.on("agent_end", async (event) => {
+	pi.on("agent_end", async (event, ctx) => {
 		const lastText = extractLastAssistantText(event.messages ?? []);
 		const { title, body } = formatNotification(lastText);
-		notify(title, body);
+		emitOsc777Notification(process.stdout, ctx.hasUI, title, body);
 	});
 }
