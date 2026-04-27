@@ -7,7 +7,6 @@ font-style-bold-italic = Bold Condensed Oblique
 font-size = 11
 
 # General font settings
-font-thicken = true
 font-synthetic-style = false
 
 # Cursor
@@ -23,12 +22,8 @@ window-padding-balance = true
 window-padding-x = 0
 window-padding-y = 0
 window-colorspace = display-p3
-macos-option-as-alt = true
-macos-window-shadow = false
-macos-titlebar-proxy-icon = hidden
-macos-titlebar-style = tabs
 window-theme = ghostty
-window-decoration = true
+window-decoration = auto
 title = Ghostty 👻
 
 # Functionality
@@ -46,7 +41,6 @@ scrollback-limit = 100_000_000
 # Theme
 theme = solarized_osaka_dark
 background = #001419
-macos-icon = official
 background-opacity = 1
 background-blur = false
 background-opacity-cells = true
@@ -66,3 +60,6 @@ keybind = ctrl+5=goto_tab:5
 keybind = ctrl+tab=next_tab
 keybind = ctrl+shift+tab=previous_tab
 keybind = alt+backspace=text:\x1b\x7f
+
+# Platform overrides
+config-file = ?~/.config/ghostty/config.local

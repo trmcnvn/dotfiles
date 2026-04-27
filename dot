@@ -254,6 +254,28 @@ cmd_init() {
     msg "Done! Restart your shell."
 }
 
+setup_ghostty_platform_config() {
+    ghostty_dir="$HOME/.config/ghostty"
+
+    case "$(uname -s)" in
+        Darwin) ghostty_platform_config="config.macos" ;;
+        Linux) ghostty_platform_config="config.linux" ;;
+        *)
+            warn "Skipping Ghostty platform config for unsupported OS"
+            return 0
+            ;;
+    esac
+
+    mkdir -p "$ghostty_dir"
+    if [ -e "$ghostty_dir/config.local" ] && [ ! -L "$ghostty_dir/config.local" ]; then
+        warn "Skipping Ghostty platform config; config.local exists and is not a symlink"
+        return 0
+    fi
+
+    ln -sfn "$ghostty_platform_config" "$ghostty_dir/config.local"
+    msg "Ghostty platform config -> $ghostty_platform_config"
+}
+
 cmd_sync() {
     msg "Syncing dotfiles..."
     has stow || die "GNU Stow not installed"
@@ -302,6 +324,7 @@ cmd_sync() {
     fi
 
     stow --no-folding -R -v -d "$DOTFILES" -t ~ home
+    setup_ghostty_platform_config
 }
 
 cmd_update() {

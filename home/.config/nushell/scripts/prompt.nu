@@ -27,16 +27,13 @@ def format-jj [] {
 }
 
 $env.PROMPT_COMMAND = {||
-    let username = ($env.USER? | default "")
     let pwd = (format-pwd)
     let jj = (format-jj)
     let suffix = if ($jj | is-empty) { "" } else { $" (color "#576d74" "on") ($jj)" }
 
-    let user = (color "#ca4b16" $username)
-    let location = (color "#576d74" "in")
     let path = (color "#29a298" $pwd)
 
-    $"($user) ($location) ($path)($suffix)\n"
+    $"($path)($suffix)\n"
 }
 
 $env.PROMPT_COMMAND_RIGHT = {|| "" }

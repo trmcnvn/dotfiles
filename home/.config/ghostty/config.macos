@@ -1,0 +1,8 @@
+# macOS
+font-thicken = true
+macos-option-as-alt = true
+macos-window-shadow = false
+macos-titlebar-proxy-icon = hidden
+macos-titlebar-style = tabs
+macos-icon = official
+window-decoration = auto
