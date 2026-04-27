@@ -9,10 +9,14 @@ import { Type } from "@sinclair/typebox";
 import { isRecord, truncateToolText } from "../exa/shared.js";
 
 const WEBFETCH_TOOL = "webfetch";
+const BATCH_WEBFETCH_TOOL = "batch_webfetch";
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 30 * 1000;
 const MAX_TIMEOUT_MS = 120 * 1000;
 const MAX_REDIRECTS = 8;
+const DEFAULT_BATCH_CONCURRENCY = 4;
+const MAX_BATCH_CONCURRENCY = 10;
+const MAX_BATCH_REQUESTS = 20;
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";
 const HONEST_USER_AGENT = "opencode";
@@ -41,6 +45,8 @@ type ValidatedUrl = {
 
 type WebfetchFormat = "text" | "markdown" | "html";
 
+type MarkdownProvider = "cloudflare-markdown-for-agents" | "local" | null;
+
 type WebfetchDetails = {
   readonly url: string;
   readonly finalUrl: string;
@@ -49,6 +55,11 @@ type WebfetchDetails = {
   readonly mimeType: string | null;
   readonly responseBytes: number;
   readonly title: string | null;
+  readonly extractedTitle: string | null;
+  readonly canonicalUrl: string | null;
+  readonly description: string | null;
+  readonly markdownProvider: MarkdownProvider;
+  readonly markdownTokens: number | null;
   readonly truncated: boolean;
   readonly fullOutputPath: string | null;
 };
@@ -67,6 +78,22 @@ const WebfetchParams = Type.Object({
   timeout: Type.Optional(
     Type.Number({
       description: "Optional timeout in seconds (max 120)",
+    }),
+  ),
+});
+
+const BatchWebfetchParams = Type.Object({
+  requests: Type.Array(WebfetchParams, {
+    minItems: 1,
+    maxItems: MAX_BATCH_REQUESTS,
+    description: "URLs to fetch. Each request accepts url, format, and timeout.",
+  }),
+  concurrency: Type.Optional(
+    Type.Integer({
+      minimum: 1,
+      maximum: MAX_BATCH_CONCURRENCY,
+      default: DEFAULT_BATCH_CONCURRENCY,
+      description: "Maximum concurrent fetches (default 4, max 10).",
     }),
   ),
 });
@@ -328,13 +355,57 @@ const htmlToText = (value: string): string =>
   normalizeWhitespace(decodeHtmlEntities(stripHtmlTags(value)));
 
 const extractTitle = (html: string): string | null => {
-  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-  if (match === null) {
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  const ogMatch = html.match(/<meta\b[^>]*property\s*=\s*(["'])og:title\1[^>]*content\s*=\s*(["'])(.*?)\2[^>]*>/i)
+    ?? html.match(/<meta\b[^>]*content\s*=\s*(["'])(.*?)\1[^>]*property\s*=\s*(["'])og:title\3[^>]*>/i);
+  const raw = ogMatch?.[3] ?? ogMatch?.[2] ?? titleMatch?.[1] ?? "";
+  const title = normalizeWhitespace(decodeHtmlEntities(raw));
+  return title.length > 0 ? title : null;
+};
+
+const extractMetaContent = (html: string, name: string): string | null => {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = html.match(new RegExp(`<meta\\b[^>]*(?:name|property)\\s*=\\s*(["'])${escaped}\\1[^>]*content\\s*=\\s*(["'])(.*?)\\2[^>]*>`, "i"))
+    ?? html.match(new RegExp(`<meta\\b[^>]*content\\s*=\\s*(["'])(.*?)\\1[^>]*(?:name|property)\\s*=\\s*(["'])${escaped}\\3[^>]*>`, "i"));
+  const raw = match?.[3] ?? match?.[2] ?? "";
+  const content = normalizeWhitespace(decodeHtmlEntities(raw));
+  return content.length > 0 ? content : null;
+};
+
+const extractCanonicalUrl = (html: string, finalUrl: string): string | null => {
+  const match = html.match(/<link\b[^>]*rel\s*=\s*(["'])canonical\1[^>]*href\s*=\s*(["'])(.*?)\2[^>]*>/i)
+    ?? html.match(/<link\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*rel\s*=\s*(["'])canonical\3[^>]*>/i);
+  const raw = match?.[3] ?? match?.[2];
+  if (!isNonEmptyString(raw)) return null;
+  try {
+    return new URL(decodeHtmlEntities(raw).trim(), finalUrl).toString();
+  } catch {
     return null;
   }
+};
 
-  const title = normalizeWhitespace(decodeHtmlEntities(match[1] ?? ""));
-  return title.length > 0 ? title : null;
+const extractReadableHtml = (html: string): string => {
+  const withoutNoise = html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(script|style|noscript|iframe|object|embed|svg|canvas|form)\b[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<(nav|footer|aside)\b[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+\b(?:hidden|aria-hidden\s*=\s*(["'])true\1)[^>]*>[\s\S]*?<\/[^>]+>/gi, " ")
+    .replace(/<[^>]+\b(?:class|id)\s*=\s*(["'])[^"']*(?:advert|ads|cookie|banner|sidebar|promo|newsletter|social|share|menu)[^"']*\1[^>]*>[\s\S]*?<\/[^>]+>/gi, " ");
+
+  for (const pattern of [
+    /<main\b[^>]*>([\s\S]*?)<\/main>/i,
+    /<article\b[^>]*>([\s\S]*?)<\/article>/i,
+    /<[^>]+\brole\s*=\s*(["'])main\1[^>]*>([\s\S]*?)<\/[^>]+>/i,
+    /<body\b[^>]*>([\s\S]*?)<\/body>/i,
+  ]) {
+    const match = withoutNoise.match(pattern);
+    const content = match?.[2] ?? match?.[1];
+    if (isNonEmptyString(content) && htmlToText(content).length > 100) {
+      return content;
+    }
+  }
+
+  return withoutNoise;
 };
 
 const htmlPreContentToText = (value: string): string =>
@@ -349,7 +420,8 @@ const normalizeMarkdown = (value: string): string =>
     .trim();
 
 const convertHtmlToMarkdown = (html: string): string => {
-  const markdown = html
+  const readableHtml = extractReadableHtml(html);
+  const markdown = readableHtml
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
@@ -383,6 +455,11 @@ const convertHtmlToMarkdown = (html: string): string => {
     )
     .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_match, inner) =>
       `\n- ${htmlToText(String(inner))}`,
+    )
+    .replace(/<th[^>]*>([\s\S]*?)<\/th>/gi, (_match, inner) => ` ${htmlToText(String(inner))} |`)
+    .replace(/<td[^>]*>([\s\S]*?)<\/td>/gi, (_match, inner) => ` ${htmlToText(String(inner))} |`)
+    .replace(/<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi, (_match, inner) =>
+      `\n\n> ${htmlToText(String(inner))}\n\n`,
     )
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|section|article|header|footer|main|nav|blockquote|ul|ol|table|tr)>/gi, "\n\n")
@@ -587,6 +664,189 @@ const parseMimeType = (contentType: string): string =>
 const isImageMimeType = (mime: string): boolean =>
   mime.startsWith("image/") && mime !== "image/svg+xml" && mime !== "image/vnd.fastbidsheet";
 
+type WebfetchInput = {
+  readonly url: string;
+  readonly format?: WebfetchFormat;
+  readonly timeout?: number;
+};
+
+type TextContent = { readonly type: "text"; readonly text: string };
+type ImageContent = { readonly type: "image"; readonly data: string; readonly mimeType: string };
+type WebfetchToolResult = {
+  readonly content: readonly (TextContent | ImageContent)[];
+  readonly details: WebfetchDetails;
+};
+
+const parseMarkdownTokens = (value: string | null): number | null => {
+  if (!isNonEmptyString(value)) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const fetchWebContent = async (
+  params: WebfetchInput,
+  signal: AbortSignal | undefined,
+): Promise<WebfetchToolResult> => {
+  const normalizedUrl = (await validateUrl(params.url)).url.toString();
+  const format = params.format ?? "markdown";
+  const timeoutMs = normalizeTimeoutMs(params.timeout);
+  const timeoutSeconds = Math.max(1, Math.floor(timeoutMs / 1000));
+  const { signal: requestSignal, cleanup } = createTimedSignal(timeoutMs, signal);
+
+  try {
+    const { response, finalUrl } = await fetchWithRedirects(normalizedUrl, format, requestSignal);
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status code: ${response.status}`);
+    }
+
+    const contentLength = response.headers.get("content-length");
+    if (isNonEmptyString(contentLength)) {
+      const parsedLength = Number.parseInt(contentLength, 10);
+      if (Number.isFinite(parsedLength) && parsedLength > MAX_RESPONSE_SIZE) {
+        throw new Error("Response too large (exceeds 5MB limit)");
+      }
+    }
+
+    const responseBody = response.body;
+    if (responseBody.byteLength > MAX_RESPONSE_SIZE) {
+      throw new Error("Response too large (exceeds 5MB limit)");
+    }
+
+    const contentType = response.headers.get("content-type") || "";
+    const mimeType = parseMimeType(contentType);
+    const fallbackTitle = isNonEmptyString(contentType) ? `${normalizedUrl} (${contentType})` : normalizedUrl;
+    const markdownTokens = parseMarkdownTokens(response.headers.get("x-markdown-tokens"));
+
+    const details: WebfetchDetails = {
+      url: normalizedUrl,
+      finalUrl,
+      format,
+      contentType,
+      mimeType: mimeType.length > 0 ? mimeType : null,
+      responseBytes: responseBody.byteLength,
+      title: fallbackTitle,
+      extractedTitle: null,
+      canonicalUrl: null,
+      description: null,
+      markdownProvider: null,
+      markdownTokens,
+      truncated: false,
+      fullOutputPath: null,
+    };
+
+    if (isImageMimeType(mimeType)) {
+      return {
+        content: [
+          { type: "text", text: "Image fetched successfully" },
+          { type: "image", data: responseBody.toString("base64"), mimeType },
+        ],
+        details,
+      };
+    }
+
+    const content = new TextDecoder().decode(responseBody);
+    const createTextResponse = async (
+      text: string,
+      detailOverrides: Partial<WebfetchDetails> = {},
+    ): Promise<WebfetchToolResult> => {
+      const truncatedText = await truncateToolText(text);
+      return {
+        content: [{ type: "text", text: truncatedText.text }],
+        details: {
+          ...details,
+          ...detailOverrides,
+          truncated: truncatedText.truncated,
+          fullOutputPath: truncatedText.fullOutputPath,
+        },
+      };
+    };
+
+    const isHtml = contentType.includes("text/html");
+    const isMarkdown = contentType.includes("text/markdown") || contentType.includes("text/x-markdown");
+    const extractedTitle = isHtml ? extractTitle(content) : null;
+    const htmlDetails = isHtml
+      ? {
+          title: extractedTitle ?? fallbackTitle,
+          extractedTitle,
+          canonicalUrl: extractCanonicalUrl(content, finalUrl),
+          description: extractMetaContent(content, "description") ?? extractMetaContent(content, "og:description"),
+        }
+      : {};
+
+    switch (format) {
+      case "markdown": {
+        if (isMarkdown) {
+          return await createTextResponse(content, {
+            markdownProvider: "cloudflare-markdown-for-agents",
+            markdownTokens,
+          });
+        }
+
+        if (isHtml) {
+          return await createTextResponse(convertHtmlToMarkdown(content), {
+            ...htmlDetails,
+            markdownProvider: "local",
+          });
+        }
+
+        return await createTextResponse(content);
+      }
+
+      case "text": {
+        if (isHtml) {
+          const text = htmlToText(extractReadableHtml(content));
+          return await createTextResponse(text.length > 0 ? text : OUTPUT_EMPTY_MESSAGE, htmlDetails);
+        }
+
+        return await createTextResponse(content);
+      }
+
+      case "html": {
+        return await createTextResponse(content, htmlDetails);
+      }
+    }
+  } catch (error) {
+    if (isAbortError(error)) {
+      if (signal?.aborted) {
+        throw new Error("Request was aborted.");
+      }
+      throw new Error(`Request timed out after ${timeoutSeconds} seconds.`);
+    }
+
+    throw error;
+  } finally {
+    cleanup();
+  }
+};
+
+const normalizeBatchConcurrency = (value: unknown): number => {
+  if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_BATCH_CONCURRENCY;
+  return Math.max(1, Math.min(Math.trunc(value), MAX_BATCH_CONCURRENCY));
+};
+
+const runBounded = async <T, R>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> => {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  const runNext = async (): Promise<void> => {
+    for (;;) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const item = items[index];
+      if (item === undefined) return;
+      results[index] = await worker(item, index);
+    }
+  };
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, runNext));
+  return results;
+};
+
 export const registerWebfetchTool = (pi: ExtensionAPI): void => {
   try {
     pi.registerTool({
@@ -605,130 +865,72 @@ export const registerWebfetchTool = (pi: ExtensionAPI): void => {
       parameters: WebfetchParams,
 
       async execute(_toolCallId, params, signal) {
-        const normalizedUrl = (await validateUrl(params.url)).url.toString();
-        const format = params.format ?? "markdown";
-        const timeoutMs = normalizeTimeoutMs(params.timeout);
-        const timeoutSeconds = Math.max(1, Math.floor(timeoutMs / 1000));
-        const { signal: requestSignal, cleanup } = createTimedSignal(timeoutMs, signal);
+        return await fetchWebContent(params, signal);
+      },
+    });
 
-        try {
-          const { response, finalUrl } = await fetchWithRedirects(
-            normalizedUrl,
-            format,
-            requestSignal,
-          );
+    pi.registerTool({
+      name: BATCH_WEBFETCH_TOOL,
+      label: "Batch Web Fetch",
+      description:
+        "Fetch multiple public web URLs with bounded concurrency. Returns ordered per-request results and preserves individual errors.",
+      promptSnippet:
+        "Fetch multiple URLs with bounded concurrency and ordered per-request results.",
+      promptGuidelines: [
+        "Use batch_webfetch when you need to fetch several known URLs at once.",
+        "Keep batch_webfetch requests focused; the maximum batch size is 20.",
+        "batch_webfetch rejects localhost and private-network targets for every request.",
+      ],
+      parameters: BatchWebfetchParams,
 
-          if (!response.ok) {
-            throw new Error(`Request failed with status code: ${response.status}`);
-          }
-
-          const contentLength = response.headers.get("content-length");
-          if (isNonEmptyString(contentLength)) {
-            const parsedLength = Number.parseInt(contentLength, 10);
-            if (Number.isFinite(parsedLength) && parsedLength > MAX_RESPONSE_SIZE) {
-              throw new Error("Response too large (exceeds 5MB limit)");
-            }
-          }
-
-          const responseBody = response.body;
-          if (responseBody.byteLength > MAX_RESPONSE_SIZE) {
-            throw new Error("Response too large (exceeds 5MB limit)");
-          }
-
-          const contentType = response.headers.get("content-type") || "";
-          const mimeType = parseMimeType(contentType);
-          const title = isNonEmptyString(contentType)
-            ? `${normalizedUrl} (${contentType})`
-            : normalizedUrl;
-
-          const details: WebfetchDetails = {
-            url: normalizedUrl,
-            finalUrl,
-            format,
-            contentType,
-            mimeType: mimeType.length > 0 ? mimeType : null,
-            responseBytes: responseBody.byteLength,
-            title,
-            truncated: false,
-            fullOutputPath: null,
-          };
-
-          if (isImageMimeType(mimeType)) {
+      async execute(_toolCallId, params, signal) {
+        const requests = params.requests.slice(0, MAX_BATCH_REQUESTS);
+        const concurrency = normalizeBatchConcurrency(params.concurrency);
+        const results = await runBounded(requests, concurrency, async (request, index) => {
+          try {
+            const result = await fetchWebContent(request, signal);
+            const textPart = result.content.find((part) => part.type === "text");
             return {
-              content: [
-                { type: "text", text: "Image fetched successfully" },
-                {
-                  type: "image",
-                  data: responseBody.toString("base64"),
-                  mimeType,
-                },
-              ],
-              details,
+              index,
+              url: request.url,
+              ok: true,
+              content: textPart?.type === "text" ? textPart.text : "",
+              details: result.details,
+            };
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return {
+              index,
+              url: request.url,
+              ok: false,
+              error: message,
             };
           }
+        });
 
-          const content = new TextDecoder().decode(responseBody);
-          const createTextResponse = async (
-            text: string,
-            detailOverrides: Partial<WebfetchDetails> = {},
-          ) => {
-            const truncatedText = await truncateToolText(text);
-            return {
-              content: [{ type: "text" as const, text: truncatedText.text }],
-              details: {
-                ...details,
-                ...detailOverrides,
-                truncated: truncatedText.truncated,
-                fullOutputPath: truncatedText.fullOutputPath,
-              },
-            };
-          };
+        const succeeded = results.filter((result) => result.ok).length;
+        const failed = results.length - succeeded;
+        const summary = results
+          .map((result) => `${result.index + 1}. ${result.ok ? "✓" : "✗"} ${result.url}${result.ok ? "" : ` — ${result.error}`}`)
+          .join("\n");
 
-          switch (format) {
-            case "markdown": {
-              if (contentType.includes("text/html")) {
-                const markdown = convertHtmlToMarkdown(content);
-                return await createTextResponse(markdown, {
-                  title: extractTitle(content) ?? title,
-                });
-              }
-
-              return await createTextResponse(content);
-            }
-
-            case "text": {
-              if (contentType.includes("text/html")) {
-                const text = htmlToText(content);
-                return await createTextResponse(text.length > 0 ? text : OUTPUT_EMPTY_MESSAGE, {
-                  title: extractTitle(content) ?? title,
-                });
-              }
-
-              return await createTextResponse(content);
-            }
-
-            case "html": {
-              return await createTextResponse(content, {
-                title: contentType.includes("text/html") ? extractTitle(content) ?? title : title,
-              });
-            }
-          }
-        } catch (error) {
-          if (isAbortError(error)) {
-            if (signal?.aborted) {
-              throw new Error("Request was aborted.");
-            }
-            throw new Error(`Request timed out after ${timeoutSeconds} seconds.`);
-          }
-
-          throw error;
-        } finally {
-          cleanup();
-        }
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Fetched ${succeeded}/${results.length} URL(s) successfully (${failed} failed).\n${summary}`,
+            },
+          ],
+          details: {
+            concurrency,
+            results,
+          },
+          isError: succeeded === 0,
+        };
       },
     });
   } catch (error) {
-    if (!isToolConflictError(error, WEBFETCH_TOOL)) {
+    if (!isToolConflictError(error, WEBFETCH_TOOL) && !isToolConflictError(error, BATCH_WEBFETCH_TOOL)) {
       throw error;
     }
   }

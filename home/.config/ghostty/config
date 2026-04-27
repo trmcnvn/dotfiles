@@ -1,11 +1,9 @@
 # Font
-font-family = MonoLisa
-font-style = Regular
-font-style-italic = Regular Italic
-font-style-bold = Regular
-font-style-bold-italic = Regular Italic
-font-feature = zero
-font-feature = ss02
+font-family = TX-02
+font-style = Condensed
+font-style-italic = Condensed Oblique
+font-style-bold = Bold Condensed
+font-style-bold-italic = Bold Condensed Oblique
 font-size = 10
 
 # General font settings
@@ -46,8 +44,8 @@ resize-overlay = never
 scrollback-limit = 100_000_000
 
 # Theme
-theme = Catppuccin Mocha
-background = #181825
+theme = solarized_osaka_dark
+background = #001419
 macos-icon = official
 background-opacity = 1
 background-blur = false

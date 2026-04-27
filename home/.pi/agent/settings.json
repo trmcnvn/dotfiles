@@ -15,5 +15,6 @@
     "enabled": false
   },
   "editorPaddingX": 0,
-  "doubleEscapeAction": "none"
+  "doubleEscapeAction": "none",
+  "theme": "solarized-osaka-dark"
 }

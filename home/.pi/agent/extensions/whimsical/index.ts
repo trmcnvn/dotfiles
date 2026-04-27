@@ -1,11 +1,10 @@
-import type {
-  ExtensionAPI,
-  ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-const messages: readonly [string, ...string[]] = [
+const messages = [
+  // Short
   "Schlepping...",
   "Combobulating...",
+  "Doing...",
   "Channelling...",
   "Vibing...",
   "Concocting...",
@@ -15,35 +14,242 @@ const messages: readonly [string, ...string[]] = [
   "Pontificating...",
   "Whirring...",
   "Cogitating...",
+  "Honking...",
+  "Flibbertigibbeting...",
   "Noodling...",
   "Percolating...",
   "Ruminating...",
   "Simmering...",
   "Marinating...",
   "Fermenting...",
+  "Gestating...",
+  "Hatching...",
+  "Brewing...",
+  "Steeping...",
   "Contemplating...",
   "Musing...",
   "Pondering...",
+  "Mulling...",
+  "Daydreaming...",
+  "Woolgathering...",
+  "Dithering...",
+  "Faffing...",
+  "Puttering...",
   "Tinkering...",
+  "Fiddling...",
+  "Noodging...",
   "Finagling...",
+  "Wrangling...",
+  "Jiggling...",
+  "Wiggling...",
+  "Shimmying...",
+  "Galumphing...",
+  "Perambulating...",
+  "Meandering...",
+  "Traipsing...",
+  "Moseying...",
+  "Sauntering...",
+  "Ambling...",
+  "Pottering...",
+  "Bumbling...",
+  "Futzing...",
+  "Schmalzing...",
   "Kerfuffling...",
+  "Bamboozling...",
   "Discombobulating...",
   "Recombobulating...",
+  "Unbefuddling...",
+  "Defenestrating...",
   "Confabulating...",
+  "Persnicketing...",
   "Flummoxing...",
+  "Befuddling...",
+  "Snorkeling...",
+  "Yodeling...",
+  "Zigzagging...",
+  "Ricocheting...",
+  "Somersaulting...",
   "Pirouetting...",
+  "Canoodling...",
   "Schmoozing...",
   "Kibbitzing...",
+  "Skedaddling...",
+  "Scampering...",
+  "Skittering...",
+  "Sashaying...",
   "Swashbuckling...",
+  "Oscillating...",
+  "Undulating...",
+  "Pulsating...",
   "Effervescing...",
+  "Fizzing...",
+  "Bubbling...",
+  "Perplexing...",
+  "Mystifying...",
+  "Enchanting...",
+  "Bewitching...",
+  "Beguiling...",
   "Mesmerizing...",
+  "Bedazzling...",
+  "Sparkling...",
+  "Glittering...",
+  "Scintillating...",
+  "Coruscating...",
+  "Phosphorescing...",
+  "Luminescing...",
+  "Sublimating...",
   "Synthesizing...",
+  "Amalgamating...",
+  "Procrastinating...",
+  "Dillydallying...",
+  "Lollygagging...",
+  "Dawdling...",
+  "Malingering...",
+  "Skulking...",
+  "Lurking...",
+  "Sleuthing...",
+  "Rummaging...",
+  "Fossicking...",
+  "Foraging...",
+  "Scavenging...",
+  "Absquatulating...",
+  "Vamoosing...",
+  "Absconding...",
+  "Grooving...",
+  "Jamming...",
   "Improvising...",
+  "Extemporizing...",
   "Freestyling...",
   "Frolicking...",
+  "Gamboling...",
+  "Blorping...",
+  "Flonking...",
+  "Snurfling...",
+  "Whomping...",
+  "Zorping...",
+  "Biffing...",
+  "Splunging...",
+  "Thwacking...",
+  "Gonkulating...",
+  "Splorfing...",
+  "Wibbling...",
+  "Wobbling...",
+  "Squonking...",
+  "Plonking...",
+  "Bonking...",
+  "Zonking...",
+  "Flumping...",
+  "Clomping...",
+  "Squelching...",
+  "Schlurping...",
+  "Glurping...",
+  "Burbling...",
+  "Gurgling...",
+  "Splooshing...",
+  "Whooshing...",
+  "Swooshing...",
+  "Kerplunking...",
+  "Thunking...",
+  "Clunking...",
+  "Clanking...",
+  "Rattling...",
+  "Jostling...",
+  "Rustling...",
+  "Bustling...",
+  "Hustling...",
+  "Miffing...",
+  "Boffing...",
+  "Snazzifying...",
+  "Pizzazzing...",
+  "Razzmatazzing...",
+  "Bedoodling...",
   "Doodling...",
+  "Scribbling...",
+  "Squiggling...",
+  "Wriggling...",
+  "Niggling...",
+  "Higgling...",
+  "Piggling...",
+  "Figgling...",
+  "Gibbering...",
+  "Jabbering...",
+  "Blathering...",
+  "Blithering...",
+  "Withering...",
+  "Slithering...",
+  "Tethering...",
+  "Feathering...",
+  "Weathering...",
+  "Leathering...",
+  "Heathering...",
+  "Smoldering...",
+  "Moldering...",
+  "Shouldering...",
+  "Bouldering...",
+  "Tottering...",
+  "Teetering...",
+  "Tittering...",
+  "Flittering...",
+  "Jittering...",
+  "Frittering...",
+  "Twittering...",
+  "Nattering...",
+  "Chattering...",
+  "Clattering...",
+  "Splattering...",
+  "Battering...",
+  "Scattering...",
+  "Shattering...",
+  "Flattering...",
+  "Pattering...",
+  "Tattering...",
+  "Mattering...",
+  "Yammering...",
+  "Hammering...",
+  "Stammering...",
+  "Clamoring...",
+  "Glamoring...",
+  "Enamoring...",
   "Shimmering...",
+  "Glimmering...",
+  "Brimming...",
+  "Skimming...",
+  "Trimming...",
+  "Primming...",
+  "Whimming...",
+  "Humming...",
+  "Strumming...",
+  "Thrumming...",
+  "Drumming...",
+  "Plumbing...",
+  "Thumbing...",
+  "Numbing...",
+  "Fumbling...",
+  "Grumbling...",
+  "Mumbling...",
+  "Rumbling...",
+  "Stumbling...",
   "Tumbling...",
+  "Crumbling...",
+  "Jumbling...",
+  "Humbling...",
+  "Bungling...",
+  "Jungling...",
+  "Mangling...",
+  "Wangling...",
+  "Dangling...",
+  "Tangling...",
+  "Jangling...",
+  "Angling...",
+  "Struggling...",
+  "Mingling...",
+  "Tingling...",
+  "Jingling...",
+  "Singling...",
+  "Ringling...",
+  "Kingling...",
+
+  // Long
   "Consulting the void...",
   "Asking the electrons...",
   "Bribing the compiler...",
@@ -56,169 +262,213 @@ const messages: readonly [string, ...string[]] = [
   "Herding pointers...",
   "Untangling spaghetti...",
   "Polishing the algorithms...",
+  "Waxing philosophical...",
+  "Consulting ancient scrolls...",
+  "Reading tea leaves...",
   "Shaking the magic 8-ball...",
   "Sacrificing to the demo gods...",
+  "Warming up the hamsters...",
+  "Spinning up the squirrels...",
+  "Caffeinating...",
+  "Existentially questioning...",
   "Having a little think...",
   "Stroking chin thoughtfully...",
+  "Squinting at the problem...",
   "Staring into the abyss...",
+  "Abyss staring back...",
+  "Achieving enlightenment...",
+  "Transcending mere computation...",
+  "Ascending to a higher plane...",
   "Communing with the machine spirit...",
   "Performing arcane rituals...",
   "Invoking elder functions...",
   "Consulting the oracle...",
+  "Divining the answer...",
   "Scrying the codebase...",
   "Dowsing for bugs...",
+  "Rearranging deck chairs...",
+  "Shuffling bits around...",
+  "Aligning the chakras...",
   "Reticulating splines...",
   "Reversing the polarity...",
   "Calibrating the flux capacitor...",
+  "Charging the crystals...",
+  "Tuning the vibrations...",
+  "Adjusting the cosmic frequency...",
+  "Waiting for a sign...",
+  "Hoping for the best...",
   "Manifesting solutions...",
+  "Willing it into existence...",
+  "Believing really hard...",
+  "Politely asking the CPU...",
+  "Bribing the runtime...",
+  "Flirting with the database...",
   "Sweet-talking the API...",
+  "Negotiating with deadlines...",
   "Having words with the cache...",
+  "Reasoning with the memory...",
+  "Pleading with the logs...",
+  "Bargaining with fate...",
+  "Making offerings to the CI...",
+  "Praying to the uptime gods...",
   "Consulting the rubber duck...",
   "Interrogating the stack trace...",
   "Cross-examining the debugger...",
+  "Petitioning the kernel...",
+  "Lobbying the scheduler...",
+  "Schmoozing the network...",
+  "Buttering up the firewall...",
+  "Wining and dining the servers...",
+  "Taking the bytes out for lunch...",
   "Giving the code a pep talk...",
+  "Reading the room...",
+  "Checking under the hood...",
+  "Kicking the tires...",
   "Shaking loose the cobwebs...",
+  "Dusting off the neurons...",
+  "Greasing the gears...",
+  "Oiling the cogs...",
+  "Winding up the clockwork...",
+  "Stoking the furnace...",
+  "Feeding the machine...",
+  "Watering the logic tree...",
+  "Pruning the decision branches...",
+  "Harvesting the outputs...",
+  "Planting computational seeds...",
+  "Nurturing the algorithm...",
+  "Raising the exceptions...",
+  "Taming wild pointers...",
   "Herding cats in memory...",
   "Teaching old code new tricks...",
   "Whispering sweet nothings to the compiler...",
+  "Serenading the syntax...",
   "Dancing with dependencies...",
+  "Waltzing through the codebase...",
   "Tangoing with type errors...",
+  "Doing the deployment dance...",
+  "Having a moment of clarity...",
+  "Experiencing a flash of insight...",
+  "Channeling the ancient developers...",
+  "Receiving transmissions from the cloud...",
+  "Asking the hamsters to run faster...",
+  "Convincing the pixels to cooperate...",
+  "Teaching electrons new tricks...",
+  "Bribing the byte fairies...",
+  "Whispering passwords to the void...",
+  "Negotiating with cosmic rays...",
+  "Flattering the floating points...",
+  "Seducing the semicolons...",
+  "Wooing the while loops...",
+  "Charming the curly braces...",
+  "Hypnotizing the hash tables...",
+  "Mesmerizing the memory banks...",
+  "Enchanting the error handlers...",
+  "Bewitching the boolean logic...",
+  "Spellbinding the stack frames...",
+  "Hexing the hexadecimals...",
+  "Jinxing the JSON parsers...",
+  "Cursing the cache misses...",
+  "Blessing the build process...",
+  "Anointing the algorithms...",
+  "Consecrating the callbacks...",
+  "Sanctifying the source code...",
+  "Exorcising the exceptions...",
+  "Purifying the parameters...",
+  "Cleansing the closures...",
+  "Baptizing the binary...",
+  "Absolving the abstractions...",
+  "Redeeming the recursion...",
+  "Forgiving the for loops...",
+  "Pardoning the pointers...",
+  "Liberating the lambdas...",
+  "Emancipating the enums...",
+  "Freeing the functions...",
+  "Releasing the references...",
+  "Unbinding the variables...",
+  "Untying the type knots...",
+  "Unraveling the regex...",
+  "Decoding the mysteries...",
+  "Cracking the conundrums...",
+  "Solving the riddles of RAM...",
+  "Unlocking the secrets of silicon...",
+  "Discovering hidden semicolons...",
   "Unearthing buried bugs...",
+  "Excavating ancient APIs...",
+  "Archeologically analyzing the architecture...",
+  "Fossil hunting in the functions...",
+  "Spelunking through the stack...",
+  "Scuba diving in the data...",
+  "Snorkeling through the streams...",
+  "Parasailing past the parameters...",
+  "Hang gliding through the heap...",
+  "Bungee jumping into the backend...",
+  "Skydiving through the source...",
+  "Surfing the syntax waves...",
+  "Skateboarding down the stack trace...",
+  "Snowboarding through the schemas...",
+  "Mountain climbing the modules...",
+  "Hiking through the headers...",
+  "Trekking through the trees...",
+  "Backpacking through the binaries...",
+  "Camping in the codebase...",
+  "Glamping in the globals...",
+  "Picnicking with the processes...",
+  "Barbecuing the bugs...",
+  "Roasting the race conditions...",
+  "Grilling the glitches...",
+  "Sautéing the syntax errors...",
+  "Flambéing the failures...",
+  "Caramelizing the callbacks...",
+  "Braising the breakpoints...",
+  "Poaching the pointers...",
+  "Blanching the branches...",
+  "Searing the segments...",
+  "Smoking the subroutines...",
+  "Curing the code smells...",
+  "Pickling the packages...",
+  "Preserving the protocols...",
+  "Canning the constants...",
+  "Bottling the buffers...",
+  "Jarring the JavaScript...",
+  "Decanting the data structures...",
+  "Aerating the arrays...",
+  "Letting the logic breathe...",
+  "Aging the algorithms gracefully...",
+  "Maturing the methods...",
+  "Ripening the results...",
+  "Seasoning the solutions...",
+  "Spicing up the specs...",
+  "Garnishing the getters...",
+  "Plating the output nicely...",
+  "Presenting with pizzazz...",
+  "Adding a dash of elegance...",
+  "Sprinkling some magic dust...",
+  "Drizzling debug sauce...",
+  "Folding in the features...",
+  "Whisking the widgets...",
+  "Kneading the namespaces...",
+  "Rolling out the runtime...",
+  "Proofing the promises...",
+  "Letting the dough rise...",
+  "Baking at 350 kilobytes...",
+  "Frosting the functions...",
+  "Decorating the deployment...",
+  "Icing the interfaces...",
+  "Glazing the graphics...",
+  "Topping with tests...",
+  "Cherry-picking the commits...",
 ];
 
-const WAVE_INTERVAL_MS = 140;
-const CHARACTER_HUE_STEP = 0.045;
-const FRAME_HUE_STEP = 0.03;
-const SATURATION = 0.45;
-const VALUE = 0.82;
+function pickRandom(): string {
+  return messages[Math.floor(Math.random() * messages.length)];
+}
 
-type Rgb = {
-  readonly r: number;
-  readonly g: number;
-  readonly b: number;
-};
-
-const pickRandomMessage = (lastMessage: string | undefined): string => {
-  const candidates =
-    lastMessage !== undefined && messages.length > 1
-      ? messages.filter((message) => message !== lastMessage)
-      : messages;
-
-  return candidates[Math.floor(Math.random() * candidates.length)] ?? messages[0];
-};
-
-const normalizeHue = (value: number): number => {
-  const normalized = value % 1;
-  return normalized < 0 ? normalized + 1 : normalized;
-};
-
-const hsvToRgb = (hue: number, saturation: number, value: number): Rgb => {
-  const scaledHue = normalizeHue(hue) * 6;
-  const chroma = value * saturation;
-  const x = chroma * (1 - Math.abs((scaledHue % 2) - 1));
-  const match = value - chroma;
-
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-
-  if (scaledHue < 1) {
-    red = chroma;
-    green = x;
-  } else if (scaledHue < 2) {
-    red = x;
-    green = chroma;
-  } else if (scaledHue < 3) {
-    green = chroma;
-    blue = x;
-  } else if (scaledHue < 4) {
-    green = x;
-    blue = chroma;
-  } else if (scaledHue < 5) {
-    red = x;
-    blue = chroma;
-  } else {
-    red = chroma;
-    blue = x;
-  }
-
-  return {
-    r: Math.round((red + match) * 255),
-    g: Math.round((green + match) * 255),
-    b: Math.round((blue + match) * 255),
-  };
-};
-
-const colorize = (rgb: Rgb, text: string): string =>
-  `\x1b[38;2;${rgb.r};${rgb.g};${rgb.b}m${text}\x1b[39m`;
-
-const renderRainbowWave = (message: string, phase: number): string =>
-  Array.from(message)
-    .map((char, index) => {
-      const rgb = hsvToRgb(phase + index * CHARACTER_HUE_STEP, SATURATION, VALUE);
-      return colorize(rgb, char);
-    })
-    .join("");
-
-const supportsAnimation = (ctx: ExtensionContext): boolean =>
-  ctx.hasUI && process.stdout.isTTY;
-
-export default function whimsicalExtension(pi: ExtensionAPI) {
-  let lastMessage: string | undefined;
-  let animationTimer: ReturnType<typeof setInterval> | undefined;
-  let wavePhase = 0;
-
-  const stopRainbowWave = (): void => {
-    if (animationTimer === undefined) {
-      return;
-    }
-
-    clearInterval(animationTimer);
-    animationTimer = undefined;
-  };
-
-  const startRainbowWave = (ctx: ExtensionContext, message: string): void => {
-    stopRainbowWave();
-
-    if (!supportsAnimation(ctx)) {
-      ctx.ui.setWorkingMessage(message);
-      return;
-    }
-
-    wavePhase = Math.random();
-
-    const update = () => {
-      ctx.ui.setWorkingMessage(renderRainbowWave(message, wavePhase));
-    };
-
-    update();
-
-    animationTimer = setInterval(() => {
-      wavePhase = normalizeHue(wavePhase - FRAME_HUE_STEP);
-      update();
-    }, WAVE_INTERVAL_MS);
-  };
-
-  const resetWorkingMessage = (ctx: ExtensionContext): void => {
-    stopRainbowWave();
-    ctx.ui.setWorkingMessage();
-  };
-
-  pi.on("turn_start", (_event, ctx) => {
-    const message = pickRandomMessage(lastMessage);
-    lastMessage = message;
-    startRainbowWave(ctx, message);
+export default function (pi: ExtensionAPI) {
+  pi.on("turn_start", async (_event, ctx) => {
+    ctx.ui.setWorkingMessage(pickRandom());
   });
 
-  pi.on("turn_end", (_event, ctx) => {
-    resetWorkingMessage(ctx);
-  });
-
-  pi.on("session_start", (_event, ctx) => {
-    resetWorkingMessage(ctx);
-  });
-
-  pi.on("session_shutdown", () => {
-    stopRainbowWave();
+  pi.on("turn_end", async (_event, ctx) => {
+    ctx.ui.setWorkingMessage(); // Reset for next time
   });
 }

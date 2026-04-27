@@ -82,6 +82,10 @@
       "rev": "6e1387e69e222957ff87e5ddc61470d4e04ac683",
       "src": "https://github.com/sschleemilch/slimline.nvim"
     },
+    "solarized-osaka.nvim": {
+      "rev": "a261ee90fb3e5e82660567e4874d384e996afa4f",
+      "src": "https://github.com/craftzdog/solarized-osaka.nvim"
+    },
     "treesj": {
       "rev": "5fa4e7ba3517f8fe743bb4488f9e9c7ce83330fc",
       "src": "https://github.com/Wansmer/treesj"
