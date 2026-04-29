@@ -1,8 +1,8 @@
 /**
  * Desktop Notification Extension
  *
- * Sends a native desktop notification when the agent finishes and is waiting for input.
- * Uses OSC 777 escape sequence - no external dependencies.
+ * Sends a native desktop notification and best-effort desktop-environment sound when the agent finishes and is waiting for input.
+ * Uses libnotify/OSC 777 plus the current system sound theme when available.
  *
  * Supported terminals: Ghostty, iTerm2, WezTerm, rxvt-unicode
  * Not supported: Kitty (uses OSC 99), Terminal.app, Windows Terminal, Alacritty
@@ -10,7 +10,9 @@
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Markdown, type MarkdownTheme } from "@mariozechner/pi-tui";
+import { sendDesktopNotification } from "./desktop-notification.js";
 import { emitOsc777Notification } from "./osc-notification.js";
+import { playNotificationSound } from "./sound-notification.js";
 
 const isTextPart = (part: unknown): part is { type: "text"; text: string } =>
 	Boolean(part && typeof part === "object" && "type" in part && part.type === "text" && "text" in part);
@@ -76,6 +78,10 @@ export default function (pi: ExtensionAPI) {
 	pi.on("agent_end", async (event, ctx) => {
 		const lastText = extractLastAssistantText(event.messages ?? []);
 		const { title, body } = formatNotification(lastText);
-		emitOsc777Notification(process.stdout, ctx.hasUI, title, body);
+		const sentDesktopNotification = await sendDesktopNotification(ctx.hasUI, title, body);
+		if (!sentDesktopNotification) {
+			emitOsc777Notification(process.stdout, ctx.hasUI, title, body);
+		}
+		void playNotificationSound(ctx.hasUI);
 	});
 }

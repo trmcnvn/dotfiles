@@ -5,5 +5,11 @@
   "BACKGROUND_COLOR": "#000000",
   "IS_MAXIMIZED": false,
   "IS_MINIMIZED": false,
-  "SKIP_HOST_UPDATE": true
+  "SKIP_HOST_UPDATE": true,
+  "WINDOW_BOUNDS": {
+    "x": 860,
+    "y": 148,
+    "width": 1241,
+    "height": 933
+  }
 }
