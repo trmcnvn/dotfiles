@@ -1,4 +1,5 @@
-home/.config/opencode/node_modules/
+node_modules/
 *.lock
 .opencode/plans
 backups/
+.wrangler/

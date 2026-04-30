@@ -1,5 +1,5 @@
 {
-  "name": "pi-extension-mcp-bridge",
+  "name": "pi-extension-multi-edit",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -9,8 +9,7 @@
     ]
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "@sinclair/typebox": "^0.34.49",
-    "zod": "^3.25.76"
+    "@sinclair/typebox": "^0.34.41",
+    "diff": "^8.0.2"
   }
 }

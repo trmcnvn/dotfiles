@@ -17,5 +17,5 @@ _darcs
 ^/COPYING
 
 # Custom ignores
-node_modules
 .+\.lock
+node_modules
