@@ -1,25 +1,5 @@
 {
   "servers": {
-    "pg-aiguide": {
-      "type": "remote",
-      "url": "https://mcp.tigerdata.com/docs",
-      "enabled": false
-    },
-    "cloudflare": {
-      "type": "remote",
-      "url": "https://mcp.cloudflare.com/mcp",
-      "enabled": false
-    },
-    "context7": {
-      "type": "remote",
-      "url": "https://mcp.context7.com/mcp",
-      "enabled": true
-    },
-    "grep_app": {
-      "type": "remote",
-      "url": "https://mcp.grep.app",
-      "enabled": true
-    },
     "opensrc": {
       "type": "local",
       "command": "bunx",
@@ -28,21 +8,6 @@
       ],
       "enabled": true,
       "outputMode": "muted"
-    },
-    "svelte": {
-      "type": "remote",
-      "url": "https://mcp.svelte.dev/mcp",
-      "enabled": true
-    },
-    "metafy-api": {
-      "type": "remote",
-      "url": "https://dev.metafy.gg/mcp",
-      "enabled": false
-    },
-    "sentry": {
-      "type": "remote",
-      "url": "https://mcp.sentry.dev/mcp",
-      "enabled": false
     },
     "computer-use": {
       "type": "local",
@@ -54,6 +19,19 @@
       "cwd": "/home/trmcnvn/Code/mcp-computer-use",
       "enabled": true,
       "outputMode": "full"
+    },
+    "metafy-portal": {
+      "type": "remote",
+      "url": "https://mcp-portal.metafy.gg/mcp",
+      "enabled": true,
+      "outputMode": "full",
+      "directTools": [
+        "portal_toggle_servers",
+        "portal_toggle_single_server",
+        "portal_list_servers",
+        "portal_codemode_search",
+        "portal_codemode_execute"
+      ]
     }
   }
 }

@@ -1,0 +1,25 @@
+{
+  "voice": {
+    "version": 2,
+    "enabled": true,
+    "language": "en",
+    "scope": "project",
+    "backend": "local",
+    "localModel": "parakeet-v3",
+    "ttsEnabled": false,
+    "ttsBackend": "local",
+    "ttsLocalModel": "kitten-nano-en-v0_2",
+    "ttsLocalVoiceId": 0,
+    "ttsDeepgramVoiceId": "aura-asteria-en",
+    "ttsSpeed": 1,
+    "ttsAutoSpeak": true,
+    "autoSubmitOnSpeak": false,
+    "holdThresholdMs": 700,
+    "ttsDeepgramStreaming": false,
+    "ttsOnboardingShown": false,
+    "onboarding": {
+      "completed": false,
+      "schemaVersion": 2
+    }
+  }
+}

@@ -39,8 +39,7 @@ resize-overlay = never
 scrollback-limit = 100_000_000
 
 # Theme
-theme = solarized_osaka_dark
-background = #001419
+theme = Rose Pine
 background-opacity = 1
 background-blur = false
 background-opacity-cells = true
@@ -59,7 +58,6 @@ keybind = ctrl+4=goto_tab:4
 keybind = ctrl+5=goto_tab:5
 keybind = ctrl+tab=next_tab
 keybind = ctrl+shift+tab=previous_tab
-keybind = alt+backspace=text:\x1b\x7f
 
 # Platform overrides
 config-file = ?~/.config/ghostty/config.local
