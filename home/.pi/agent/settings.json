@@ -7,15 +7,10 @@
   "quietStartup": false,
   "packages": [
     "https://github.com/davebcn87/pi-autoresearch",
-    "npm:@plannotator/pi-extension",
-    "npm:pi-upgrade",
-    "npm:@codexstar/pi-listen"
+    "npm:@plannotator/pi-extension"
   ],
   "hideThinkingBlock": true,
-  "compaction": {
-    "enabled": false
-  },
   "editorPaddingX": 0,
   "doubleEscapeAction": "none",
-  "theme": "solarized-osaka-dark"
+  "theme": "rose-pine"
 }
