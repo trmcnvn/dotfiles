@@ -9,6 +9,7 @@ bun = "latest"
 fnox = "latest"
 bitwarden = "latest"
 vp = "latest"
+aube = "latest"
 
 [settings]
 always_keep_download = false

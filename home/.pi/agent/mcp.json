@@ -1,37 +1,8 @@
 {
-  "servers": {
-    "opensrc": {
-      "type": "local",
-      "command": "bunx",
-      "args": [
-        "opensrc-mcp"
-      ],
-      "enabled": true,
-      "outputMode": "muted"
-    },
-    "computer-use": {
-      "type": "local",
-      "command": "/home/trmcnvn/.local/bin/pi-mcp-computer-use",
-      "args": [
-        "--split",
-        "--images-as-files"
-      ],
-      "cwd": "/home/trmcnvn/Code/mcp-computer-use",
-      "enabled": true,
-      "outputMode": "full"
-    },
+  "mcpServers": {
     "metafy-portal": {
-      "type": "remote",
       "url": "https://mcp-portal.metafy.gg/mcp",
-      "enabled": true,
-      "outputMode": "full",
-      "directTools": [
-        "portal_toggle_servers",
-        "portal_toggle_single_server",
-        "portal_list_servers",
-        "portal_codemode_search",
-        "portal_codemode_execute"
-      ]
+      "lifecycle": "lazy"
     }
   }
 }
