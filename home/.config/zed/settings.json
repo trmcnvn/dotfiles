@@ -1,0 +1,123 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "collaboration_panel": {
+    "button": false,
+  },
+  "terminal": {
+    "dock": "right",
+    "shell": {
+      "with_arguments": {
+        "program": "bash",
+        "args": ["-l", "-c", "nu"],
+        "title_override": null,
+      },
+    },
+  },
+  "git_panel": {
+    "button": false,
+  },
+  "outline_panel": {
+    "git_status": true,
+    "file_icons": true,
+    "button": false,
+  },
+  "git": {
+    "inline_blame": {
+      "enabled": false,
+    },
+    "git_gutter": "hide",
+    "disable_git": true,
+    "enable_diff": false,
+    "enable_status": false,
+  },
+  "calls": {
+    "mute_on_join": true,
+  },
+  "disable_ai": true,
+  "show_wrap_guides": false,
+  "cursor_shape": "block",
+  "cursor_blink": false,
+  "ui_font_family": "TX-02",
+  "buffer_font_family": "TX-02",
+  "auto_update": false,
+  "redact_private_values": true,
+  "project_panel": {
+    "scrollbar": {
+      "horizontal_scroll": false,
+    },
+    "git_status": false,
+    "dock": "left",
+  },
+  "session": {
+    "trust_all_worktrees": true,
+  },
+  "vim_mode": true,
+  "vim": {
+    "cursor_shape": {
+      "normal": "block",
+      "insert": "bar",
+      "replace": "block",
+      "visual": "block",
+    },
+  },
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "theme": "Rosé Pine",
+  "languages": {
+    "Ruby": {
+      "language_servers": ["ruby-lsp", "rubocop", "!solargraph"],
+    },
+    "JavaScript": {
+      "language_servers": ["oxlint", "oxfmt"],
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" },
+      ],
+    },
+    "TypeScript": {
+      "language_servers": ["oxlint", "oxfmt", "vtsls"],
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" },
+      ],
+    },
+    "Svelte": {
+      "language_servers": ["oxlint", "oxfmt", "!eslint", "..."],
+      "format_on_save": "on",
+      "prettier": { "allowed": false },
+      "formatter": [
+        { "language_server": { "name": "oxfmt" } },
+        { "code_action": "source.fixAll.oxc" },
+      ],
+    },
+  },
+  "lsp": {
+    "ruby-lsp": {
+      "initialization_options": {
+        "addonSettings": {
+          "Ruby LSP Rails": {
+            "enablePendingMigrationsPrompt": false,
+          },
+        },
+      },
+    },
+    "oxfmt": {
+      "initialization_options": {
+        "settings": {
+          "run": "onSave",
+        },
+      },
+    },
+  },
+}
