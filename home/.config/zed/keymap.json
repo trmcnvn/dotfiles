@@ -7,15 +7,21 @@
 // from the command palette.
 [
   {
-    "context": "vim_mode != insert",
+    "context": "vim_mode != insert && !Terminal",
     "bindings": {
       "tab": "pane::ActivateNextItem",
       "shift-tab": "pane::ActivatePreviousItem",
+    },
+  },
+  {
+    "context": "vim_mode != insert",
+    "bindings": {
       "ctrl-w": "pane::CloseActiveItem",
       "ctrl-left": "workspace::ActivatePaneLeft",
       "ctrl-right": "workspace::ActivatePaneRight",
       "ctrl-up": "workspace::ActivatePaneUp",
       "ctrl-down": "workspace::ActivatePaneDown",
+      "ctrl-e": "workspace::ToggleLeftDock",
     },
   },
   {
@@ -31,6 +37,11 @@
     "context": "Terminal && !menu",
     "bindings": {
       "ctrl-v": "terminal::Paste",
+      "ctrl-t": "workspace::NewTerminal",
+      "ctrl-1": ["pane::ActivateItem", 0],
+      "ctrl-2": ["pane::ActivateItem", 1],
+      "ctrl-3": ["pane::ActivateItem", 2],
+      "ctrl-4": ["pane::ActivateItem", 3],
     },
   },
 ]

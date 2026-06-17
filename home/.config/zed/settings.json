@@ -11,6 +11,8 @@
     "button": false,
   },
   "terminal": {
+    "font_family": "IBM Plex Mono",
+    "show_count_badge": true,
     "dock": "right",
     "shell": {
       "with_arguments": {
