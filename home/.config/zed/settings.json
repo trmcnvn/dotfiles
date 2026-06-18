@@ -7,11 +7,13 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "icon_theme": "Zed (Default)",
+  "cli_default_open_behavior": "new_window",
   "collaboration_panel": {
     "button": false,
   },
   "terminal": {
-    "font_family": "IBM Plex Mono",
+    "copy_on_select": true,
     "show_count_badge": true,
     "dock": "right",
     "shell": {
@@ -46,8 +48,8 @@
   "show_wrap_guides": false,
   "cursor_shape": "block",
   "cursor_blink": false,
-  "ui_font_family": "TX-02",
-  "buffer_font_family": "TX-02",
+  "ui_font_family": "Terminess Nerd Font Mono",
+  "buffer_font_family": "Terminess Nerd Font Mono",
   "auto_update": false,
   "redact_private_values": true,
   "project_panel": {
@@ -70,8 +72,12 @@
     },
   },
   "ui_font_size": 16,
-  "buffer_font_size": 15,
-  "theme": "Rosé Pine",
+  "buffer_font_size": 16,
+  "theme": {
+    "mode": "dark",
+    "light": "Rosé Pine Dawn",
+    "dark": "Rosé Pine"
+  },
   "languages": {
     "Ruby": {
       "language_servers": ["ruby-lsp", "rubocop", "!solargraph"],

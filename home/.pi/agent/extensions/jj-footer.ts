@@ -19,7 +19,12 @@ const formatTokens = (count: number): string => {
 	return `${Math.round(count / 1000000)}M`;
 };
 
-const sanitizeStatusText = (text: string): string => text.replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
+const sanitizeStatusText = (text: string): string =>
+	text
+		.replace(/⏸[\uFE0E\uFE0F]?/gu, "")
+		.replace(/[\r\n\t]/g, " ")
+		.replace(/ +/g, " ")
+		.trim();
 
 const formatCwd = (cwd: string): string => {
 	const home = process.env.HOME || process.env.USERPROFILE;
