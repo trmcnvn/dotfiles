@@ -1,12 +1,11 @@
 {
-  "mcpServers": {
+  "amp.mcpServers": {
     "executor": {
       "url": "https://executor.trmcnvn.dev/mcp",
       "headers": {
         "CF-Access-Client-Id": "222ecc61d2390068c4caa91d6b85a12f.access",
         "CF-Access-Client-Secret": "${EXECUTOR_CF_ACCESS_CLIENT_SECRET}"
-      },
-      "lifecycle": "lazy"
+      }
     }
   }
 }
