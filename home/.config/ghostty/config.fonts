@@ -1,11 +1,11 @@
 # MonoLisa
-# font-family = MonoLisa
+# font-family = MonoLisaCode
 # font-style = Regular
 # font-style-italic = Regular Italic
 # font-style-bold = Regular
 # font-style-bold-italic = Regular Italic
 # font-feature = zero
-# font-feature = ss02
+# font-feature = ss01
 # font-size = 12
 
 # Berkeley Mono 2

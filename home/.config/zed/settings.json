@@ -16,6 +16,14 @@
     "copy_on_select": true,
     "show_count_badge": true,
     "dock": "right",
+    "scrollbar": {
+      "show": "always",
+    },
+    "font_family": "MonoLisaCode",
+    "font_features": {
+      "zero": true,
+      "ss01": true,
+    },
     "shell": {
       "with_arguments": {
         "program": "bash",
@@ -48,8 +56,17 @@
   "show_wrap_guides": false,
   "cursor_shape": "block",
   "cursor_blink": false,
-  "ui_font_family": "Terminess Nerd Font Mono",
-  "buffer_font_family": "Terminess Nerd Font Mono",
+  "ui_font_family": "MonoLisaText",
+  "buffer_font_family": "MonoLisaCode",
+  "buffer_font_features": {
+    "zero": true,
+    "ss01": true,
+  },
+  "buffer_line_height": "standard",
+  "gutter": {
+    "folds": false,
+  },
+  "document_folding_ranges": "on",
   "auto_update": false,
   "redact_private_values": true,
   "project_panel": {
@@ -58,9 +75,6 @@
     },
     "git_status": false,
     "dock": "left",
-  },
-  "session": {
-    "trust_all_worktrees": true,
   },
   "vim_mode": true,
   "vim": {
@@ -71,12 +85,12 @@
       "visual": "block",
     },
   },
-  "ui_font_size": 16,
-  "buffer_font_size": 16,
+  "ui_font_size": 14,
+  "buffer_font_size": 14,
   "theme": {
     "mode": "dark",
     "light": "Rosé Pine Dawn",
-    "dark": "Rosé Pine"
+    "dark": "Rosé Pine",
   },
   "languages": {
     "Ruby": {
