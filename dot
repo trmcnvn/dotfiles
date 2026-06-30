@@ -53,13 +53,13 @@ detect_os() {
     esac
 }
 
-install_paru() {
-    has paru && return 0
-    msg "Installing paru..."
+install_yay() {
+    has yay && return 0
+    msg "Installing yay..."
     sudo pacman -S --needed --noconfirm base-devel git
     tmp=$(mktemp -d)
-    git clone https://aur.archlinux.org/paru.git "$tmp/paru"
-    (cd "$tmp/paru" && makepkg -si --noconfirm)
+    git clone https://aur.archlinux.org/yay.git "$tmp/yay"
+    (cd "$tmp/yay" && makepkg -si --noconfirm)
     rm -rf "$tmp"
 }
 
@@ -103,8 +103,8 @@ $1"
 
     case "$os" in
         arch)
-            has paru || die "paru not installed"
-            installed_pkgs=$(paru -Qq 2>/dev/null || true)
+            has yay || die "yay not installed"
+            installed_pkgs=$(yay -Qq 2>/dev/null || true)
             while IFS= read -r pkg; do
                 [ -z "$pkg" ] && continue
                 PKG_TOTAL=$((PKG_TOTAL + 1))
@@ -232,11 +232,11 @@ cmd_init() {
 
     case $os in
         arch)
-            install_paru
+            install_yay
             msg "Installing packages..."
             # Filter comments and empty lines, then install
-            # grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | xargs -r paru -S --needed
-	    paru -Syu --needed $(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$')
+            # grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | xargs -r yay -S --needed
+	    yay -Syu --needed $(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$')
             ;;
         macos)
             install_homebrew
