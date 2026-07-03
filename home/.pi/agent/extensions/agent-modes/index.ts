@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { CONFIG_DIR_NAME, getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
@@ -59,7 +60,7 @@ const DEFAULT_CYCLE_KEY = "tab";
 const BUILTIN_CHILD_TOOLS = new Set(["read", "bash", "edit", "write", "grep", "find", "ls"]);
 const NO_TEXT = "Subagent completed without a text response.";
 const BACKGROUND_STARTED =
-	"The subagent is working in the background. You will be notified automatically when it finishes. Do not sleep, poll, or proactively check on its progress.";
+	"Started background subagent. You will be notified automatically when it finishes; do not poll for progress.";
 
 let config: LoadedConfig = emptyConfig();
 let activePrimaryId: string | undefined;
@@ -367,12 +368,23 @@ function startChild(ctx: ExtensionContext, agent: AgentDefinition, description: 
 	return job;
 }
 
-function injectCompletion(pi: ExtensionAPI, job: Job, result: ChildResult): void {
+function updateSubagentStatus(ctx: ExtensionContext): void {
+	const running = jobs.size;
+	ctx.ui.setStatus("subagents", running > 0 ? `⏳ subagents: ${running}` : "");
+}
+
+function injectCompletion(pi: ExtensionAPI, ctx: ExtensionContext, job: Job, result: ChildResult): void {
 	const escapedDescription = job.description.replace(/"/g, "&quot;");
-	pi.sendUserMessage(
-		`<subagent id="${job.id}" agent="${job.agent}" state="${result.state}" description="${escapedDescription}">\n${result.output}\n</subagent>`,
-		{ deliverAs: "followUp" },
+	pi.sendMessage(
+		{
+			customType: "subagent-completion",
+			content: `<subagent id="${job.id}" agent="${job.agent}" state="${result.state}" description="${escapedDescription}">\n${result.output}\n</subagent>`,
+			display: false,
+			details: { id: job.id, agent: job.agent, state: result.state, description: job.description },
+		},
+		{ deliverAs: "followUp", triggerTurn: true },
 	);
+	updateSubagentStatus(ctx);
 }
 
 export default function (pi: ExtensionAPI) {
@@ -384,7 +396,7 @@ export default function (pi: ExtensionAPI) {
 		description: [
 			"Spawn a configured subagent with fresh context.",
 			"Foreground runs to completion and returns the final response.",
-			"Background mode returns immediately; completion is injected into the parent conversation automatically.",
+			"Background mode returns immediately; completion is injected into the parent conversation automatically but hidden from the UI.",
 		].join("\n"),
 		parameters: Type.Object({
 			agent: Type.String({ description: "Configured subagent id to run" }),
@@ -401,10 +413,20 @@ export default function (pi: ExtensionAPI) {
 			}
 			const background = input.background ?? agent.background ?? false;
 			const job = startChild(ctx, agent, input.description, input.prompt, signal);
+			updateSubagentStatus(ctx);
 
 			if (background) {
-				job.done.then((result) => injectCompletion(pi, job, result)).catch((error) => {
-					pi.sendUserMessage(`<subagent id="${job.id}" agent="${job.agent}" state="error" description="${job.description}">\n${String(error)}\n</subagent>`, { deliverAs: "followUp" });
+				job.done.then((result) => injectCompletion(pi, ctx, job, result)).catch((error) => {
+					pi.sendMessage(
+						{
+							customType: "subagent-completion",
+							content: `<subagent id="${job.id}" agent="${job.agent}" state="error" description="${job.description}">\n${String(error)}\n</subagent>`,
+							display: false,
+							details: { id: job.id, agent: job.agent, state: "error", description: job.description },
+						},
+						{ deliverAs: "followUp", triggerTurn: true },
+					);
+					updateSubagentStatus(ctx);
 				});
 				return {
 					content: [{ type: "text", text: BACKGROUND_STARTED }],
@@ -414,11 +436,20 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const result = await job.done;
+			updateSubagentStatus(ctx);
 			if (result.state !== "completed") throw new Error(result.output || "Subagent failed.");
 			return {
 				content: [{ type: "text", text: result.output }],
 				details: { sessionID: job.id, status: "completed", agent: agent.id },
 			};
+		},
+		renderResult(result, _options, theme) {
+			const details = result.details as { status?: string; agent?: string } | undefined;
+			const text = result.content.find((part) => part.type === "text")?.text ?? "";
+			if (details?.status === "running") {
+				return new Text(`${theme.fg("warning", "⏳")} ${theme.fg("toolTitle", "subagent")} ${theme.fg("muted", "running in background")}`, 0, 0);
+			}
+			return new Text(text, 0, 0);
 		},
 	});
 
