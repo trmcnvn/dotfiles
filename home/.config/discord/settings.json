@@ -9,10 +9,11 @@
   "WINDOW_BOUNDS": {
     "x": 0,
     "y": 0,
-    "width": 1391,
-    "height": 1047
+    "width": 1408,
+    "height": 1081
   },
   "DESKTOP_TTI_DNSTCP_WARMUP": true,
   "DESKTOP_TTI_HTTP_CDT": true,
-  "DESKTOP_TTI_EARLY_UPDATE_CHECK": true
+  "DESKTOP_TTI_EARLY_UPDATE_CHECK": true,
+  "DESKTOP_TTI_REMOVE_V8_CACHE_CLEAR": true
 }

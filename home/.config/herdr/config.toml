@@ -1,0 +1,63 @@
+onboarding = false
+
+[terminal]
+default_shell = "nu"
+shell_mode = "login"
+new_cwd = "follow"
+
+[theme.custom]
+panel_bg = "#191724"
+surface_dim = "#26233a"
+surface0 = "#1f1d2e"
+surface1 = "#26233a"
+text = "#e0def4"
+subtext0 = "#c8c5dc"
+overlay0 = "#908caa"
+overlay1 = "#e0def4"
+accent = "#908caa"
+mauve = "#c4a7e7"
+green = "#31748f"
+blue = "#9ccfd8"
+teal = "#9ccfd8"
+red = "#eb6f92"
+yellow = "#f6c177"
+peach = "#ebbcba"
+
+[update]
+channel = "stable"
+version_check = true
+manifest_check = true
+
+[keys]
+prefix = "ctrl+semicolon"
+
+[ui.toast]
+delivery = "herdr"
+delay_seconds = 1
+
+[ui.toast.herdr]
+position = "top-right"
+
+[ui.toast.clipboard]
+enabled = true
+position = "bottom-center"
+
+[ui.sound]
+enabled = false
+
+[session]
+resume_agents_on_restore = true
+
+[remote]
+manage_ssh_config = true
+
+[experimental]
+pane_history = true
+allow_nested = false
+kitty_graphics = true
+
+[advanced]
+scrollback_limit_bytes = 52428800
+
+[ui]
+agent_panel_sort = "spaces"

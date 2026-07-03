@@ -10,6 +10,7 @@
 - Keep interaction, commit, and PR text tight and useful
 - Ask only when blocked, when ambiguity materially changes outcome, or before irreversible/shared/prod-visible actions
 - If proceeding on assumptions, state them briefly
+- Do not use all-uppercase text in UI copy unless explicitly requested
 
 ## Instruction Priority
 
@@ -31,7 +32,7 @@
 ## Code Quality Standards
 
 - Make minimal, surgical changes
-- **Never compromise type safety**: no `any`, no non-null assertion operator (`!`), no unsafe type assertions
+- Preserve type safety: avoid `any`, non-null assertions (`!`), and unsafe type assertions; use them only when forced by external APIs, locally contained, and explained
 - Parse and validate inputs at boundaries; keep internal states typed and explicit
 - **Make illegal states unrepresentable**; prefer ADTs/discriminated unions over boolean flags and loosely optional fields
 - Prefer existing helpers/patterns over new abstractions
@@ -67,12 +68,12 @@
 ## Testing
 
 - Treat work as incomplete until the requested deliverables are done or explicitly marked blocked
-- Before finishing, verify correctness, grounding, formatting, and safety using the smallest relevant check
-- Verify changed behavior with the smallest relevant check: test, typecheck, lint, or build
+- Verify correctness, grounding, formatting, and safety with the smallest relevant check: focused test, typecheck, lint, formatting, or build, subject to repo-specific instructions
 - Write tests that verify semantically correct behavior
 - **Failing tests are acceptable** when they expose a real bug and the test is correct
 - Do not change or delete tests just to make the suite pass
 - If you cannot verify, say exactly what was not run and why
+- Do not run verification commands that repo-specific instructions prohibit
 
 ## Grounding
 
@@ -93,13 +94,15 @@
 - Prefer dedicated read/search/edit tools over shell when available
 - Batch independent reads/searches; parallelize when safe
 - Read enough context before editing; avoid thrashing
-- After edits, run a lightweight verification step when relevant
+- After edits, run a lightweight verification step when relevant and allowed by repo-specific instructions
 
 ## Scope Control
 
 - Avoid over-engineering; do not add features, abstractions, configurability, or refactors beyond what the task requires
+- Do not modify files when the user asks only for analysis, review, or recommendations
 - Prefer the simplest general solution that correctly solves the problem
 - If temporary scratch files or helper scripts are created during iteration, remove them before finishing unless they are part of the requested solution
+- Do not add dependencies, change package managers, or alter generated/lock files unless required by the task
 
 ## Autonomy
 
@@ -117,8 +120,11 @@
 
 ## Git, jj, VCS, SCM, Pull Requests, Commits
 
-- **ALWAYS check for `.jj/` before ANY VCS command**; if present, prefer `jj`
-- In colocated repos, use `jj` for normal workflow unless the task specifically requires `git`
-- Never create commits, PRs, or push unless explicitly requested
+- In repos using jj, prefer `jj` for normal workflow unless the task specifically requires `git`
+- Rely on local VCS guardrails when present; do not bypass them
+- Never create commits, PRs, or push unless explicitly requested; leave completed work uncommitted and report status instead
+- When asked to push a committed jj change on an already pushed bookmark/branch, update the bookmark first with `jj tug`, then run `jj git push`
+- When asked to push a committed jj change with no bookmark created off main, use `jj git push -c @-`
+- When creating a GitHub pull request, do not include a PR description/body unless explicitly requested
 - **Never** add AI/Agent attribution or contributor status in commits, PRs, or messages
 - **gh CLI available** for GitHub operations (PRs, issues, etc.)

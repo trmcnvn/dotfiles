@@ -1,21 +1,22 @@
 {
-  "lastChangelogVersion": "0.80.2",
+  "lastChangelogVersion": "0.80.3",
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.5",
-  "defaultThinkingLevel": "medium",
+  "defaultThinkingLevel": "xhigh",
   "collapseChangelog": true,
   "quietStartup": false,
   "packages": [
     "https://github.com/davebcn87/pi-autoresearch",
     "npm:@plannotator/pi-extension",
     "npm:pi-extmgr",
-    "npm:pi-mcp-adapter"
+    "git:github.com/dmmulroy/pi-mcp",
+    "./packages/pstack-pi"
   ],
   "hideThinkingBlock": true,
   "editorPaddingX": 0,
   "doubleEscapeAction": "none",
   "theme": "rose-pine",
-  "enableSkillCommands": false,
+  "enableSkillCommands": true,
   "steeringMode": "all",
   "treeFilterMode": "default"
 }

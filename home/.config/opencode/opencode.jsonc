@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "executor": {
+        "type": "remote",
+        "url": "https://executor.trmcnvn.dev/mcp?elicitation_mode=native",
+        "oauth": false,
+        "headers": {
+          "CF-Access-Client-Id": "222ecc61d2390068c4caa91d6b85a12f.access",
+          "CF-Access-Client-Secret": "{env:EXECUTOR_CF_ACCESS_CLIENT_SECRET}"
+        }
+      }
+    }
+  }
+}

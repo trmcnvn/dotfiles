@@ -57,7 +57,6 @@ interface Job {
 
 const TOOL_NAME = "subagent";
 const DEFAULT_CYCLE_KEY = "tab";
-const BUILTIN_CHILD_TOOLS = new Set(["read", "bash", "edit", "write", "grep", "find", "ls"]);
 const NO_TEXT = "Subagent completed without a text response.";
 const BACKGROUND_STARTED =
 	"Started background subagent. You will be notified automatically when it finishes; do not poll for progress.";
@@ -182,11 +181,12 @@ function validatePrimaryTools(pi: ExtensionAPI, ctx: ExtensionContext, agent: Ag
 	return valid;
 }
 
-function validateChildTools(ctx: ExtensionContext, agent: AgentDefinition): string[] | undefined {
+function validateChildTools(pi: ExtensionAPI, ctx: ExtensionContext, agent: AgentDefinition): string[] | undefined {
 	if (!agent.tools) return undefined;
-	const valid = unique(agent.tools).filter((tool) => BUILTIN_CHILD_TOOLS.has(tool));
-	const invalid = unique(agent.tools).filter((tool) => !BUILTIN_CHILD_TOOLS.has(tool));
-	if (invalid.length > 0) ctx.ui.notify(`Subagent ${agent.id}: unknown or unavailable child tools ignored: ${invalid.join(", ")}`, "warning");
+	const known = new Set(pi.getAllTools().map((tool) => tool.name));
+	const valid = unique(agent.tools).filter((tool) => known.has(tool));
+	const invalid = unique(agent.tools).filter((tool) => !known.has(tool));
+	if (invalid.length > 0) ctx.ui.notify(`Subagent ${agent.id}: unknown Pi tools ignored: ${invalid.join(", ")}`, "warning");
 	return valid;
 }
 
@@ -297,13 +297,17 @@ function piInvocation(args: string[]): { command: string; args: string[] } {
 	return { command: "pi", args };
 }
 
-function startChild(ctx: ExtensionContext, agent: AgentDefinition, description: string, prompt: string, signal?: AbortSignal): Job {
+function startChild(pi: ExtensionAPI, ctx: ExtensionContext, agent: AgentDefinition, description: string, prompt: string, signal?: AbortSignal): Job {
 	const id = randomUUID();
-	const args = ["--mode", "json", "-p", "--no-session", "--no-extensions"];
+	const args = ["--mode", "json", "-p", "--no-session"];
+	if (ctx.isProjectTrusted()) args.push("--approve");
 	if (agent.model) args.push("--model", agent.model);
 	if (agent.thinking) args.push("--thinking", agent.thinking);
-	const childTools = validateChildTools(ctx, agent);
-	if (childTools && childTools.length > 0) args.push("--tools", childTools.join(","));
+	const childTools = validateChildTools(pi, ctx, agent);
+	if (childTools !== undefined) {
+		if (childTools.length > 0) args.push("--tools", childTools.join(","));
+		else args.push("--no-tools");
+	}
 	const system = systemText(agent, ctx.cwd);
 	if (system.trim()) args.push("--append-system-prompt", system);
 	args.push(`Task: ${prompt}`);
@@ -412,7 +416,7 @@ export default function (pi: ExtensionAPI) {
 				throw new Error(`Unknown subagent: ${input.agent}. Available subagents: ${available}.`);
 			}
 			const background = input.background ?? agent.background ?? false;
-			const job = startChild(ctx, agent, input.description, input.prompt, signal);
+			const job = startChild(pi, ctx, agent, input.description, input.prompt, signal);
 			updateSubagentStatus(ctx);
 
 			if (background) {
