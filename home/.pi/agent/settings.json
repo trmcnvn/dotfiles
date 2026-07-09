@@ -1,10 +1,10 @@
 {
-  "lastChangelogVersion": "0.80.3",
+  "lastChangelogVersion": "0.80.6",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.5",
+  "defaultModel": "gpt-5.6-sol",
   "defaultThinkingLevel": "xhigh",
   "collapseChangelog": true,
-  "quietStartup": false,
+  "quietStartup": true,
   "packages": [
     "https://github.com/davebcn87/pi-autoresearch",
     "npm:@plannotator/pi-extension",
@@ -12,11 +12,12 @@
     "git:github.com/dmmulroy/pi-mcp",
     "./packages/pstack-pi"
   ],
-  "hideThinkingBlock": true,
+  "hideThinkingBlock": false,
   "editorPaddingX": 0,
   "doubleEscapeAction": "none",
   "theme": "rose-pine",
   "enableSkillCommands": true,
   "steeringMode": "all",
-  "treeFilterMode": "default"
+  "treeFilterMode": "default",
+  "enableInstallTelemetry": false
 }

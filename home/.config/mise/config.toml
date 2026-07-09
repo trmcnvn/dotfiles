@@ -1,7 +1,6 @@
 [tools]
-ruby = "4.0.0"
+ruby = "latest"
 nodejs = "latest"
-zig = "latest"
 rust = "latest"
 go = "latest"
 node = "latest"

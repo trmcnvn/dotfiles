@@ -26,7 +26,7 @@
       "src": "https://github.com/j-hui/fidget.nvim"
     },
     "fzf-lua": {
-      "rev": "029a162a6671fdd453001fc1bca047ee3ecd5481",
+      "rev": "ed4059deb9237f7f4cc8832ffef69779ffe2e265",
       "src": "https://github.com/ibhagwan/fzf-lua"
     },
     "mason-lspconfig.nvim": {
@@ -38,7 +38,7 @@
       "src": "https://github.com/mason-org/mason.nvim"
     },
     "mini.nvim": {
-      "rev": "1599a473aa6f5290a5d740b1144846e6f0c3963d",
+      "rev": "928971c3cfe99ddf29659acc31214cfa836fabe4",
       "src": "https://github.com/nvim-mini/mini.nvim"
     },
     "neovim": {
@@ -46,15 +46,15 @@
       "src": "https://github.com/rose-pine/neovim"
     },
     "no-neck-pain.nvim": {
-      "rev": "4bc52782524fd50c5658685d584df6fa48fe49f9",
+      "rev": "0df6659e25401c3f3c40e82f1ddd48714b1a659c",
       "src": "https://github.com/shortcuts/no-neck-pain.nvim"
     },
     "nvim": {
-      "rev": "e068ab5f8261f23f6f71ffd8791ae40315b77b9c",
+      "rev": "05e8787020dcfdb937bf2ff23855ea2415b4e072",
       "src": "https://github.com/catppuccin/nvim"
     },
     "nvim-lspconfig": {
-      "rev": "3371bf298c1f56efc26771ee961f461176958fb5",
+      "rev": "d224a1920728ba129880efc700d4a0180ac4ecbb",
       "src": "https://github.com/neovim/nvim-lspconfig"
     },
     "nvim-treesitter": {
@@ -75,7 +75,7 @@
       "src": "https://github.com/MeanderingProgrammer/render-markdown.nvim"
     },
     "rustaceanvim": {
-      "rev": "4db27c89017ee0b53d2ec3dbaa4948efe7bd2bdf",
+      "rev": "eb0c154504e9db6f7564cd2f06c5b7d6e01c71ff",
       "src": "https://github.com/mrcjkb/rustaceanvim"
     },
     "slimline.nvim": {

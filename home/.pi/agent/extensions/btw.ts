@@ -643,7 +643,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	async function ensureOverlay(ctx: ExtensionCommandContext | ExtensionContext): Promise<void> {
-		if (!ctx.hasUI) {
+		if (ctx.mode !== "tui" || !ctx.hasUI) {
 			return;
 		}
 
@@ -681,7 +681,11 @@ export default function (pi: ExtensionAPI) {
 						(width, t) => getTranscriptLines(width, t),
 						() => overlayStatus,
 						(value) => {
-							void submitFromOverlay(ctx, value);
+							void submitFromOverlay(ctx, value).catch((error) => {
+								sideBusy = false;
+								reportBtwFailure(ctx, error);
+								syncOverlay();
+							});
 						},
 						() => {
 							void closeOverlayFlow(ctx);
@@ -815,6 +819,13 @@ export default function (pi: ExtensionAPI) {
 		}
 	}
 
+	function reportBtwFailure(ctx: ExtensionContext | ExtensionCommandContext, error: unknown): void {
+		const message = error instanceof Error ? error.message : String(error);
+		pendingError = message;
+		setOverlayStatus("BTW request failed.");
+		notify(ctx, message, "error");
+	}
+
 	async function runBtwPrompt(ctx: ExtensionCommandContext, question: string): Promise<void> {
 		const model = ctx.model;
 		if (!model) {
@@ -823,22 +834,8 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 
-		const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-		if (auth.ok === false) {
-			const message = auth.error;
-			setOverlayStatus(message);
-			notify(ctx, message, "error");
-			return;
-		}
-
 		if (sideBusy) {
 			notify(ctx, "BTW is still processing the previous message.", "warning");
-			return;
-		}
-
-		const side = await ensureSideSession(ctx);
-		if (!side) {
-			notify(ctx, "Unable to create BTW side session.", "error");
 			return;
 		}
 
@@ -847,10 +844,21 @@ export default function (pi: ExtensionAPI) {
 		pendingAnswer = "";
 		pendingError = null;
 		pendingToolCalls = [];
-		setOverlayStatus("Streaming side response...");
+		setOverlayStatus("Starting BTW side session...");
 		syncOverlay();
 
 		try {
+			const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+			if (auth.ok === false) {
+				throw new Error(auth.error);
+			}
+
+			const side = await ensureSideSession(ctx);
+			if (!side) {
+				throw new Error("Unable to create BTW side session.");
+			}
+
+			setOverlayStatus("Streaming side response...");
 			await side.session.prompt(question, { source: "extension" });
 			const response = getLastAssistantMessage(side.session);
 			if (!response) {
@@ -882,10 +890,7 @@ export default function (pi: ExtensionAPI) {
 			pendingToolCalls = [];
 			setOverlayStatus("Ready for the next side question.");
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			pendingError = message;
-			setOverlayStatus("BTW request failed.");
-			notify(ctx, message, "error");
+			reportBtwFailure(ctx, error);
 		} finally {
 			sideBusy = false;
 			syncOverlay();
@@ -911,6 +916,11 @@ export default function (pi: ExtensionAPI) {
 	pi.registerCommand("btw", {
 		description: "Open a simple BTW side-chat popover. `/btw <text>` asks immediately, `/btw` opens the side thread.",
 		handler: async (args, ctx) => {
+			if (ctx.mode !== "tui") {
+				notify(ctx, "BTW side chat requires interactive TUI mode.", "error");
+				return;
+			}
+
 			const question = args.trim();
 
 			if (!question) {
