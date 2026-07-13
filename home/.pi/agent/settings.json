@@ -10,7 +10,6 @@
     "npm:@plannotator/pi-extension",
     "npm:pi-extmgr",
     "git:github.com/dmmulroy/pi-mcp",
-    "./packages/pstack-pi"
   ],
   "hideThinkingBlock": false,
   "editorPaddingX": 0,
