@@ -10,10 +10,12 @@
     "x": 0,
     "y": 0,
     "width": 1411,
-    "height": 1081
+    "height": 1075
   },
   "DESKTOP_TTI_DNSTCP_WARMUP": true,
   "DESKTOP_TTI_HTTP_CDT": true,
   "DESKTOP_TTI_EARLY_UPDATE_CHECK": true,
-  "DESKTOP_TTI_REMOVE_V8_CACHE_CLEAR": true
+  "DESKTOP_TTI_REMOVE_V8_CACHE_CLEAR": true,
+  "enableHardwareAcceleration": true,
+  "DESKTOP_TTI_SPLASH_USE_WEBP": true
 }

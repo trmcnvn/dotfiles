@@ -20,6 +20,10 @@ type DcgDecision =
   | { readonly kind: "deny"; readonly reason: string }
   | { readonly kind: "error"; readonly message: string };
 
+type CommandAuthorization =
+  | { readonly kind: "allow" }
+  | { readonly kind: "block"; readonly reason: string };
+
 const getStringProperty = (value: unknown, property: string): string | undefined => {
   if (typeof value !== "object" || value === null) return undefined;
 
@@ -88,18 +92,56 @@ export default function dcgGuardExtension(pi: ExtensionAPI) {
     if (failureReported) return;
 
     failureReported = true;
-    ctx.ui.notify(`${message}. Install dcg or set DCG_BIN.`, "warning");
+    ctx.ui.notify(message, "warning");
+  };
+
+  const authorizeCommand = async (
+    ctx: ExtensionContext,
+    command: string,
+    cwd: string,
+  ): Promise<CommandAuthorization> => {
+    const decision = await checkCommand(pi, command, cwd);
+
+    if (decision.kind === "allow") return { kind: "allow" };
+
+    if (decision.kind === "error") {
+      const reason = `${decision.message}. Install dcg or set DCG_BIN before retrying.`;
+      reportFailure(ctx, reason);
+      return { kind: "block", reason };
+    }
+
+    if (ctx.hasUI) {
+      const confirmed = await ctx.ui.confirm(
+        "Destructive command blocked",
+        [
+          decision.reason,
+          "",
+          "Command:",
+          command,
+          "",
+          `Working directory: ${cwd}`,
+          "",
+          "Allow this exact command once?",
+        ].join("\n"),
+      );
+      if (confirmed) return { kind: "allow" };
+    }
+
+    return { kind: "block", reason: decision.reason };
   };
 
   pi.on("tool_call", async (event, ctx) => {
     if (!isToolCallEventType("bash", event)) return undefined;
     if (event.input.command.trim().length === 0) return undefined;
 
-    const decision = await checkCommand(pi, event.input.command, ctx.cwd);
-    if (decision.kind === "deny") {
-      return { block: true, reason: decision.reason };
+    const authorization = await authorizeCommand(
+      ctx,
+      event.input.command,
+      ctx.cwd,
+    );
+    if (authorization.kind === "block") {
+      return { block: true, reason: authorization.reason };
     }
-    if (decision.kind === "error") reportFailure(ctx, decision.message);
 
     return undefined;
   });
@@ -107,18 +149,21 @@ export default function dcgGuardExtension(pi: ExtensionAPI) {
   pi.on("user_bash", async (event, ctx) => {
     if (event.command.trim().length === 0) return undefined;
 
-    const decision = await checkCommand(pi, event.command, event.cwd);
-    if (decision.kind === "deny") {
+    const authorization = await authorizeCommand(
+      ctx,
+      event.command,
+      event.cwd,
+    );
+    if (authorization.kind === "block") {
       return {
         result: {
-          output: decision.reason,
+          output: authorization.reason,
           exitCode: 1,
           cancelled: false,
           truncated: false,
         },
       };
     }
-    if (decision.kind === "error") reportFailure(ctx, decision.message);
 
     return undefined;
   });
