@@ -6,3 +6,4 @@ macos-titlebar-proxy-icon = hidden
 macos-titlebar-style = tabs
 macos-icon = official
 window-decoration = auto
+font-size = 14
