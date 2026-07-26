@@ -31,6 +31,30 @@ manifest_check = true
 [keys]
 prefix = "ctrl+semicolon"
 
+[[keys.command]]
+key = "ctrl+left"
+type = "plugin_action"
+command = "vim-herdr-navigation.left"
+description = "Navigate left (Vim/Herdr)"
+
+[[keys.command]]
+key = "ctrl+down"
+type = "plugin_action"
+command = "vim-herdr-navigation.down"
+description = "Navigate down (Vim/Herdr)"
+
+[[keys.command]]
+key = "ctrl+up"
+type = "plugin_action"
+command = "vim-herdr-navigation.up"
+description = "Navigate up (Vim/Herdr)"
+
+[[keys.command]]
+key = "ctrl+right"
+type = "plugin_action"
+command = "vim-herdr-navigation.right"
+description = "Navigate right (Vim/Herdr)"
+
 [ui.toast]
 delivery = "herdr"
 delay_seconds = 1
@@ -60,4 +84,9 @@ kitty_graphics = true
 scrollback_limit_bytes = 52428800
 
 [ui]
+sidebar_width = 32
+sidebar_min_width = 18
+sidebar_max_width = 36
 agent_panel_sort = "spaces"
+prompt_new_workspace_name = true
+prompt_new_tab_name = true
