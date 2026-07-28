@@ -55,6 +55,15 @@ type = "plugin_action"
 command = "vim-herdr-navigation.right"
 description = "Navigate right (Vim/Herdr)"
 
+[ui]
+sidebar_width = 32
+sidebar_min_width = 18
+sidebar_max_width = 36
+agent_panel_sort = "spaces"
+show_agent_labels_on_pane_borders = false
+prompt_new_workspace_name = true
+prompt_new_tab_name = true
+
 [ui.toast]
 delivery = "herdr"
 delay_seconds = 1
@@ -83,10 +92,3 @@ kitty_graphics = true
 [advanced]
 scrollback_limit_bytes = 52428800
 
-[ui]
-sidebar_width = 32
-sidebar_min_width = 18
-sidebar_max_width = 36
-agent_panel_sort = "spaces"
-prompt_new_workspace_name = true
-prompt_new_tab_name = true

@@ -1,9 +1,11 @@
 ---
 name: herdr
-description: "Control Herdr, a terminal multiplexer for coding agents. Use Herdr to inspect or control panes, tabs, workspaces, terminals, run commands, and or starting and monitoring background processes like dev servers. Use for subagent when the user or another skills explicitly asks for or requies subagents. Requires HERDR_ENV=1."
+description: "Control Herdr workspaces, tabs, panes, terminals, and existing agents. Use for terminal topology, background processes such as dev servers, non-Pi agents, or manual orchestration. For bounded Pi delegation, use the subagent tool instead. Requires HERDR_ENV=1."
 ---
 
 # Herdr
+
+Use the direct `subagent` tool for bounded delegation to a separate Pi process. Do not recreate that workflow with Herdr CLI commands. Use this skill when the task instead requires terminal topology, an ordinary background process, control of an existing agent, a non-Pi agent, or explicitly manual/custom orchestration.
 
 Herdr organizes terminals into workspaces, tabs, and panes, recognizes coding agents running inside panes, and exposes the current session through the `herdr` CLI.
 
@@ -87,7 +89,9 @@ herdr agent list
 
 Creation responses expose the IDs to use next. `workspace create` returns `.result.workspace`, `.result.tab`, and `.result.root_pane`. `tab create` returns `.result.tab` and `.result.root_pane`. `pane split` returns the new pane as `.result.pane`.
 
-## Start and coordinate an agent
+## Manually start and coordinate an agent
+
+Use this workflow only when the direct `subagent` tool does not fit, such as a requested non-Pi agent, custom topology, or continued interaction with a manually managed agent.
 
 Default to a sibling pane in the current tab and the current working directory. Do not create a workspace, tab, worktree, or different cwd unless the user explicitly requests that topology or location.
 

@@ -1,18 +1,10 @@
 import { Buffer } from "node:buffer";
-import { existsSync, realpathSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 
+/** Durable memory partition selected by Pi memory tools. */
 export type MemoryScope = "global" | "project";
 
-export type MemoryPaths = {
-	baseDir: string;
-	globalFile: string;
-	projectFile: string;
-	projectRoot: string;
-};
-
+/** Capacity rejection that preserves the previously stored document. */
 export type MemoryCapacityError = {
 	type: "error";
 	code: "capacity";
@@ -22,25 +14,37 @@ export type MemoryCapacityError = {
 	message: string;
 };
 
-export type MemoryAppendResult = { type: "success"; sizeBytes: number } | MemoryCapacityError;
+/** Pure document mutation result ready for an authoritative adapter write. */
+export type MemoryMutationSuccess = {
+	type: "success";
+	content: string;
+	sizeBytes: number;
+};
 
+/** Result of appending one durable entry to a memory document. */
+export type MemoryAppendResult = MemoryMutationSuccess | MemoryCapacityError;
+
+/** Result of replacing one exact block in a memory document. */
 export type MemoryReplaceResult =
-	| { type: "success"; sizeBytes: number }
+	| MemoryMutationSuccess
 	| { type: "error"; code: "empty-match" | "not-found" | "ambiguous"; message: string }
 	| MemoryCapacityError;
 
+/** Complete memory document supplied to the in-memory search index. */
 export type MemorySearchSource = {
 	readonly scope: MemoryScope;
 	readonly filePath: string;
 	readonly content: string;
 };
 
+/** Search request over one or more complete memory documents. */
 export type MemorySearchInput = {
 	readonly sources: readonly MemorySearchSource[];
 	readonly query: string;
 	readonly limit: number;
 };
 
+/** Ranked searchable excerpt and its source line range. */
 export type MemorySearchMatch = {
 	readonly scope: MemoryScope;
 	readonly filePath: string;
@@ -50,6 +54,7 @@ export type MemorySearchMatch = {
 	readonly score: number;
 };
 
+/** Inputs used to project durable documents into bounded prompt context. */
 export type MemoryContextInput = {
 	global: string;
 	project: string;
@@ -59,11 +64,8 @@ export type MemoryContextInput = {
 	maxCharsPerScope: number;
 };
 
-const REPOSITORY_MARKERS = [".jj", ".git"] as const;
-const MEMORY_FILE_NAME = "MEMORY.md";
 const MEMORY_HEADER = "# Memory";
 const MEMORY_ENTRY_MARKER = "<!-- pi-memory-entry -->";
-const DEFAULT_MEMORY_DIR = path.join(os.homedir(), ".pi", "agent", "memory");
 const DEFAULT_MAX_MEMORY_BYTES = 40 * 1024;
 const SEARCH_EXCERPT_CHARS = 1_200;
 
@@ -82,49 +84,6 @@ type IndexedSearchBlock = SearchBlock & {
 	readonly tokenCounts: ReadonlyMap<string, number>;
 	readonly tokenCount: number;
 };
-
-function canonicalizeExistingPath(filePath: string): string {
-	try {
-		return realpathSync.native(filePath);
-	} catch {
-		return path.resolve(filePath);
-	}
-}
-
-function findProjectRoot(cwd: string): string {
-	let current = canonicalizeExistingPath(cwd);
-
-	while (true) {
-		if (REPOSITORY_MARKERS.some((marker) => existsSync(path.join(current, marker)))) {
-			return current;
-		}
-
-		const parent = path.dirname(current);
-		if (parent === current) {
-			return canonicalizeExistingPath(cwd);
-		}
-		current = parent;
-	}
-}
-
-function expandHome(filePath: string): string {
-	if (filePath === "~") return os.homedir();
-	if (filePath.startsWith(`~${path.sep}`)) return path.join(os.homedir(), filePath.slice(2));
-	return filePath;
-}
-
-function normalizeBaseDir(baseDir?: string): string {
-	return canonicalizeExistingPath(expandHome(baseDir?.trim() || DEFAULT_MEMORY_DIR));
-}
-
-async function readMemory(filePath: string): Promise<string> {
-	try {
-		return await readFile(filePath, "utf8");
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") return "";
-		throw error;
-	}
-}
 
 function byteLength(content: string): number {
 	return Buffer.byteLength(content, "utf8");
@@ -167,13 +126,12 @@ function removeEmptyEntryMarkers(content: string): string {
 	return retained.join("\n").replace(/\n{3,}/gu, "\n\n");
 }
 
-async function appendMemory(
-	filePath: string,
+function appendMemory(
+	existing: string,
 	content: string,
 	maxBytes = Number.MAX_SAFE_INTEGER,
-): Promise<MemoryAppendResult> {
+): MemoryAppendResult {
 	const entry = normalizeEntry(content);
-	const existing = await readMemory(filePath);
 	const normalizedExisting = existing.replace(/\s+$/u, "");
 	const next = normalizedExisting
 		? `${normalizedExisting}\n\n${MEMORY_ENTRY_MARKER}\n\n${entry}\n`
@@ -182,17 +140,15 @@ async function appendMemory(
 	const nextBytes = byteLength(next);
 	if (nextBytes > maxBytes) return capacityError(currentBytes, nextBytes, maxBytes);
 
-	await mkdir(path.dirname(filePath), { recursive: true });
-	await writeFile(filePath, next, "utf8");
-	return { type: "success", sizeBytes: nextBytes };
+	return { type: "success", content: next, sizeBytes: nextBytes };
 }
 
-async function replaceMemory(
-	filePath: string,
+function replaceMemory(
+	existing: string,
 	oldText: string,
 	newText: string,
 	maxBytes = Number.MAX_SAFE_INTEGER,
-): Promise<MemoryReplaceResult> {
+): MemoryReplaceResult {
 	if (!oldText) {
 		return {
 			type: "error",
@@ -201,7 +157,6 @@ async function replaceMemory(
 		};
 	}
 
-	const existing = await readMemory(filePath);
 	const firstMatch = existing.indexOf(oldText);
 	if (firstMatch === -1) {
 		return {
@@ -226,8 +181,7 @@ async function replaceMemory(
 	if (nextBytes > maxBytes && nextBytes >= currentBytes) {
 		return capacityError(currentBytes, nextBytes, maxBytes);
 	}
-	await writeFile(filePath, next, "utf8");
-	return { type: "success", sizeBytes: nextBytes };
+	return { type: "success", content: next, sizeBytes: nextBytes };
 }
 
 function visibleMemory(content: string): string {
@@ -509,27 +463,9 @@ function buildMemoryContext(input: MemoryContextInput): string {
 	].join("\n");
 }
 
-function fileForScope(paths: MemoryPaths, scope: MemoryScope): string {
-	return scope === "global" ? paths.globalFile : paths.projectFile;
-}
-
+/** Pure document mutation, search, visibility, sizing, and context operations. */
 export const MemoryStore = {
-	defaultBaseDir: DEFAULT_MEMORY_DIR,
 	defaultMaxBytes: DEFAULT_MAX_MEMORY_BYTES,
-
-	resolvePaths(baseDir: string | undefined, cwd: string): MemoryPaths {
-		const normalizedBaseDir = normalizeBaseDir(baseDir);
-		const projectRoot = findProjectRoot(cwd);
-		return {
-			baseDir: normalizedBaseDir,
-			globalFile: path.join(normalizedBaseDir, MEMORY_FILE_NAME),
-			projectFile: path.join(projectRoot, ".agents", MEMORY_FILE_NAME),
-			projectRoot,
-		};
-	},
-
-	fileForScope,
-	read: readMemory,
 	append: appendMemory,
 	replace: replaceMemory,
 	search: searchMemory,
