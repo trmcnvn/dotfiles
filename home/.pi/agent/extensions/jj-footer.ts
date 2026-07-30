@@ -1,7 +1,8 @@
-import type { AssistantMessage } from "@mariozechner/pi-ai";
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import type { Usage } from "@earendil-works/pi-ai";
+import { SettingsManager, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { execFile } from "node:child_process";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -9,7 +10,12 @@ const execFileAsync = promisify(execFile);
 type JjState =
 	| { kind: "loading" }
 	| { kind: "none" }
-	| { kind: "found"; changeId: string };
+	| { kind: "found"; uniquePrefix: string; rest: string };
+
+type JjReadResult = JjState | { kind: "unavailable" };
+
+const JJ_ID_PATTERN = /^[k-z]+$/;
+const JJ_ID_TEMPLATE = 'change_id.shortest(12).prefix() ++ "\\0" ++ change_id.shortest(12).rest()';
 
 const formatTokens = (count: number): string => {
 	if (count < 1000) return count.toString();
@@ -28,19 +34,47 @@ const sanitizeStatusText = (text: string): string =>
 
 const formatCwd = (cwd: string): string => {
 	const home = process.env.HOME || process.env.USERPROFILE;
-	return home && cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd;
+	if (!home) return cwd;
+
+	const relativeToHome = relative(resolve(home), resolve(cwd));
+	const isInsideHome =
+		relativeToHome === "" ||
+		(relativeToHome !== ".." && !relativeToHome.startsWith(`..${sep}`) && !isAbsolute(relativeToHome));
+	if (!isInsideHome) return cwd;
+
+	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
 };
 
-const readJjChangeId = async (cwd: string): Promise<JjState> => {
+const readJjChangeId = async (cwd: string): Promise<JjReadResult> => {
 	try {
-		const { stdout } = await execFileAsync("jj", ["log", "--no-graph", "-r", "@", "-T", "change_id.shortest()"], {
-			cwd,
-			timeout: 1000,
-		});
-		const changeId = stdout.trim();
-		return changeId ? { kind: "found", changeId } : { kind: "none" };
-	} catch {
-		return { kind: "none" };
+		const { stdout } = await execFileAsync(
+			"jj",
+			["log", "--ignore-working-copy", "--no-graph", "--color=never", "-r", "@", "-T", JJ_ID_TEMPLATE],
+			{ cwd, timeout: 1000 },
+		);
+		const [uniquePrefix, rest, extra] = stdout.trim().split("\0");
+		if (
+			!uniquePrefix ||
+			rest === undefined ||
+			extra !== undefined ||
+			uniquePrefix.length + rest.length < 12 ||
+			!JJ_ID_PATTERN.test(uniquePrefix) ||
+			(rest.length > 0 && !JJ_ID_PATTERN.test(rest))
+		) {
+			return { kind: "unavailable" };
+		}
+		return { kind: "found", uniquePrefix, rest };
+	} catch (error: unknown) {
+		if (
+			typeof error === "object" &&
+			error !== null &&
+			"stderr" in error &&
+			typeof error.stderr === "string" &&
+			error.stderr.includes("There is no jj repo")
+		) {
+			return { kind: "none" };
+		}
+		return { kind: "unavailable" };
 	}
 };
 
@@ -51,14 +85,17 @@ function installJjFooter(pi: ExtensionAPI, ctx: ExtensionContext): void {
 	let refreshInFlight = false;
 	let disposed = false;
 	let requestRender: (() => void) | undefined;
+	const settingsManager = SettingsManager.create(ctx.cwd, undefined, { projectTrusted: ctx.isProjectTrusted() });
+	let autoCompactEnabled = settingsManager.getCompactionEnabled();
 
 	const refresh = (): void => {
 		if (refreshInFlight || disposed) return;
 		refreshInFlight = true;
-		void readJjChangeId(ctx.cwd).then((next) => {
+		void Promise.allSettled([readJjChangeId(ctx.cwd), settingsManager.reload()]).then(([jjResult, settingsResult]) => {
 			refreshInFlight = false;
 			if (disposed) return;
-			jjState = next;
+			if (jjResult.status === "fulfilled" && jjResult.value.kind !== "unavailable") jjState = jjResult.value;
+			if (settingsResult.status === "fulfilled") autoCompactEnabled = settingsManager.getCompactionEnabled();
 			requestRender?.();
 		});
 	};
@@ -82,33 +119,55 @@ function installJjFooter(pi: ExtensionAPI, ctx: ExtensionContext): void {
 				let totalCacheRead = 0;
 				let totalCacheWrite = 0;
 				let totalCost = 0;
+				let latestCacheHitRate: number | undefined;
+				const addUsage = (usage: Usage): void => {
+					totalInput += usage.input;
+					totalOutput += usage.output;
+					totalCacheRead += usage.cacheRead;
+					totalCacheWrite += usage.cacheWrite;
+					totalCost += usage.cost.total;
+				};
 
 				for (const entry of ctx.sessionManager.getEntries()) {
 					if (entry.type === "message" && entry.message.role === "assistant") {
-						const message = entry.message as AssistantMessage;
-						totalInput += message.usage.input;
-						totalOutput += message.usage.output;
-						totalCacheRead += message.usage.cacheRead;
-						totalCacheWrite += message.usage.cacheWrite;
-						totalCost += message.usage.cost.total;
+						addUsage(entry.message.usage);
+						const latestPromptTokens =
+							entry.message.usage.input + entry.message.usage.cacheRead + entry.message.usage.cacheWrite;
+						latestCacheHitRate =
+							latestPromptTokens > 0 ? (entry.message.usage.cacheRead / latestPromptTokens) * 100 : undefined;
+					} else if (entry.type === "message" && entry.message.role === "toolResult" && entry.message.usage) {
+						addUsage(entry.message.usage);
+					} else if ((entry.type === "branch_summary" || entry.type === "compaction") && entry.usage) {
+						addUsage(entry.usage);
 					}
 				}
 
-				let pwd = formatCwd(ctx.sessionManager.getCwd());
+				let pwd = theme.fg("dim", formatCwd(ctx.sessionManager.getCwd()));
 				const gitBranch = footerData.getGitBranch();
-				const branch = jjState.kind === "found" ? `jj:${jjState.changeId}` : gitBranch ? `git:${gitBranch}` : undefined;
-				if (branch) pwd = `${pwd} (${branch})`;
+				if (jjState.kind === "found") {
+					pwd +=
+						theme.fg("dim", " (jj:") +
+						theme.fg("accent", jjState.uniquePrefix) +
+						theme.fg("dim", `${jjState.rest})`);
+				} else if (gitBranch) {
+					pwd += theme.fg("dim", ` (git:${gitBranch})`);
+				}
 
 				const sessionName = ctx.sessionManager.getSessionName();
-				if (sessionName) pwd = `${pwd} • ${sessionName}`;
+				if (sessionName) pwd += theme.fg("dim", ` • ${sessionName}`);
 
 				const statsParts: string[] = [];
 				if (totalInput) statsParts.push(`↑${formatTokens(totalInput)}`);
 				if (totalOutput) statsParts.push(`↓${formatTokens(totalOutput)}`);
 				if (totalCacheRead) statsParts.push(`R${formatTokens(totalCacheRead)}`);
 				if (totalCacheWrite) statsParts.push(`W${formatTokens(totalCacheWrite)}`);
+				if ((totalCacheRead > 0 || totalCacheWrite > 0) && latestCacheHitRate !== undefined) {
+					statsParts.push(`CH${latestCacheHitRate.toFixed(1)}%`);
+				}
 
-				const usingSubscription = ctx.model ? ctx.modelRegistry.isUsingOAuth(ctx.model) : false;
+				const usingSubscription = ctx.model
+					? ctx.model.provider === "kimi-coding" || ctx.modelRegistry.isUsingOAuth(ctx.model)
+					: false;
 				if (totalCost || usingSubscription) {
 					statsParts.push(`$${totalCost.toFixed(3)}${usingSubscription ? " (sub)" : ""}`);
 				}
@@ -117,11 +176,17 @@ function installJjFooter(pi: ExtensionAPI, ctx: ExtensionContext): void {
 				const contextWindow = contextUsage?.contextWindow ?? ctx.model?.contextWindow ?? 0;
 				const contextPercentValue = contextUsage?.percent ?? 0;
 				const contextPercent = contextUsage?.percent !== null ? contextPercentValue.toFixed(1) : "?";
+				const autoIndicator = autoCompactEnabled ? " (auto)" : "";
 				const contextDisplay =
-					contextPercent === "?" ? `?/${formatTokens(contextWindow)}` : `${contextPercent}%/${formatTokens(contextWindow)}`;
+					contextPercent === "?"
+						? `?/${formatTokens(contextWindow)}${autoIndicator}`
+						: `${contextPercent}%/${formatTokens(contextWindow)}${autoIndicator}`;
 				if (contextPercentValue > 90) statsParts.push(theme.fg("error", contextDisplay));
 				else if (contextPercentValue > 70) statsParts.push(theme.fg("warning", contextDisplay));
 				else statsParts.push(contextDisplay);
+				if (process.env.PI_EXPERIMENTAL === "1") {
+					statsParts.push(`${theme.fg("dim", "•")} ${theme.bold(theme.fg("warning", "xp"))}`);
+				}
 
 				let statsLeft = statsParts.join(" ");
 				let statsLeftWidth = visibleWidth(statsLeft);
@@ -145,13 +210,22 @@ function installJjFooter(pi: ExtensionAPI, ctx: ExtensionContext): void {
 				}
 
 				const rightSideWidth = visibleWidth(rightSide);
-				const statsLine =
-					statsLeftWidth + 2 + rightSideWidth <= width
-						? statsLeft + " ".repeat(width - statsLeftWidth - rightSideWidth) + rightSide
-						: statsLeft + "  " + truncateToWidth(rightSide, Math.max(0, width - statsLeftWidth - 2), "");
+				let statsLine: string;
+				if (statsLeftWidth + 2 + rightSideWidth <= width) {
+					statsLine = statsLeft + " ".repeat(width - statsLeftWidth - rightSideWidth) + rightSide;
+				} else {
+					const availableForRight = width - statsLeftWidth - 2;
+					if (availableForRight > 0) {
+						const truncatedRight = truncateToWidth(rightSide, availableForRight, "");
+						statsLine =
+							statsLeft + " ".repeat(Math.max(0, width - statsLeftWidth - visibleWidth(truncatedRight))) + truncatedRight;
+					} else {
+						statsLine = statsLeft;
+					}
+				}
 
 				const lines = [
-					truncateToWidth(theme.fg("dim", pwd), width, theme.fg("dim", "...")),
+					truncateToWidth(pwd, width, theme.fg("dim", "...")),
 					theme.fg("dim", statsLeft) + theme.fg("dim", statsLine.slice(statsLeft.length)),
 				];
 
@@ -170,5 +244,4 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		installJjFooter(pi, ctx);
 	});
-
 }
