@@ -5,14 +5,14 @@ alias vi = nvim
 alias ff = fzf --preview 'bat --style=numbers --color=always {}'
 
 def executor-cf-access-client-secret [] {
-    let lookup = match (sys host).name {
-        "Linux" => {
+    let lookup = match $nu.os-info.name {
+        "linux" => {
             if (which secret-tool | is-empty) {
                 error make { msg: "Cannot read the Executor credential: secret-tool is not installed" }
             }
             do { ^secret-tool lookup service executor name cf-access-client-secret } | complete
         },
-        "Darwin" => {
+        "macos" => {
             do { ^security find-generic-password -s executor -a cf-access-client-secret -w } | complete
         },
         $os => {

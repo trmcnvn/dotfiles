@@ -1,7 +1,40 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HerdrProtocol } from "./protocol.ts";
+import { HerdrProtocol, readCliFlag } from "./protocol.ts";
+
+test("reads child bootstrap flags before Pi applies registered flag values", () => {
+	const argv = [
+		"node",
+		"pi",
+		"--herdr-subagent-child",
+		"--herdr-subagent-result",
+		"/tmp/result.json",
+	];
+
+	assert.equal(readCliFlag(argv, "herdr-subagent-child"), "");
+	assert.equal(readCliFlag(argv, "herdr-subagent-result"), "/tmp/result.json");
+	assert.equal(readCliFlag(["node", "pi", "--flag=value"], "flag"), "value");
+	assert.equal(readCliFlag(argv, "missing"), undefined);
+});
+
+test("does not read extension flags after the argument separator", () => {
+	assert.equal(readCliFlag(["node", "pi", "--", "--herdr-subagent-child"], "herdr-subagent-child"), undefined);
+});
+
+test("parses a background tab and its root pane", () => {
+	const parsed = HerdrProtocol.parseCreatedTab(
+		JSON.stringify({
+			result: {
+				tab: { tab_id: "w3:t2" },
+				root_pane: { pane_id: "w3:p2" },
+				type: "tab_created",
+			},
+		}),
+	);
+
+	assert.deepEqual(parsed, { ok: true, value: { tabId: "w3:t2", paneId: "w3:p2" } });
+});
 
 test("parses the pane created by Herdr", () => {
 	const parsed = HerdrProtocol.parseSplitPaneId(

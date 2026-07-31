@@ -12,6 +12,12 @@ export interface PaneRect {
 	readonly height: number;
 }
 
+/** Identifiers returned when Herdr creates a background tab. */
+export interface CreatedTab {
+	readonly tabId: string;
+	readonly paneId: string;
+}
+
 /** Foreground process information used to determine whether a pane is reusable. */
 export interface PaneProcessInfo {
 	readonly shellPid: number;
@@ -71,8 +77,36 @@ function isAgentStatus(value: unknown): value is HerdrAgentStatus {
 	return typeof value === "string" && AGENT_STATUSES.some((status) => status === value);
 }
 
+/** Read a private extension flag directly from argv during extension initialization. */
+export function readCliFlag(argv: readonly string[], name: string): string | undefined {
+	const flag = `--${name}`;
+	for (let index = 2; index < argv.length; index++) {
+		const argument = argv[index];
+		if (argument === "--") break;
+		if (argument === flag) {
+			const value = argv[index + 1];
+			return value === undefined || value.startsWith("--") ? "" : value;
+		}
+		if (argument.startsWith(`${flag}=`)) return argument.slice(flag.length + 1);
+	}
+	return undefined;
+}
+
 /** Parsers for all JSON values crossing the Herdr and child-process boundaries. */
 export const HerdrProtocol = {
+	/** Parse the background tab and root pane returned by `herdr tab create`. */
+	parseCreatedTab(value: string): ParseResult<CreatedTab> {
+		const result = resultRecord(value);
+		if (!result.ok) return result;
+		if (!isRecord(result.value.tab) || typeof result.value.tab.tab_id !== "string") {
+			return failure("tab response did not contain a tab id");
+		}
+		if (!isRecord(result.value.root_pane) || typeof result.value.root_pane.pane_id !== "string") {
+			return failure("tab response did not contain a root pane id");
+		}
+		return success({ tabId: result.value.tab.tab_id, paneId: result.value.root_pane.pane_id });
+	},
+
 	/** Parse the new pane id returned by `herdr pane split`. */
 	parseSplitPaneId(value: string): ParseResult<string> {
 		const result = resultRecord(value);

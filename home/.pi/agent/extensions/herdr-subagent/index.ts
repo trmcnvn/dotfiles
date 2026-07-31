@@ -16,7 +16,7 @@ import {
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
-import { HerdrProtocol, type ChildResult, type HerdrAgentStatus, type ParseResult } from "./protocol.ts";
+import { HerdrProtocol, readCliFlag, type ChildResult, type HerdrAgentStatus, type ParseResult } from "./protocol.ts";
 
 const CHILD_FLAG = "herdr-subagent-child";
 const RESULT_FLAG = "herdr-subagent-result";
@@ -54,6 +54,7 @@ interface RunDetails {
 	readonly output?: string;
 	readonly sessionFile?: string;
 	readonly startedAt?: number;
+	readonly paneClosed?: boolean;
 	readonly finishedAt?: number;
 }
 
@@ -250,9 +251,13 @@ function resultText(details: RunDetails): string {
 	const lines = [
 		`Subagent ${details.status}${duration ? ` after ${duration}` : ""}.`,
 		`Model: ${details.provider}/${details.model} (${details.thinking})`,
-		`Herdr pane: ${details.paneId ?? "(unknown)"}`,
-		`Inspect: ${details.inspectCommand}`,
-		`Clean up: ${details.cleanupCommand}`,
+		...(details.paneClosed
+			? ["Background Herdr tab closed."]
+			: [
+					`Herdr pane: ${details.paneId ?? "(unknown)"}`,
+					`Inspect: ${details.inspectCommand}`,
+					`Clean up: ${details.cleanupCommand}`,
+				]),
 	];
 	if (details.sessionFile) lines.push(`Child session: ${details.sessionFile}`);
 	if (details.output) lines.push("", details.output);
@@ -345,9 +350,11 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 		type: "string",
 	});
 
-	if (pi.getFlag(CHILD_FLAG) === true) {
-		const resultPath = pi.getFlag(RESULT_FLAG);
-		if (typeof resultPath !== "string" || !path.isAbsolute(resultPath)) {
+	// Extension flag values are applied only after extension factories finish.
+	// Read these private bootstrap flags from argv so child mode is selected before tools are registered.
+	if (readCliFlag(process.argv, CHILD_FLAG) !== undefined) {
+		const resultPath = readCliFlag(process.argv, RESULT_FLAG);
+		if (!resultPath || !path.isAbsolute(resultPath)) {
 			console.error(`[herdr-subagent] --${RESULT_FLAG} must be an absolute path in child mode.`);
 			return;
 		}
@@ -355,12 +362,13 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 		return;
 	}
 
-	const callerPaneId = process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined;
-	if (!callerPaneId) return;
+	const callerWorkspaceId = process.env.HERDR_ENV === "1" ? process.env.HERDR_WORKSPACE_ID : undefined;
+	if (!callerWorkspaceId) return;
 
 	let queueTail: Promise<void> = Promise.resolve();
 	let queueDepth = 0;
 	let ownedPaneId: string | undefined;
+	let ownedTabId: string | undefined;
 	let activeAgentName: string | undefined;
 
 	const runHerdr = (
@@ -384,34 +392,30 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 		if (!paneId) return;
 		if (!force && activeAgentName === undefined && !(await isPaneAtShell(paneId))) {
 			ownedPaneId = undefined;
+			ownedTabId = undefined;
 			return;
 		}
+		const tabId = ownedTabId;
 		ownedPaneId = undefined;
+		ownedTabId = undefined;
 		activeAgentName = undefined;
-		await runHerdr(["pane", "close", paneId], { timeout: 5_000 });
+		await runHerdr(tabId ? ["tab", "close", tabId] : ["pane", "close", paneId], { timeout: 5_000 });
 	};
 
 	const createPane = async (cwd: string): Promise<string> => {
-		const layout = await runHerdr(["pane", "layout", "--pane", callerPaneId], { timeout: 5_000 });
-		if (layout.code !== 0) {
-			throw new HerdrSubagentError(
-				`Herdr could not inspect caller pane ${callerPaneId}: ${layout.stderr.trim() || "unknown error"}`,
-			);
-		}
-		const rect = unwrapParsed(HerdrProtocol.parsePaneRect(layout.stdout, callerPaneId), "herdr pane layout");
-		const direction = rect.width >= rect.height * 2 ? "right" : "down";
-		const split = await runHerdr(
-			["pane", "split", "--pane", callerPaneId, "--direction", direction, "--cwd", cwd, "--no-focus"],
+		const created = await runHerdr(
+			["tab", "create", "--workspace", callerWorkspaceId, "--cwd", cwd, "--label", "subagent", "--no-focus"],
 			{ timeout: 10_000 },
 		);
-		if (split.code !== 0) {
+		if (created.code !== 0) {
 			throw new HerdrSubagentError(
-				`Herdr could not create a subagent pane: ${split.stderr.trim() || split.stdout.trim() || "unknown error"}`,
+				`Herdr could not create a background subagent tab: ${created.stderr.trim() || created.stdout.trim() || "unknown error"}`,
 			);
 		}
-		const paneId = unwrapParsed(HerdrProtocol.parseSplitPaneId(split.stdout), "herdr pane split");
-		ownedPaneId = paneId;
-		return paneId;
+		const tab = unwrapParsed(HerdrProtocol.parseCreatedTab(created.stdout), "herdr tab create");
+		ownedPaneId = tab.paneId;
+		ownedTabId = tab.tabId;
+		return tab.paneId;
 	};
 
 	const ensurePane = async (cwd: string): Promise<string> => {
@@ -420,6 +424,7 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 			const pane = await runHerdr(["pane", "get", paneId], { timeout: 5_000 });
 			if (pane.code !== 0) {
 				ownedPaneId = undefined;
+				ownedTabId = undefined;
 				activeAgentName = undefined;
 			} else if (await isPaneAtShell(paneId)) {
 				activeAgentName = undefined;
@@ -432,6 +437,7 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 				);
 			} else {
 				ownedPaneId = undefined;
+				ownedTabId = undefined;
 			}
 		}
 		return createPane(cwd);
@@ -479,8 +485,8 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 		name: "subagent",
 		label: "Subagent",
 		description:
-			"Run one delegated task in a separate interactive Pi process in a reusable Herdr pane. Calls are serialized, so only one child works at a time. The child inherits the current provider, model, thinking level, working directory, and project trust unless overridden. Live terminal output is shown while it runs. Output is capped at 50KB or 2000 lines; the complete child session is preserved on disk.",
-		promptSnippet: "Run one bounded delegated task in an observable Herdr-backed Pi session",
+			"Run one delegated task in a separate interactive Pi process in a temporary background Herdr tab. Calls are serialized, so only one child works at a time. The child inherits the current provider, model, thinking level, working directory, and project trust unless overridden. Live terminal output is shown while it runs, and the background tab closes when it finishes. Output is capped at 50KB or 2000 lines; the complete child session is preserved on disk.",
+		promptSnippet: "Run one bounded delegated task in an observable background Herdr tab",
 		promptGuidelines: [
 			"Use subagent for bounded independent investigation, implementation, or review where an isolated context or second opinion is valuable; do not delegate trivial or tightly coupled work.",
 			"Use subagent once per delegated task. Calls are serialized automatically, and each task must include all context the child needs.",
@@ -670,6 +676,7 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 						);
 						const pane = finalPane.code === 0 ? trimPane(finalPane.stdout) : lastPane;
 						await waitForShell(paneId);
+						await closeOwnedPane(true);
 
 						let rawOutput = childResult.output.trim();
 						if (childResult.status === "failed" && childResult.error?.trim()) {
@@ -685,13 +692,14 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 							model: childResult.model ?? resolvedSpec.model,
 							thinking: childResult.thinking ?? resolvedSpec.thinking,
 							startedAt,
+							paneClosed: true,
 							finishedAt: childResult.finishedAt,
 						});
 						if (childResult.status === "failed") throw new HerdrSubagentError(resultText(details));
 						return { content: [{ type: "text", text: resultText(details) }], details };
 					} catch (error) {
+						await closeOwnedPane(true);
 						if (signal?.aborted) {
-							await closeOwnedPane(true);
 							throw new HerdrSubagentError("Subagent aborted.", { cause: error });
 						}
 						throw error;
@@ -728,7 +736,7 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 			const duration = formatDuration(details.startedAt, details.finishedAt);
 			let text = `${icon} ${theme.fg("toolTitle", theme.bold(details.agentName))}`;
 			text += theme.fg("muted", ` · ${details.status}${duration ? ` · ${duration}` : ""}`);
-			if (details.paneId) text += `\n  ${theme.fg("accent", `Herdr pane ${details.paneId}`)}`;
+			if (details.paneId && !details.paneClosed) text += `\n  ${theme.fg("accent", `Herdr pane ${details.paneId}`)}`;
 			text += `\n  ${theme.fg("dim", `${details.provider}/${details.model} (${details.thinking})`)}`;
 
 			if (running && details.pane) {
@@ -742,8 +750,9 @@ export default function herdrSubagentExtension(pi: ExtensionAPI): void {
 				if (!expanded && outputLines.length > visible.length) {
 					text += `\n${theme.fg("muted", `(${keyHint("app.tools.expand", "to expand")})`)}`;
 				}
-				text += `\n\n  ${theme.fg("dim", `inspect: ${details.inspectCommand}`)}`;
-				text += `\n  ${theme.fg("dim", `cleanup: ${details.cleanupCommand}`)}`;
+				text += details.paneClosed
+					? `\n\n  ${theme.fg("dim", "background tab closed")}`
+					: `\n\n  ${theme.fg("dim", `inspect: ${details.inspectCommand}`)}\n  ${theme.fg("dim", `cleanup: ${details.cleanupCommand}`)}`;
 			}
 			return new Text(text, 0, 0);
 		},
