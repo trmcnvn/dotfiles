@@ -92,3 +92,6 @@ kitty_graphics = true
 [advanced]
 scrollback_limit_bytes = 52428800
 
+[theme]
+name = "gruvbox"
+auto_switch = false
