@@ -254,6 +254,50 @@ cmd_init() {
     msg "Done! Restart your shell."
 }
 
+normalize_path() {
+    awk -v path="$1" 'BEGIN {
+        count = split(path, parts, "/")
+        depth = 0
+
+        for (i = 1; i <= count; i++) {
+            if (parts[i] == "" || parts[i] == ".") continue
+            if (parts[i] == "..") {
+                if (depth > 0) depth--
+                continue
+            }
+            stack[++depth] = parts[i]
+        }
+
+        normalized = ""
+        for (i = 1; i <= depth; i++) normalized = normalized "/" stack[i]
+        print (normalized == "" ? "/" : normalized)
+    }'
+}
+
+cleanup_stale_links() {
+    managed_root=$(normalize_path "$DOTFILES/home")
+    managed_root_physical=$(cd "$DOTFILES/home" && pwd -P)
+
+    find "$HOME" -type l -print 2>/dev/null | while IFS= read -r link; do
+        [ -e "$link" ] && continue
+
+        link_target=$(readlink "$link") || continue
+        case "$link_target" in
+            /*) target_path=$link_target ;;
+            *) target_path=$(dirname "$link")/$link_target ;;
+        esac
+
+        resolved_target=$(normalize_path "$target_path")
+        case "$resolved_target" in
+            "$managed_root"/*|"$managed_root_physical"/*)
+                relative_link=${link#"$HOME"/}
+                warn "Removing stale link ~/$relative_link"
+                rm -f "$link"
+                ;;
+        esac
+    done
+}
+
 setup_ghostty_platform_config() {
     ghostty_dir="$HOME/.config/ghostty"
 
@@ -279,6 +323,7 @@ setup_ghostty_platform_config() {
 cmd_sync() {
     msg "Syncing dotfiles..."
     has stow || die "GNU Stow not installed"
+    cleanup_stale_links
 
     # Dry-run to find conflicts, then backup+remove before stowing
     dry_run_output=$(stow --no-folding -R -n -d "$DOTFILES" -t ~ home 2>&1 || true)
