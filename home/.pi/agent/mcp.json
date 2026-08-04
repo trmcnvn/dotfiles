@@ -4,7 +4,7 @@
     "startup": "lazy",
     "executor": {
       "type": "remote",
-      "url": "https://executor.trmcnvn.dev/mcp?elicitation_mode=native",
+      "url": "https://executor.trmcnvn.dev/mcp/toolkits/personal?elicitation_mode=native",
       "headers": {
         "CF-Access-Client-Id": "222ecc61d2390068c4caa91d6b85a12f.access",
         "CF-Access-Client-Secret": "${EXECUTOR_CF_ACCESS_CLIENT_SECRET}"
