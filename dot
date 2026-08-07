@@ -3,6 +3,16 @@ set -eu
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
+SETUP_REGISTRY='Homebrew|brew|install_homebrew
+Homebrew packages|-|install_packages
+Stow dotfiles|stow|cmd_sync
+Mise tools|mise|install_mise_tools
+Pi|-|install_pi
+Pi packages|-|update_pi_packages
+Herdr Pi integration|herdr|setup_herdr_pi_integration
+Bash shell|-|setup_bash
+macOS defaults|-|apply_macos_defaults'
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -14,6 +24,17 @@ warn() { printf "${YELLOW}=>${RESET} %s\n" "$1"; }
 err()  { printf "${RED}=>${RESET} %s\n" "$1" >&2; }
 die()  { err "$1"; exit 1; }
 has()  { command -v "$1" >/dev/null 2>&1; }
+
+progress() {
+    CURRENT_STEP=$((CURRENT_STEP + 1))
+    msg "[$CURRENT_STEP/$TOTAL_STEPS] $1"
+}
+
+require_no_args() {
+    command_name=$1
+    shift
+    [ "$#" -eq 0 ] || die "Usage: dot $command_name"
+}
 
 confirm() {
     prompt=$1
@@ -42,25 +63,8 @@ confirm() {
     esac
 }
 
-detect_os() {
-    case "$(uname -s)" in
-        Darwin) echo "macos" ;;
-        Linux)
-            [ -f /etc/arch-release ] && echo "arch" && return
-            die "Unsupported Linux distro (Arch only)"
-            ;;
-        *) die "Unsupported OS" ;;
-    esac
-}
-
-install_yay() {
-    has yay && return 0
-    msg "Installing yay..."
-    sudo pacman -S --needed --noconfirm base-devel git
-    tmp=$(mktemp -d)
-    git clone https://aur.archlinux.org/yay.git "$tmp/yay"
-    (cd "$tmp/yay" && makepkg -si --noconfirm)
-    rm -rf "$tmp"
+require_macos() {
+    [ "$(uname -s)" = "Darwin" ] || die "Unsupported OS (macOS only)"
 }
 
 install_homebrew() {
@@ -77,16 +81,18 @@ append_line_if_missing() {
     printf "%s\n" "$line" >> "$file"
 }
 
-remove_line_exact() {
-    line=$1
-    file=$2
-    tmp=$(mktemp)
-    grep -Fvx "$line" "$file" > "$tmp" || true
-    mv "$tmp" "$file"
+has_package_equivalent() {
+    case "$1" in
+        openssh) has ssh ;;
+        unzip) has unzip ;;
+        docker-compose)
+            has docker-compose || { has docker && docker compose version >/dev/null 2>&1; }
+            ;;
+        *) return 1 ;;
+    esac
 }
 
 collect_package_status() {
-    os=$1
     PKG_TOTAL=0
     PKG_MISSING_COUNT=0
     PKG_MISSING_LIST=""
@@ -101,40 +107,86 @@ $1"
         fi
     }
 
-    case "$os" in
-        arch)
-            has yay || die "yay not installed"
-            installed_pkgs=$(yay -Qq 2>/dev/null || true)
-            while IFS= read -r pkg; do
-                [ -z "$pkg" ] && continue
-                PKG_TOTAL=$((PKG_TOTAL + 1))
-                echo "$installed_pkgs" | grep -qx "$pkg" || add_missing "$pkg"
-            done <<EOF
-$(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$')
-EOF
-            ;;
-        macos)
-            has brew || die "Homebrew not installed"
-            installed_formulae=$(brew list --formula 2>/dev/null || true)
-            installed_casks=$(brew list --cask 2>/dev/null || true)
+    has brew || die "Homebrew not installed"
+    installed_formulae=$(brew list --formula 2>/dev/null || true)
+    installed_casks=$(brew list --cask 2>/dev/null || true)
 
-            while IFS= read -r line; do
-                case "$line" in
-                    \#*|"") continue ;;
-                esac
+    while IFS= read -r line; do
+        case "$line" in
+            \#*|"") continue ;;
+        esac
 
-                if echo "$line" | grep -q '^brew'; then
-                    pkg=$(echo "$line" | sed 's/brew "\([^"]*\)".*/\1/')
-                    PKG_TOTAL=$((PKG_TOTAL + 1))
-                    echo "$installed_formulae" | grep -qx "$pkg" || add_missing "brew:$pkg"
-                elif echo "$line" | grep -q '^cask'; then
-                    pkg=$(echo "$line" | sed 's/cask "\([^"]*\)".*/\1/')
-                    PKG_TOTAL=$((PKG_TOTAL + 1))
-                    echo "$installed_casks" | grep -qx "$pkg" || add_missing "cask:$pkg"
-                fi
-            done < "$DOTFILES/packages/brew"
-            ;;
+        if echo "$line" | grep -q '^brew'; then
+            pkg=$(echo "$line" | sed 's/brew "\([^"]*\)".*/\1/')
+            PKG_TOTAL=$((PKG_TOTAL + 1))
+            echo "$installed_formulae" | grep -qx "$pkg" || has_package_equivalent "$pkg" || add_missing "brew:$pkg"
+        elif echo "$line" | grep -q '^cask'; then
+            pkg=$(echo "$line" | sed 's/cask "\([^"]*\)".*/\1/')
+            PKG_TOTAL=$((PKG_TOTAL + 1))
+            echo "$installed_casks" | grep -qx "$pkg" || add_missing "cask:$pkg"
+        fi
+    done < "$DOTFILES/packages/brew"
+}
+
+install_brew_package() {
+    package_type=$1
+    package_name=$2
+
+    case "$package_type" in
+        brew) brew install "$package_name" ;;
+        cask) brew install --cask "$package_name" ;;
+        *) die "Unsupported package type: $package_type" ;;
     esac
+}
+
+install_packages() {
+    msg "Installing Homebrew packages..."
+    if brew bundle --file="$DOTFILES/packages/brew"; then
+        msg "Homebrew packages installed"
+        return 0
+    fi
+
+    warn "Homebrew bundle partially failed; retrying missing packages individually"
+    collect_package_status
+    if [ "$PKG_MISSING_COUNT" -eq 0 ]; then
+        warn "Homebrew bundle failed, but all configured packages are available"
+        return 0
+    fi
+
+    while IFS=: read -r package_type package_name <&3; do
+        msg "Retrying $package_type package: $package_name"
+        if install_brew_package "$package_type" "$package_name"; then
+            msg "Installed $package_name"
+        else
+            warn "Failed to install $package_name"
+        fi
+    done 3<<EOF
+$PKG_MISSING_LIST
+EOF
+
+    collect_package_status
+    if [ "$PKG_MISSING_COUNT" -gt 0 ]; then
+        err "Failed to install $PKG_MISSING_COUNT configured packages:"
+        printf "%s\n" "$PKG_MISSING_LIST" | while IFS= read -r package; do
+            err "  $package"
+        done
+        return 1
+    fi
+
+    msg "All configured packages are available"
+}
+
+run_setup_steps() {
+    TOTAL_STEPS=$(printf "%s\n" "$SETUP_REGISTRY" | awk 'NF { count++ } END { print count + 0 }')
+    CURRENT_STEP=0
+
+    while IFS='|' read -r step_name check_command installer <&3; do
+        [ -n "$step_name" ] || continue
+        progress "$step_name"
+        "$installer"
+    done 3<<EOF
+$SETUP_REGISTRY
+EOF
 }
 
 setup_bash() {
@@ -226,31 +278,46 @@ apply_macos_defaults() {
     msg "macOS defaults applied (some may require logout)"
 }
 
+install_mise_tools() {
+    has mise || die "mise not installed"
+    msg "Installing mise tools..."
+    mise install
+}
+
+install_pi() {
+    has mise || die "mise not installed"
+    msg "Installing pi..."
+    mise exec -- npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+}
+
+update_pi_packages() {
+    msg "Updating pi packages..."
+    mise exec -- pi update --extensions
+}
+
+setup_herdr_pi_integration() {
+    has herdr || die "herdr not installed"
+
+    if herdr integration status 2>/dev/null | grep -q '^pi: current '; then
+        msg "Herdr Pi integration is current"
+        return 0
+    fi
+
+    integration="$HOME/.pi/agent/extensions/herdr-agent-state.ts"
+    if [ -L "$integration" ]; then
+        die "Managed Herdr Pi integration is outdated; update $DOTFILES/home/.pi/agent/extensions/herdr-agent-state.ts"
+    fi
+
+    msg "Installing Herdr Pi integration..."
+    mkdir -p "$(dirname "$integration")"
+    herdr integration install pi
+}
+
 cmd_init() {
-    os=$(detect_os)
-    msg "Initializing dotfiles ($os)"
-
-    case $os in
-        arch)
-            install_yay
-            msg "Installing packages..."
-            # Filter comments and empty lines, then install
-            # grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$' | xargs -r yay -S --needed
-	    yay -Syu --needed $(grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$')
-            ;;
-        macos)
-            install_homebrew
-            msg "Installing packages..."
-            brew bundle --file="$DOTFILES/packages/brew"
-            ;;
-    esac
-
-    cmd_sync
-
-    setup_bash
-
-    [ "$os" = "macos" ] && apply_macos_defaults
-
+    require_no_args init "$@"
+    require_macos
+    msg "Initializing dotfiles (macOS)"
+    run_setup_steps
     msg "Done! Restart your shell."
 }
 
@@ -300,15 +367,7 @@ cleanup_stale_links() {
 
 setup_ghostty_platform_config() {
     ghostty_dir="$HOME/.config/ghostty"
-
-    case "$(uname -s)" in
-        Darwin) ghostty_platform_config="config.macos" ;;
-        Linux) ghostty_platform_config="config.linux" ;;
-        *)
-            warn "Skipping Ghostty platform config for unsupported OS"
-            return 0
-            ;;
-    esac
+    ghostty_platform_config="config.macos"
 
     mkdir -p "$ghostty_dir"
     if [ -e "$ghostty_dir/config.local" ] && [ ! -L "$ghostty_dir/config.local" ]; then
@@ -321,6 +380,7 @@ setup_ghostty_platform_config() {
 }
 
 cmd_sync() {
+    require_no_args sync "$@"
     msg "Syncing dotfiles..."
     has stow || die "GNU Stow not installed"
     cleanup_stale_links
@@ -373,20 +433,45 @@ cmd_sync() {
 }
 
 cmd_update() {
-    msg "Updating dotfiles..."
+    require_no_args update "$@"
+    require_macos
+    TOTAL_STEPS=6
+    CURRENT_STEP=0
+
+    progress "Repository"
     if [ -d "$DOTFILES/.jj" ] && has jj; then
         (cd "$DOTFILES" && jj git fetch && jj rebase -d 'trunk()')
     else
         git -C "$DOTFILES" pull
     fi
+
+    progress "Homebrew packages"
+    install_homebrew
+    brew update
+    install_packages
+    brew upgrade
+
+    progress "Stow dotfiles"
     cmd_sync
+
+    progress "Mise tools"
+    install_mise_tools
+
+    progress "Pi and configured packages"
+    install_pi
+    update_pi_packages
+
+    progress "Herdr Pi integration"
+    setup_herdr_pi_integration
+    msg "Update complete"
 }
 
 cmd_check_packages() {
-    os=$(detect_os)
-    msg "Checking package state ($os)..."
+    require_no_args check-packages "$@"
+    require_macos
+    msg "Checking package state (macOS)..."
 
-    collect_package_status "$os"
+    collect_package_status
 
     installed_count=$((PKG_TOTAL - PKG_MISSING_COUNT))
     if [ "$PKG_MISSING_COUNT" -eq 0 ]; then
@@ -398,41 +483,194 @@ cmd_check_packages() {
 }
 
 cmd_doctor() {
-    os=$(detect_os)
-    cmd_check_packages
+    require_no_args doctor "$@"
+    require_macos
+    failures=0
 
-    # Check stow status
-    if [ -L "$HOME/.config/nushell/config.nu" ]; then
-        printf "${GREEN}✓${RESET} Dotfiles stowed\n"
-    else
-        printf "${YELLOW}!${RESET} Dotfiles not stowed\n"
-    fi
+    doctor_ok() {
+        printf "${GREEN}✓${RESET} %s\n" "$1"
+    }
 
-    for tool in stow git; do
-        if has "$tool"; then
-            printf "${GREEN}✓${RESET} %s installed\n" "$tool"
+    doctor_warn() {
+        printf "${YELLOW}!${RESET} %s\n" "$1"
+    }
+
+    doctor_fail() {
+        printf "${RED}✗${RESET} %s\n" "$1"
+        failures=$((failures + 1))
+    }
+
+    msg "Checking dotfiles health..."
+
+    while IFS='|' read -r step_name check_command installer <&3; do
+        [ "$check_command" = "-" ] && continue
+        if has "$check_command"; then
+            doctor_ok "$check_command available for $step_name"
         else
-            printf "${YELLOW}!${RESET} %s missing\n" "$tool"
+            doctor_fail "$check_command missing for $step_name"
         fi
-    done
+    done 3<<EOF
+$SETUP_REGISTRY
+EOF
 
-    if has opencode; then
-        printf "${GREEN}✓${RESET} opencode installed\n"
+    if has git; then
+        doctor_ok "git installed"
     else
-        printf "${YELLOW}!${RESET} opencode missing\n"
+        doctor_fail "git missing"
     fi
 
-    if has nu; then
-        printf "${GREEN}✓${RESET} nushell installed\n"
+    if [ -d "$DOTFILES/.jj" ]; then
+        if has jj; then
+            doctor_ok "jj available for this repo"
+        else
+            doctor_fail ".jj repo detected but jj missing"
+        fi
+    fi
+
+    if has brew; then
+        collect_package_status
+        if [ "$PKG_MISSING_COUNT" -eq 0 ]; then
+            doctor_ok "All $PKG_TOTAL configured packages installed"
+        else
+            doctor_fail "$PKG_MISSING_COUNT of $PKG_TOTAL configured packages missing"
+            printf "%s\n" "$PKG_MISSING_LIST" | while IFS= read -r package; do
+                printf "  %s\n" "$package"
+            done
+        fi
+    fi
+
+    if [ -L "$HOME/.config/nushell/config.nu" ] && [ -e "$HOME/.config/nushell/config.nu" ]; then
+        doctor_ok "Dotfiles stowed"
     else
-        printf "${YELLOW}!${RESET} nushell missing\n"
+        doctor_fail "Dotfiles not stowed"
     fi
 
-    if [ -d "$DOTFILES/.jj" ] && has jj; then
-        printf "${GREEN}✓${RESET} jj available for this repo\n"
-    elif [ -d "$DOTFILES/.jj" ]; then
-        printf "${YELLOW}!${RESET} .jj repo detected but jj missing\n"
+    if has stow; then
+        if stow_output=$(stow --no-folding -R -n -d "$DOTFILES" -t "$HOME" home 2>&1); then
+            doctor_ok "Stow dry-run has no conflicts"
+        else
+            doctor_fail "Stow dry-run failed"
+            printf "%s\n" "$stow_output" | tail -10 | while IFS= read -r line; do
+                printf "  %s\n" "$line"
+            done
+        fi
     fi
+
+    broken_links=$(find \
+        "$HOME/.agents" \
+        "$HOME/.config" \
+        "$HOME/.local/bin" \
+        "$HOME/.pi/agent/extensions" \
+        "$HOME/.pi/agent/skills" \
+        \( -name node_modules -o -name .git \) -prune -o \
+        -type l ! -exec test -e {} \; -print 2>/dev/null || true)
+    if [ -z "$broken_links" ]; then
+        doctor_ok "No broken runtime links"
+    else
+        broken_count=$(printf "%s\n" "$broken_links" | awk 'NF { count++ } END { print count + 0 }')
+        doctor_fail "$broken_count broken runtime links"
+        printf "%s\n" "$broken_links" | while IFS= read -r link; do
+            printf "  %s\n" "$link"
+        done
+    fi
+
+    ghostty_platform_config="$HOME/.config/ghostty/config.local"
+    if [ -L "$ghostty_platform_config" ] && [ "$(readlink "$ghostty_platform_config")" = "config.macos" ] && [ -e "$ghostty_platform_config" ]; then
+        doctor_ok "Ghostty uses config.macos"
+    else
+        doctor_fail "Ghostty config.local is not linked to config.macos"
+    fi
+
+    mise_config="$DOTFILES/home/.config/mise/config.toml"
+    if has mise; then
+        if grep -Eq '= *"latest"' "$mise_config"; then
+            doctor_fail "Mise config contains floating tool versions"
+        elif missing_tools=$(mise ls --current --missing --no-header 2>/dev/null) && [ -z "$missing_tools" ]; then
+            mise_tool_count=$(mise ls --current --no-header 2>/dev/null | awk 'NF { count++ } END { print count + 0 }')
+            doctor_ok "$mise_tool_count pinned Mise tools installed"
+        else
+            doctor_fail "Pinned Mise tools missing"
+            [ -z "${missing_tools:-}" ] || printf "%s\n" "$missing_tools" | while IFS= read -r tool; do
+                printf "  %s\n" "$tool"
+            done
+        fi
+    fi
+
+    invalid_json=""
+    json_count=0
+    if has jq; then
+        json_count=$(find "$DOTFILES/home" -type f -name '*.json' ! -path "$DOTFILES/home/.config/zed/*" -print | awk 'END { print NR }')
+        invalid_json=$(find "$DOTFILES/home" -type f -name '*.json' ! -path "$DOTFILES/home/.config/zed/*" -exec sh -c '
+            for file do
+                jq empty "$file" >/dev/null 2>&1 || printf "%s\n" "$file"
+            done
+        ' sh {} +)
+        if [ -z "$invalid_json" ]; then
+            doctor_ok "$json_count strict JSON configs valid"
+        else
+            doctor_fail "Invalid JSON configs"
+            printf "%s\n" "$invalid_json" | while IFS= read -r file; do
+                printf "  %s\n" "$file"
+            done
+        fi
+    else
+        doctor_fail "jq missing; cannot validate JSON configs"
+    fi
+
+    if has nu && nu --no-config-file -c "nu-check '$DOTFILES/home/.config/nushell/config.nu'" >/dev/null 2>&1; then
+        doctor_ok "Nushell config parses"
+    else
+        doctor_fail "Nushell config does not parse"
+    fi
+
+    if has nvim && nvim --headless -u "$DOTFILES/home/.config/nvim/init.lua" +qa >/dev/null 2>&1; then
+        doctor_ok "Neovim starts headlessly"
+    else
+        doctor_fail "Neovim headless startup failed"
+    fi
+
+    if ! has mise || ! pi_version=$(mise exec -- pi --version 2>/dev/null); then
+        doctor_fail "Pi unavailable through Mise"
+    else
+        doctor_ok "Pi $pi_version available through Mise"
+
+        settings="$DOTFILES/home/.pi/agent/settings.json"
+        if has jq && configured_pi_packages=$(jq -r '.packages // [] | length' "$settings" 2>/dev/null); then
+            if pi_list=$(PI_OFFLINE=1 mise exec -- pi list --no-approve 2>/dev/null); then
+                installed_pi_packages=$(printf "%s\n" "$pi_list" | awk '/^    \// { count++ } END { print count + 0 }')
+                if [ "$installed_pi_packages" -eq "$configured_pi_packages" ]; then
+                    doctor_ok "All $configured_pi_packages Pi packages installed"
+                else
+                    doctor_fail "$installed_pi_packages of $configured_pi_packages Pi packages installed"
+                fi
+            else
+                doctor_fail "Unable to inspect Pi packages offline"
+            fi
+        else
+            doctor_fail "Unable to read configured Pi packages"
+        fi
+    fi
+
+    if has herdr; then
+        if herdr integration status 2>/dev/null | grep -q '^pi: current '; then
+            doctor_ok "Herdr Pi integration current"
+        else
+            doctor_fail "Herdr Pi integration missing or outdated"
+        fi
+    fi
+
+    if find "$HOME/Library/Fonts" /Library/Fonts -maxdepth 1 -iname 'MonoLisaCode*' -print -quit 2>/dev/null | grep -q .; then
+        doctor_ok "MonoLisaCode installed"
+    else
+        doctor_warn "MonoLisaCode not installed (optional/manual)"
+    fi
+
+    if [ "$failures" -gt 0 ]; then
+        err "$failures health checks failed"
+        return 1
+    fi
+
+    msg "Doctor passed"
 }
 
 cmd_benchmark_shell() {
@@ -443,12 +681,14 @@ cmd_benchmark_shell() {
         case "$1" in
             -r|--runs)
                 shift
-                runs=${1:-10}
+                [ "$#" -gt 0 ] || die "--runs requires a value"
+                runs=$1
                 ;;
             -v|--verbose)
                 verbose=1
                 ;;
             -h|--help)
+                [ "$#" -eq 1 ] || die "Usage: dot benchmark-shell --help"
                 cat <<EOF
 Usage: dot benchmark-shell [options]
 
@@ -526,82 +766,95 @@ awk -v a="$avg" 'BEGIN {
 }'
 }
 
-cmd_package() {
-    subcmd=${1:-help}
-    shift || true
-    os=$(detect_os)
-
-    case "$subcmd" in
-        list)
-            case "$os" in
-                arch)
-                    grep -v '^#' "$DOTFILES/packages/arch" | grep -v '^$'
-                    ;;
-                macos)
-                    grep -E '^(brew|cask) ' "$DOTFILES/packages/brew" || true
-                    ;;
-            esac
-            ;;
-        add)
-            pkg=${1:-}
-            [ -n "$pkg" ] || die "Usage: dot package add <name> [brew|cask]"
-
-            case "$os" in
-                arch)
-                    append_line_if_missing "$pkg" "$DOTFILES/packages/arch"
-                    msg "Added package to packages/arch: $pkg"
-                    ;;
-                macos)
-                    kind=${2:-brew}
-                    [ "$kind" = "brew" ] || [ "$kind" = "cask" ] || die "Kind must be brew or cask"
-                    line="$kind \"$pkg\""
-                    append_line_if_missing "$line" "$DOTFILES/packages/brew"
-                    msg "Added package to packages/brew: $line"
-                    ;;
-            esac
-            ;;
-        remove)
-            pkg=${1:-}
-            [ -n "$pkg" ] || die "Usage: dot package remove <name>"
-
-            case "$os" in
-                arch)
-                    remove_line_exact "$pkg" "$DOTFILES/packages/arch"
-                    msg "Removed package from packages/arch: $pkg"
-                    ;;
-                macos)
-                    tmp=$(mktemp)
-                    awk -v p="$pkg" '
-                        {
-                            line=$0
-                            if (line ~ /^(brew|cask) "/) {
-                                name=line
-                                sub(/^(brew|cask) "/, "", name)
-                                sub(/".*/, "", name)
-                                if (name == p) next
-                            }
-                            print line
-                        }
-                    ' "$DOTFILES/packages/brew" > "$tmp"
-                    mv "$tmp" "$DOTFILES/packages/brew"
-                    msg "Removed package from packages/brew: $pkg"
-                    ;;
-            esac
-            ;;
-        help|*)
+cmd_package_help() {
+    case "${1:-}" in
+        list) printf "Usage: dot package list\n" ;;
+        add) printf "Usage: dot package add <name> [brew|cask]\n" ;;
+        remove) printf "Usage: dot package remove <name>\n" ;;
+        ""|help)
             cat <<EOF
 Usage: dot package <command>
 
 Commands:
     list                         List configured packages
-    add <name> [brew|cask]       Add package to config
-    remove <name>                Remove package from config
+    add <name> [brew|cask]       Install and add a package
+    remove <name>                Remove a package from config
 EOF
             ;;
+        *) die "Unknown package command: $1" ;;
+    esac
+}
+
+cmd_package() {
+    require_macos
+    subcmd=${1:-help}
+    shift || true
+
+    case "${1:-}" in
+        -h|--help)
+            [ "$#" -eq 1 ] || die "Usage: dot package $subcmd --help"
+            cmd_package_help "$subcmd"
+            return 0
+            ;;
+    esac
+
+    case "$subcmd" in
+        list)
+            require_no_args "package list" "$@"
+            grep -E '^(brew|cask) ' "$DOTFILES/packages/brew" || true
+            ;;
+        add)
+            [ "$#" -le 2 ] || die "Usage: dot package add <name> [brew|cask]"
+            pkg=${1:-}
+            [ -n "$pkg" ] || die "Usage: dot package add <name> [brew|cask]"
+            kind=${2:-brew}
+            [ "$kind" = "brew" ] || [ "$kind" = "cask" ] || die "Kind must be brew or cask"
+            line="$kind \"$pkg\""
+
+            if grep -Fqx "$line" "$DOTFILES/packages/brew"; then
+                warn "$pkg is already configured"
+                return 0
+            fi
+
+            msg "Installing $kind package: $pkg"
+            install_brew_package "$kind" "$pkg"
+            append_line_if_missing "$line" "$DOTFILES/packages/brew"
+            msg "Added package to packages/brew: $line"
+            ;;
+        remove)
+            [ "$#" -eq 1 ] || die "Usage: dot package remove <name>"
+            pkg=$1
+            if ! grep -Fqx "brew \"$pkg\"" "$DOTFILES/packages/brew" && ! grep -Fqx "cask \"$pkg\"" "$DOTFILES/packages/brew"; then
+                warn "$pkg is not configured"
+                return 0
+            fi
+
+            tmp=$(mktemp)
+            awk -v p="$pkg" '
+                {
+                    line=$0
+                    if (line ~ /^(brew|cask) "/) {
+                        name=line
+                        sub(/^(brew|cask) "/, "", name)
+                        sub(/".*/, "", name)
+                        if (name == p) next
+                    }
+                    print line
+                }
+            ' "$DOTFILES/packages/brew" > "$tmp"
+            mv "$tmp" "$DOTFILES/packages/brew"
+            msg "Removed package from packages/brew: $pkg"
+            ;;
+        help)
+            require_no_args "package help" "$@"
+            cmd_package_help
+            ;;
+        *) die "Unknown package command: $subcmd" ;;
     esac
 }
 
 cmd_link() {
+    require_no_args link "$@"
     target_dir=/usr/local/bin
     if [ ! -w "$target_dir" ]; then
         target_dir="$HOME/.local/bin"
@@ -614,6 +867,7 @@ cmd_link() {
 }
 
 cmd_unlink() {
+    require_no_args unlink "$@"
     removed=0
     for path in /usr/local/bin/dot "$HOME/.local/bin/dot"; do
         if [ -L "$path" ]; then
@@ -627,6 +881,7 @@ cmd_unlink() {
 }
 
 cmd_completions() {
+    require_no_args completions "$@"
     nu_file="$DOTFILES/home/.config/nushell/scripts/dot-completions.nu"
 
     mkdir -p "$(dirname "$nu_file")"
@@ -678,7 +933,27 @@ EOF
 }
 
 cmd_help() {
-    cat <<EOF
+    case "${1:-}" in
+        init) printf "Usage: dot init\n" ;;
+        sync) printf "Usage: dot sync\n" ;;
+        update) printf "Usage: dot update\n" ;;
+        doctor) printf "Usage: dot doctor\n" ;;
+        check-packages) printf "Usage: dot check-packages\n" ;;
+        package) cmd_package_help ;;
+        benchmark-shell)
+            cat <<EOF
+Usage: dot benchmark-shell [options]
+
+Options:
+    -r, --runs <n>    Number of runs (default: 10)
+    -v, --verbose     Print each run timing
+EOF
+            ;;
+        link) printf "Usage: dot link\n" ;;
+        unlink) printf "Usage: dot unlink\n" ;;
+        completions) printf "Usage: dot completions\n" ;;
+        ""|help)
+            cat <<EOF
 Usage: dot <command>
 
 Commands:
@@ -694,10 +969,25 @@ Commands:
     completions Generate shell completions into dotfiles
     help      Show this message
 EOF
+            ;;
+        *) die "Unknown command: $1" ;;
+    esac
 }
 
 cmd=${1:-help}
 shift || true
+
+case "${1:-}" in
+    -h|--help)
+        case "$cmd" in
+            init|sync|update|doctor|check-packages|package|benchmark-shell|link|unlink|completions)
+                [ "$#" -eq 1 ] || die "Usage: dot $cmd --help"
+                cmd_help "$cmd"
+                exit 0
+                ;;
+        esac
+        ;;
+esac
 
 case "$cmd" in
     init)   cmd_init "$@" ;;
@@ -710,6 +1000,13 @@ case "$cmd" in
     link) cmd_link "$@" ;;
     unlink) cmd_unlink "$@" ;;
     completions) cmd_completions "$@" ;;
-    help|-h|--help) cmd_help ;;
+    help)
+        [ "$#" -le 1 ] || die "Usage: dot help [command]"
+        cmd_help "${1:-}"
+        ;;
+    -h|--help)
+        require_no_args help "$@"
+        cmd_help
+        ;;
     *) err "Unknown command: $cmd"; cmd_help; exit 1 ;;
 esac

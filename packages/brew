@@ -4,7 +4,6 @@ brew "git"
 brew "openssh"
 brew "stow"
 brew "unzip"
-brew "wget"
 
 # Shell
 brew "nushell"
@@ -28,13 +27,14 @@ brew "yq"
 brew "zoxide"
 
 # Dev tools
-# macOS runtime equivalent for Arch docker + docker-compose
+# Container runtime
 cask "orbstack"
 brew "docker-compose"
 brew "doctl"
 brew "gh"
 brew "helm"
 brew "helmfile"
+brew "herdr"
 brew "kubernetes-cli"
 brew "kustomize"
 brew "lazydocker"
@@ -51,20 +51,8 @@ brew "ffmpeg"
 brew "imagemagick"
 brew "mpv"
 
-# Fonts
-cask "font-noto-sans"
-cask "font-noto-serif"
-cask "font-noto-sans-mono"
-cask "font-noto-sans-cjk"
-cask "font-noto-serif-cjk"
-cask "font-noto-color-emoji"
-cask "font-jetbrains-mono-nerd-font"
-
 # Apps
 cask "bitwarden"
 cask "discord"
-cask "helium-browser"
 cask "ghostty"
-cask "obs"
 cask "spotify"
-cask "telegram"

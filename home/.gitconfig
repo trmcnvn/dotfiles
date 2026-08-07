@@ -37,10 +37,6 @@
 	undo = !git reset HEAD~1 --mixed
 	amend = !git commit --amend --no-edit
 	dbr = !git branch --merged | grep -v \"\\* \" | xargs git branch --delete
-[filter "lfs"]
-	clean = git-lfs clean %f
-	smudge = git-lfs smudge %f
-	required = true
 [commit]
 	gpgsign = true
 [gpg]

@@ -1,6 +1,0 @@
-# Linux / GTK
-window-decoration = server
-window-show-tab-bar = auto
-gtk-titlebar = false
-gtk-tabs-location = top
-gtk-wide-tabs = false

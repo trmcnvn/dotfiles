@@ -13,7 +13,7 @@ vim.opt.undodir = vim.fn.stdpath("state") .. "/undo"
 vim.opt.undolevels = 5000
 vim.opt.history = 1000
 
-vim.opt.shell = "fish"
+vim.opt.shell = "nu"
 
 -- UI and appearance settings
 vim.opt.number = true

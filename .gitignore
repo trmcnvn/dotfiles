@@ -1,6 +1,5 @@
 node_modules/
 *.lock
-.opencode/plans
 backups/
 home/.pi/agent/packages/pstack-pi/
 .wrangler/

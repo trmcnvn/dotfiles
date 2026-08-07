@@ -14,18 +14,8 @@ def share [file: path] {
         error make { msg: $"Unexpected upload response: ($url)" }
     }
 
-    match (sys host).name {
-        "Linux" => {
-            if (which xclip | is-not-empty) {
-                $url | xclip -selection clipboard
-            }
-        },
-        "Darwin" => {
-            if (which pbcopy | is-not-empty) {
-                $url | pbcopy
-            }
-        },
-        _ => {}
+    if (which pbcopy | is-not-empty) {
+        $url | pbcopy
     }
 
     print $"> Uploaded ($file) at ($url) \(copied to clipboard)"

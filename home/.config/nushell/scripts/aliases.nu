@@ -5,20 +5,7 @@ alias vi = nvim
 alias ff = fzf --preview 'bat --style=numbers --color=always {}'
 
 def executor-cf-access-client-secret [] {
-    let lookup = match $nu.os-info.name {
-        "linux" => {
-            if (which secret-tool | is-empty) {
-                error make { msg: "Cannot read the Executor credential: secret-tool is not installed" }
-            }
-            do { ^secret-tool lookup service executor name cf-access-client-secret } | complete
-        },
-        "macos" => {
-            do { ^security find-generic-password -s executor -a cf-access-client-secret -w } | complete
-        },
-        $os => {
-            error make { msg: $"Cannot read the Executor credential: unsupported operating system '($os)'" }
-        }
-    }
+    let lookup = (do { ^security find-generic-password -s executor -a cf-access-client-secret -w } | complete)
 
     if $lookup.exit_code != 0 {
         error make { msg: "Cannot read the Executor credential. Expected service 'executor' and name/account 'cf-access-client-secret' in the system keyring." }
