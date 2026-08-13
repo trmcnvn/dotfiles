@@ -12,7 +12,7 @@ The extension preserves Pi's normal Codex models and OAuth authentication. Durin
 4. intersects those results with Pi's built-in Codex catalog; and
 5. publishes `<model>-fast` variants as a cached dynamic model overlay.
 
-At startup, the extension preloads previously cached variants before registering the provider. This keeps a saved `-fast` default available during Pi's initial model resolution instead of allowing Pi to fall back to its built-in provider default while the dynamic catalog refreshes.
+At startup, the extension preloads previously cached variants and the exact saved `-fast` default before registering the provider. It uses Pi's lock-aware settings loader and retries the catalog read briefly if another Pi process is updating the shared files. This keeps the saved default available during Pi's initial model resolution instead of allowing Pi to fall back to its built-in provider default while the dynamic catalog refreshes.
 
 Selecting a Fast variant sends the real upstream model ID with:
 

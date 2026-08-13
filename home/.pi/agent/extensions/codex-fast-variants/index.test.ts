@@ -21,6 +21,27 @@ function requireFastModel(
 	return fastModel;
 }
 
+test("extension preloads a saved Fast default when the dynamic catalog cache is unreadable", async () => {
+	let registeredProviderConfig: ProviderConfig | undefined;
+	const recordingApi = {
+		registerProvider(_providerName: string, providerConfig: ProviderConfig) {
+			registeredProviderConfig = providerConfig;
+		},
+	};
+	const pi = recordingApi as unknown as ExtensionAPI;
+	const builtInModel = getModels("openai-codex")[0];
+	assert.ok(builtInModel);
+
+	await createCodexFastVariantsExtension({
+		fetchCatalog: async () => new Response("unreachable in this test", { status: 500 }),
+		readStoredCatalog: async () => undefined,
+		readSavedDefaultModel: async () => `${builtInModel.id}-fast`,
+	})(pi);
+
+	assert.ok(registeredProviderConfig);
+	requireFastModel(registeredProviderConfig.models ?? [], builtInModel.id);
+});
+
 test("extension discovers Fast variants and preserves cached variants across discovery failures", async () => {
 	let registeredProviderName: string | undefined;
 	let registeredProviderConfig: ProviderConfig | undefined;
@@ -42,6 +63,7 @@ test("extension discovers Fast variants and preserves cached variants across dis
 				models: [{ id: `${builtInModel.id}-fast` }],
 			},
 		}),
+		readSavedDefaultModel: async () => undefined,
 		fetchCatalog: async (input) => {
 			if (input.toString() === "https://registry.npmjs.org/@openai/codex/latest") {
 				return discoveryFailure === "client-version"

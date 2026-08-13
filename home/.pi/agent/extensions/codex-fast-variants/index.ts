@@ -4,9 +4,11 @@ import {
 	getAgentDir,
 	type ExtensionFactory,
 	type ProviderModelConfig,
+	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 
 import { createCodexAccessToken } from "./codex-access-token.ts";
 import {
@@ -27,6 +29,8 @@ export interface CodexFastVariantsDependencies {
 	readonly fetchCatalog: CodexFastCatalogFetch;
 	/** Read Pi's persisted dynamic model catalog before provider registration. */
 	readonly readStoredCatalog: () => Promise<unknown>;
+	/** Read Pi's saved Codex default before provider registration. */
+	readonly readSavedDefaultModel: () => Promise<string | undefined>;
 }
 
 function isCodexModel(model: Model<Api>): model is CodexModel {
@@ -56,31 +60,53 @@ function buildProviderModelCatalog(
 	return [...baseModels, ...fastVariants].map(toProviderModelConfig);
 }
 
-function restoreStoredFastVariants(
+function restoreStartupFastVariants(
 	baseModels: readonly CodexModel[],
 	storedCatalog: unknown,
+	savedDefaultModel: string | undefined,
 ): readonly CodexModel[] {
-	if (typeof storedCatalog !== "object" || storedCatalog === null || Array.isArray(storedCatalog)) {
-		return [];
-	}
-	const provider = (storedCatalog as { "openai-codex"?: unknown })["openai-codex"];
-	if (typeof provider !== "object" || provider === null || Array.isArray(provider)) return [];
-	const models = (provider as { models?: unknown }).models;
-	if (!Array.isArray(models)) return [];
-
 	const fastCapableModelIds = new Set<string>();
-	for (const model of models) {
-		if (typeof model !== "object" || model === null || Array.isArray(model)) continue;
-		const id = (model as { id?: unknown }).id;
-		if (typeof id !== "string" || !id.endsWith("-fast")) continue;
-		fastCapableModelIds.add(id.slice(0, -"-fast".length));
+	const provider = typeof storedCatalog === "object" && storedCatalog !== null && !Array.isArray(storedCatalog)
+		? (storedCatalog as { "openai-codex"?: unknown })["openai-codex"]
+		: undefined;
+	if (typeof provider === "object" && provider !== null && !Array.isArray(provider)) {
+		const models = (provider as { models?: unknown }).models;
+		if (Array.isArray(models)) {
+			for (const model of models) {
+				if (typeof model !== "object" || model === null || Array.isArray(model)) continue;
+				const id = (model as { id?: unknown }).id;
+				if (typeof id !== "string" || !id.endsWith("-fast")) continue;
+				fastCapableModelIds.add(id.slice(0, -"-fast".length));
+			}
+		}
+	}
+	if (savedDefaultModel?.endsWith("-fast")) {
+		fastCapableModelIds.add(savedDefaultModel.slice(0, -"-fast".length));
 	}
 	return createCodexFastVariantModels(baseModels, fastCapableModelIds);
 }
 
+async function readJsonWithRetry(path: string): Promise<unknown> {
+	for (let attempt = 0; attempt < 5; attempt++) {
+		try {
+			return JSON.parse(await readFile(path, "utf8"));
+		} catch {
+			if (attempt < 4) await sleep(10 * (attempt + 1));
+		}
+	}
+	return undefined;
+}
+
 async function readStoredCatalog(): Promise<unknown> {
+	return readJsonWithRetry(join(getAgentDir(), "models-store.json"));
+}
+
+async function readSavedDefaultModel(): Promise<string | undefined> {
 	try {
-		return JSON.parse(await readFile(join(getAgentDir(), "models-store.json"), "utf8"));
+		const settings = SettingsManager.create(process.cwd());
+		return settings.getDefaultProvider() === "openai-codex"
+			? settings.getDefaultModel()
+			: undefined;
 	} catch {
 		return undefined;
 	}
@@ -96,9 +122,14 @@ export function createCodexFastVariantsExtension(
 		if (!baseUrl) {
 			throw new Error("Codex Fast built-in provider has no base URL");
 		}
-		const storedFastVariants = restoreStoredFastVariants(
+		const [storedCatalog, savedDefaultModel] = await Promise.all([
+			dependencies.readStoredCatalog(),
+			dependencies.readSavedDefaultModel(),
+		]);
+		const storedFastVariants = restoreStartupFastVariants(
 			baseModels,
-			await dependencies.readStoredCatalog(),
+			storedCatalog,
+			savedDefaultModel,
 		);
 
 		pi.registerProvider("openai-codex", {
@@ -151,5 +182,6 @@ export default async function codexFastVariantsExtension(
 	await createCodexFastVariantsExtension({
 		fetchCatalog: globalThis.fetch,
 		readStoredCatalog,
+		readSavedDefaultModel,
 	})(pi);
 }

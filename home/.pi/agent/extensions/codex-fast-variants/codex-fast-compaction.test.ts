@@ -30,6 +30,7 @@ test("compaction sends the upstream Codex model with priority service tier", asy
 	await createCodexFastVariantsExtension({
 		fetchCatalog: async () => new Response("unreachable in this test", { status: 500 }),
 		readStoredCatalog: async () => undefined,
+		readSavedDefaultModel: async () => undefined,
 	})(pi);
 
 	const upstreamModel = getModels("openai-codex")[0];
