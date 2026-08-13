@@ -1,9 +1,12 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import { getModels } from "@earendil-works/pi-ai/compat";
-import type {
-	ExtensionFactory,
-	ProviderModelConfig,
+import {
+	getAgentDir,
+	type ExtensionFactory,
+	type ProviderModelConfig,
 } from "@earendil-works/pi-coding-agent";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 import { createCodexAccessToken } from "./codex-access-token.ts";
 import {
@@ -22,6 +25,8 @@ type CodexModel = Model<"openai-codex-responses">;
 export interface CodexFastVariantsDependencies {
 	/** Fetch implementation used only for official Codex metadata and the authenticated catalog. */
 	readonly fetchCatalog: CodexFastCatalogFetch;
+	/** Read Pi's persisted dynamic model catalog before provider registration. */
+	readonly readStoredCatalog: () => Promise<unknown>;
 }
 
 function isCodexModel(model: Model<Api>): model is CodexModel {
@@ -51,21 +56,55 @@ function buildProviderModelCatalog(
 	return [...baseModels, ...fastVariants].map(toProviderModelConfig);
 }
 
+function restoreStoredFastVariants(
+	baseModels: readonly CodexModel[],
+	storedCatalog: unknown,
+): readonly CodexModel[] {
+	if (typeof storedCatalog !== "object" || storedCatalog === null || Array.isArray(storedCatalog)) {
+		return [];
+	}
+	const provider = (storedCatalog as { "openai-codex"?: unknown })["openai-codex"];
+	if (typeof provider !== "object" || provider === null || Array.isArray(provider)) return [];
+	const models = (provider as { models?: unknown }).models;
+	if (!Array.isArray(models)) return [];
+
+	const fastCapableModelIds = new Set<string>();
+	for (const model of models) {
+		if (typeof model !== "object" || model === null || Array.isArray(model)) continue;
+		const id = (model as { id?: unknown }).id;
+		if (typeof id !== "string" || !id.endsWith("-fast")) continue;
+		fastCapableModelIds.add(id.slice(0, -"-fast".length));
+	}
+	return createCodexFastVariantModels(baseModels, fastCapableModelIds);
+}
+
+async function readStoredCatalog(): Promise<unknown> {
+	try {
+		return JSON.parse(await readFile(join(getAgentDir(), "models-store.json"), "utf8"));
+	} catch {
+		return undefined;
+	}
+}
+
 /** Create a Pi extension that discovers and routes selectable Codex `-fast` model variants. */
 export function createCodexFastVariantsExtension(
 	dependencies: CodexFastVariantsDependencies,
 ): ExtensionFactory {
-	return (pi) => {
+	return async (pi) => {
 		const baseModels = getModels("openai-codex").filter(isCodexModel);
 		const baseUrl = baseModels[0]?.baseUrl;
 		if (!baseUrl) {
 			throw new Error("Codex Fast built-in provider has no base URL");
 		}
+		const storedFastVariants = restoreStoredFastVariants(
+			baseModels,
+			await dependencies.readStoredCatalog(),
+		);
 
 		pi.registerProvider("openai-codex", {
 			api: "openai-codex-responses",
 			baseUrl,
-			models: buildProviderModelCatalog(baseModels, []),
+			models: buildProviderModelCatalog(baseModels, storedFastVariants),
 			streamSimple: createCodexFastStream(baseModels),
 			async refreshModels(context) {
 				const storedVariants = restoreCodexFastVariantModels(
@@ -106,8 +145,11 @@ export function createCodexFastVariantsExtension(
 }
 
 /** Register Codex Fast Mode variants using Pi's runtime fetch implementation. */
-export default function codexFastVariantsExtension(
+export default async function codexFastVariantsExtension(
 	pi: Parameters<ExtensionFactory>[0],
-): void {
-	createCodexFastVariantsExtension({ fetchCatalog: globalThis.fetch })(pi);
+): Promise<void> {
+	await createCodexFastVariantsExtension({
+		fetchCatalog: globalThis.fetch,
+		readStoredCatalog,
+	})(pi);
 }

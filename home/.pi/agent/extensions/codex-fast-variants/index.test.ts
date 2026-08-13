@@ -36,7 +36,12 @@ test("extension discovers Fast variants and preserves cached variants across dis
 	assert.ok(builtInModel);
 
 	let discoveryFailure: "none" | "client-version" | "catalog" = "none";
-	createCodexFastVariantsExtension({
+	await createCodexFastVariantsExtension({
+		readStoredCatalog: async () => ({
+			"openai-codex": {
+				models: [{ id: `${builtInModel.id}-fast` }],
+			},
+		}),
 		fetchCatalog: async (input) => {
 			if (input.toString() === "https://registry.npmjs.org/@openai/codex/latest") {
 				return discoveryFailure === "client-version"
@@ -58,6 +63,7 @@ test("extension discovers Fast variants and preserves cached variants across dis
 
 	assert.equal(registeredProviderName, "openai-codex");
 	assert.ok(registeredProviderConfig?.refreshModels);
+	requireFastModel(registeredProviderConfig.models ?? [], builtInModel.id);
 	const credential: OAuthCredential = {
 		type: "oauth",
 		access: createCodexTestAccessToken("account-test"),

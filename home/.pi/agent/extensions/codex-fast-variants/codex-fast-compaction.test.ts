@@ -27,8 +27,9 @@ test("compaction sends the upstream Codex model with priority service tier", asy
 	};
 	// SAFETY: The extension uses only registerProvider and on; recordingApi faithfully supplies both operations for this integration test.
 	const pi = recordingApi as unknown as ExtensionAPI;
-	createCodexFastVariantsExtension({
+	await createCodexFastVariantsExtension({
 		fetchCatalog: async () => new Response("unreachable in this test", { status: 500 }),
+		readStoredCatalog: async () => undefined,
 	})(pi);
 
 	const upstreamModel = getModels("openai-codex")[0];
