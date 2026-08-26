@@ -53,6 +53,16 @@ function toProviderModelConfig(model: CodexModel): ProviderModelConfig {
 	};
 }
 
+function mergeFastVariants(
+	...variantGroups: readonly (readonly CodexModel[])[]
+): readonly CodexModel[] {
+	const variantsById = new Map<string, CodexModel>();
+	for (const variants of variantGroups) {
+		for (const model of variants) variantsById.set(model.id, model);
+	}
+	return [...variantsById.values()];
+}
+
 function buildProviderModelCatalog(
 	baseModels: readonly CodexModel[],
 	fastVariants: readonly CodexModel[],
@@ -142,16 +152,25 @@ export function createCodexFastVariantsExtension(
 					baseModels,
 					context.stored?.models ?? [],
 				);
-				const storedCatalog = buildProviderModelCatalog(baseModels, storedVariants);
+				// The built-in Codex remote catalog and this extension share Pi's
+				// provider cache entry. A concurrent built-in refresh can replace the
+				// cached Fast variants with standard models. Preserve variants restored
+				// during extension startup so Pi's immediate no-network refresh cannot
+				// erase the saved Fast default before initial model selection.
+				const fallbackVariants = mergeFastVariants(
+					storedFastVariants,
+					storedVariants,
+				);
+				const fallbackCatalog = buildProviderModelCatalog(baseModels, fallbackVariants);
 				if (!context.allowNetwork || context.credential?.type !== "oauth") {
-					return storedCatalog;
+					return fallbackCatalog;
 				}
 
 				const clientVersionResult = await fetchLatestCodexClientVersion(
 					dependencies.fetchCatalog,
 					context.signal,
 				);
-				if (!clientVersionResult.ok) return storedCatalog;
+				if (!clientVersionResult.ok) return fallbackCatalog;
 				const catalogResult = await fetchCodexFastModelCatalog({
 					baseUrl,
 					clientVersion: clientVersionResult.value,
@@ -159,7 +178,7 @@ export function createCodexFastVariantsExtension(
 					fetch: dependencies.fetchCatalog,
 					signal: context.signal,
 				});
-				if (!catalogResult.ok) return storedCatalog;
+				if (!catalogResult.ok) return fallbackCatalog;
 
 				const fastVariants = createCodexFastVariantModels(
 					baseModels,

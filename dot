@@ -345,7 +345,13 @@ cleanup_stale_links() {
     managed_root=$(normalize_path "$DOTFILES/home")
     managed_root_physical=$(cd "$DOTFILES/home" && pwd -P)
 
-    find "$HOME" -type l -print 2>/dev/null | while IFS= read -r link; do
+    # Scan only target directories represented by the managed tree. Searching all
+    # of $HOME traverses large runtime directories such as Pi sessions and npm.
+    find "$managed_root" -type d -print | while IFS= read -r source_dir; do
+        target_dir="$HOME${source_dir#"$managed_root"}"
+        [ -d "$target_dir" ] || continue
+        find "$target_dir" -mindepth 1 -maxdepth 1 -type l -print 2>/dev/null
+    done | while IFS= read -r link; do
         [ -e "$link" ] && continue
 
         link_target=$(readlink "$link") || continue

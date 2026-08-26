@@ -5,24 +5,6 @@ default_shell = "nu"
 shell_mode = "login"
 new_cwd = "follow"
 
-[theme.custom]
-panel_bg = "#191724"
-surface_dim = "#26233a"
-surface0 = "#1f1d2e"
-surface1 = "#26233a"
-text = "#e0def4"
-subtext0 = "#c8c5dc"
-overlay0 = "#908caa"
-overlay1 = "#e0def4"
-accent = "#908caa"
-mauve = "#c4a7e7"
-green = "#31748f"
-blue = "#9ccfd8"
-teal = "#9ccfd8"
-red = "#eb6f92"
-yellow = "#f6c177"
-peach = "#ebbcba"
-
 [update]
 channel = "stable"
 version_check = true
@@ -61,6 +43,7 @@ sidebar_min_width = 18
 sidebar_max_width = 36
 agent_panel_sort = "spaces"
 show_agent_labels_on_pane_borders = false
+status_indicators = "symbols"
 prompt_new_workspace_name = true
 prompt_new_tab_name = true
 
@@ -93,5 +76,5 @@ kitty_graphics = true
 scrollback_limit_bytes = 52428800
 
 [theme]
-name = "gruvbox"
+name = "rose-pine"
 auto_switch = false

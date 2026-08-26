@@ -42,6 +42,37 @@ test("extension preloads a saved Fast default when the dynamic catalog cache is 
 	requireFastModel(registeredProviderConfig.models ?? [], builtInModel.id);
 });
 
+test("immediate refresh preserves a saved Fast default when the shared cache contains only standard models", async () => {
+	let registeredProviderConfig: ProviderConfig | undefined;
+	const recordingApi = {
+		registerProvider(_providerName: string, providerConfig: ProviderConfig) {
+			registeredProviderConfig = providerConfig;
+		},
+	};
+	const pi = recordingApi as unknown as ExtensionAPI;
+	const builtInModel = getModels("openai-codex")[0];
+	assert.ok(builtInModel);
+
+	await createCodexFastVariantsExtension({
+		fetchCatalog: async () => new Response("unreachable in this test", { status: 500 }),
+		readStoredCatalog: async () => undefined,
+		readSavedDefaultModel: async () => `${builtInModel.id}-fast`,
+	})(pi);
+
+	assert.ok(registeredProviderConfig?.refreshModels);
+	const refreshedCatalog = await registeredProviderConfig.refreshModels({
+		stored: { models: [builtInModel] },
+		allowNetwork: false,
+		signal: new AbortController().signal,
+		async publish(publication) {
+			publication.update?.();
+			return true;
+		},
+	});
+
+	requireFastModel(refreshedCatalog, builtInModel.id);
+});
+
 test("extension discovers Fast variants and preserves cached variants across discovery failures", async () => {
 	let registeredProviderName: string | undefined;
 	let registeredProviderConfig: ProviderConfig | undefined;

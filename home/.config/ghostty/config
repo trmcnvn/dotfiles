@@ -2,8 +2,8 @@
 font-family = MonoLisaCode
 font-style = Regular
 font-style-italic = Regular Italic
-font-style-bold = Regular
-font-style-bold-italic = Regular Italic
+font-style-bold = Bold
+font-style-bold-italic = Bold Italic
 font-feature = zero
 font-feature = ss01
 font-feature = ss11
@@ -14,7 +14,7 @@ font-synthetic-style = false
 
 # Cursor
 cursor-style = block
-cursor-style-blink = false
+cursor-style-blink = true
 mouse-hide-while-typing = true
 
 # Window
@@ -24,22 +24,23 @@ window-padding-color = background
 window-padding-balance = true
 window-padding-x = 0
 window-padding-y = 0
-window-colorspace = display-p3
+window-colorspace = srgb
 window-theme = ghostty
 window-decoration = auto
 title = Ghostty 👻
 
 # Functionality
-command = bash -l -c nu
-shell-integration = none
+command = /opt/homebrew/bin/nu --config-home ~/.config/nushell
+shell-integration = detect
 shell-integration-features = no-cursor,sudo,title,ssh-env,ssh-terminfo
 clipboard-read = allow
 clipboard-write = allow
 clipboard-paste-protection = false
-quit-after-last-window-closed = false
+quit-after-last-window-closed = true
 confirm-close-surface = true
 resize-overlay = never
 scrollback-limit = 100_000_000
+auto-update-channel = tip
 
 # Theme
 theme = Rose Pine

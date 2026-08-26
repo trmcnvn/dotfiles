@@ -1,3 +1,5 @@
+use std/util "path add"
+
 # XDG Base Directories
 $env.XDG_CACHE_HOME = ($env.HOME | path join ".cache")
 $env.XDG_CONFIG_HOME = ($env.HOME | path join ".config")
@@ -33,12 +35,13 @@ $env.NU_LIB_DIRS = [
 ]
 
 # Extra PATH entries — must be set before mise captures its baseline
-$env.PATH = ($env.PATH | prepend [
+path add [
+    { macos: "/opt/homebrew/bin" }
     ($env.HOME | path join ".local" "bin")
     ($env.HOME | path join "Code" "dotfiles")
     ($env.CARGO_HOME | path join "bin")
     ($env.BUN_INSTALL | path join "bin")
-])
+]
 
 # Generate cached init scripts for tools that need `source` in config.nu.
 # These MUST exist before config.nu is parsed (source is parse-time).
@@ -49,7 +52,7 @@ mkdir $cache_dir
 let mise_cache = ($cache_dir | path join "mise-init.nu")
 if not ($mise_cache | path exists) {
     if (which mise | is-not-empty) {
-        mise activate nu | save --force $mise_cache
+        ^env -u MISE_SHELL -u __MISE_DIFF -u __MISE_SESSION mise activate nu | save --force $mise_cache
     } else {
         "" | save --force $mise_cache
     }
