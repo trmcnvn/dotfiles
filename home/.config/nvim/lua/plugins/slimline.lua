@@ -2,44 +2,45 @@ local jj_cache = {
 	value = nil,
 	last_update = 0,
 	update_interval = 30,
+	pending = false,
 }
 
+local function refresh_jj_info()
+	jj_cache.pending = true
+
+	vim.system({ "nu", "-c", "jj-prompt | to json" }, { text = true, timeout = 5000 }, function(result)
+		vim.schedule(function()
+			jj_cache.pending = false
+			jj_cache.last_update = os.time()
+
+			local ok, data = pcall(vim.json.decode, result.stdout or "")
+			if result.code ~= 0 or not ok then
+				jj_cache.value = nil
+			elseif data == vim.NIL then
+				jj_cache.value = { change_id = "", bookmark = "" }
+			else
+				local bookmark = ""
+				if data.bookmarks and #data.bookmarks > 0 then
+					bookmark = data.bookmarks[1].name or ""
+				end
+
+				jj_cache.value = {
+					change_id = data.change_id or "",
+					bookmark = bookmark,
+				}
+			end
+
+			vim.cmd.redrawstatus()
+		end)
+	end)
+end
+
 local function jj_info()
-	local current_time = os.time()
-	if jj_cache.value and (current_time - jj_cache.last_update < jj_cache.update_interval) then
-		return jj_cache.value
+	local cache_expired = os.time() - jj_cache.last_update >= jj_cache.update_interval
+	if cache_expired and not jj_cache.pending then
+		refresh_jj_info()
 	end
 
-	local output = vim.fn.system("nu -c 'jj-prompt | to json'")
-	if vim.v.shell_error ~= 0 then
-		jj_cache.value = nil
-		jj_cache.last_update = current_time
-		return nil
-	end
-
-	local ok, data = pcall(vim.json.decode, output)
-	if not ok then
-		jj_cache.value = nil
-		jj_cache.last_update = current_time
-		return nil
-	end
-
-	if data == vim.NIL then
-		jj_cache.value = { change_id = "", bookmark = "" }
-		jj_cache.last_update = current_time
-		return jj_cache.value
-	end
-
-	local bookmark = ""
-	if data.bookmarks and #data.bookmarks > 0 then
-		bookmark = data.bookmarks[1].name or ""
-	end
-
-	jj_cache.value = {
-		change_id = data.change_id or "",
-		bookmark = bookmark,
-	}
-	jj_cache.last_update = current_time
 	return jj_cache.value
 end
 
