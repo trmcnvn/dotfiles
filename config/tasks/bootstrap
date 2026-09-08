@@ -1,0 +1,7 @@
+#!/bin/sh
+#MISE description="Complete workstation setup after declarative bootstrap"
+set -eu
+mise run workstation:setup-pi
+mise run workstation:setup-herdr
+mise run workstation:setup-shell
+mise run workstation:setup-host-defaults

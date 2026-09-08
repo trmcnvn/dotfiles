@@ -1,0 +1,7 @@
+#!/bin/sh
+#MISE description="Apply preferences not supported by mise 2026.9.2 declarative defaults"
+set -eu
+[ "$(uname -s)" = Darwin ] || exit 0
+defaults -currentHost write com.apple.ImageCapture disableHotPlug -bool true
+defaults write com.apple.dock persistent-apps -array
+defaults write com.apple.screencapture location "$HOME/Downloads"

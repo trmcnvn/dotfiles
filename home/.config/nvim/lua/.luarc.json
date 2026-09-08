@@ -1,0 +1,11 @@
+{
+    "workspace.checkThirdParty": "Disable",
+    "diagnostics.globals": [
+        "vim",
+        "MiniIcons",
+        "MiniBufremove",
+        "MiniPick",
+        "MiniDiff",
+        "FzfLua"
+    ]
+}

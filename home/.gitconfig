@@ -1,0 +1,47 @@
+[user]
+	name = trmcnvn
+	email = hello@trmcnvn.dev
+	signingkey = ~/.ssh/id_ed25519.pub
+[github]
+	user = trmcnvn
+[color]
+	ui = true
+	diff = true
+	status = true
+	branch = true
+	interactive = true
+[merge]
+	ff = false
+	conflictstyle = diff3
+[pull]
+	rebase = true
+	default = current
+[push]
+	default = current
+[core]
+	autocrlf = input
+	quotepath = false
+	excludesfile = ~/.gitexcludes
+	whitespace = fix
+	trustctime = false
+	editor = nvim
+[branch]
+	quotepath       = true
+	autosetuprebase = always
+[alias]
+	co = checkout
+	cm = commit
+	br = branch
+	pr = "!f() { git fetch ${1-main} pull/${2}/head:pr-${2}; }; f"
+	wip = !git add -A && git commit -m 'wip'
+	undo = !git reset HEAD~1 --mixed
+	amend = !git commit --amend --no-edit
+	dbr = !git branch --merged | grep -v \"\\* \" | xargs git branch --delete
+[commit]
+	gpgsign = true
+[gpg]
+	format = ssh
+[init]
+	defaultBranch = main
+[diff]
+	compactionHeuristic = true

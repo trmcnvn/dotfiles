@@ -1,0 +1,11 @@
+#!/bin/sh
+#MISE description="Explicitly update declared packages and Pi; keep tool versions pinned"
+set -eu
+mise bootstrap dotfiles save --description "Before workstation update"
+mise bootstrap packages upgrade
+mise install
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+pi update --extensions
+mise run workstation:setup-herdr
+mise bootstrap dotfiles save --description "After workstation update"
+printf '%s\n' 'Existing Homebrew-owned casks may require brew upgrade --cask; mise does not take over their receipts.'

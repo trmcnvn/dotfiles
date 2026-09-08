@@ -1,0 +1,295 @@
+[tools]
+ruby = "4.0.0"
+rust = "1.97.1"
+go = "1.25.6"
+node = "25.4.0"
+bun = "1.3.10"
+fnox = "1.9.2"
+bitwarden = "2026.4.1"
+vp = "0.1.20"
+aube = "1.34.0"
+pitchfork = "2.19.0"
+
+[settings]
+always_keep_download = false
+always_keep_install = false
+plugin_autoupdate_last_check_duration = "1 week"
+not_found_auto_install = true
+experimental = true
+idiomatic_version_file_enable_tools = ["ruby"]
+
+[settings.python]
+compile = true
+
+[settings.ruby]
+compile = false
+
+
+[settings.history]
+sync = "sync"
+
+[bootstrap.services.mise-history]
+builtin = "history-watch"
+
+# Only these exact files are captured. New files require explicit enrollment.
+[dotfiles]
+"~/.agents/skills/bro/SKILL.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/SKILL.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/comments-and-jsdoc.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/configuration-and-resources.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/domain-types-and-state.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-alchemy.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-caching.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-configuration.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-http-clients.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-scheduling-and-retry.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-schema-and-data.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-services.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-streams.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect-testing.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/effect.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/errors.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/imports-exports-and-files.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/modules-services-and-adapters.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/parsing-and-schemas.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/persistence.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/sensitive-data-and-observability.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/testing.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/typescript-safety.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/workflows-transactions-and-idempotency.md" = { mode = "track" }
+"~/.agents/skills/herdr/SKILL.md" = { mode = "track" }
+"~/.agents/skills/jj-submit/PULL_REQUEST.md" = { mode = "track" }
+"~/.agents/skills/jj-submit/SKILL.md" = { mode = "track" }
+"~/.agents/skills/tailwind-best-practices/SKILL.md" = { mode = "track" }
+"~/.bash_profile" = { mode = "track" }
+"~/.bashrc" = { mode = "track" }
+"~/.config/aerospace/aerospace.toml" = { mode = "track" }
+"~/.config/discord/settings.json" = { mode = "track" }
+"~/.config/ghostty/config" = { mode = "track" }
+"~/.config/ghostty/config.fonts" = { mode = "track" }
+"~/.config/ghostty/config.macos" = { mode = "track" }
+"~/.config/ghostty/themes/cyberdream" = { mode = "track" }
+"~/.config/ghostty/themes/personal" = { mode = "track" }
+"~/.config/ghostty/themes/solarized_osaka_dark" = { mode = "track" }
+"~/.config/ghostty/themes/vague" = { mode = "track" }
+"~/.config/herdr/config.toml" = { mode = "track" }
+"~/.config/irb/irbrc" = { mode = "track" }
+"~/.config/jj/config.toml" = { mode = "track" }
+"~/.config/mise/config.toml" = { mode = "track" }
+"~/.config/mise/tasks/bootstrap" = { mode = "track" }
+"~/.config/mise/tasks/workstation/check" = { mode = "track" }
+"~/.config/mise/tasks/workstation/setup-herdr" = { mode = "track" }
+"~/.config/mise/tasks/workstation/setup-host-defaults" = { mode = "track" }
+"~/.config/mise/tasks/workstation/setup-pi" = { mode = "track" }
+"~/.config/mise/tasks/workstation/setup-shell" = { mode = "track" }
+"~/.config/mise/tasks/workstation/update" = { mode = "track" }
+"~/.config/mpv/mpv.conf" = { mode = "track" }
+"~/.config/nushell/config.nu" = { mode = "track" }
+"~/.config/nushell/env.nu" = { mode = "track" }
+"~/.config/nushell/login.nu" = { mode = "track" }
+"~/.config/nushell/scripts/aliases.nu" = { mode = "track" }
+"~/.config/nushell/scripts/krc.nu" = { mode = "track" }
+"~/.config/nushell/scripts/pi.nu" = { mode = "track" }
+"~/.config/nushell/scripts/prompt.nu" = { mode = "track" }
+"~/.config/nushell/scripts/share.nu" = { mode = "track" }
+"~/.config/nushell/scripts/transcode.nu" = { mode = "track" }
+"~/.config/nvim/after/queries/svelte/injections.scm" = { mode = "track" }
+"~/.config/nvim/init.lua" = { mode = "track" }
+"~/.config/nvim/lua/.luarc.json" = { mode = "track" }
+"~/.config/nvim/lua/personal/base.lua" = { mode = "track" }
+"~/.config/nvim/lua/personal/lsp.lua" = { mode = "track" }
+"~/.config/nvim/lua/personal/maps.lua" = { mode = "track" }
+"~/.config/nvim/lua/personal/plugins.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/_catppuccin.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/_rosepine.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/_solarized_osaka.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/_theme.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/blink.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/cloak.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/conform.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/crates.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/dadbod-completion.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/dadbod-ui.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/dadbod.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/fidget.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/fzf-lua.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/lsp-config.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/mason-lspconfig.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/mason.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/mini.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/no-neck-pain.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/oil.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/plenary.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/render-markdown.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/rustacean.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/sleuth.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/slimline.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/treesitter.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/treesj.lua" = { mode = "track" }
+"~/.config/nvim/lua/plugins/vim-tmux-navigator.lua" = { mode = "track" }
+"~/.config/nvim/lua/utils/capabilities.lua" = { mode = "track" }
+"~/.config/nvim/lua/utils/keymaps.lua" = { mode = "track" }
+"~/.config/nvim/nvim-pack-lock.json" = { mode = "track" }
+"~/.config/nvim/queries/ruby/highlights.scm" = { mode = "track" }
+"~/.config/ripgrep/config" = { mode = "track" }
+"~/.config/zed/keymap.json" = { mode = "track" }
+"~/.config/zed/settings.json" = { mode = "track" }
+"~/.gitconfig" = { mode = "track" }
+"~/.gitexcludes" = { mode = "track" }
+"~/.local/bin/coffee" = { mode = "track" }
+"~/.pi/agent/AGENTS.md" = { mode = "track" }
+"~/.pi/agent/extensions/answer.ts" = { mode = "track" }
+"~/.pi/agent/extensions/btw.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/README.md" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-access.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-access.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-fast-catalog.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-fast-catalog.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-fast-compaction.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-fast-request.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-fast-request.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-fast-stream.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-fast-test-fixtures.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/codex-fast-variants.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/index.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/index.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/json-record.ts" = { mode = "track" }
+"~/.pi/agent/extensions/codex-fast-variants/package.json" = { mode = "track" }
+"~/.pi/agent/extensions/continue-after-compaction.ts" = { mode = "track" }
+"~/.pi/agent/extensions/git-interceptor.ts" = { mode = "track" }
+"~/.pi/agent/extensions/handoff/index.ts" = { mode = "track" }
+"~/.pi/agent/extensions/handoff/package.json" = { mode = "track" }
+"~/.pi/agent/extensions/handoff/test/handoff.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/herdr-agent-state.ts" = { mode = "track" }
+"~/.pi/agent/extensions/kubectl-guard.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/package.json" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/apply/planner.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/apply/planner.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/apply/writer.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/command.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/discovery/pi-paths.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/discovery/skill-locator.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/discovery/skill-locator.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/frontmatter/parser.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/frontmatter/patcher.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/frontmatter/patcher.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/frontmatter/validation.test.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/frontmatter/validation.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/index.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/inventory/classifier.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/inventory/loader.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/ports/fs.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/types.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/ui/overlay.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/ui/render.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/src/ui/view-model.ts" = { mode = "track" }
+"~/.pi/agent/extensions/pi-skill-toggle/tsconfig.json" = { mode = "track" }
+"~/.pi/agent/extensions/session-breakdown.ts" = { mode = "track" }
+"~/.pi/agent/extensions/todos/README.md" = { mode = "track" }
+"~/.pi/agent/extensions/todos/index.ts" = { mode = "track" }
+"~/.pi/agent/extensions/whimsical.ts" = { mode = "track" }
+"~/.pi/agent/extensions/worker-configuration-guard.ts" = { mode = "track" }
+"~/.pi/agent/keybindings.json" = { mode = "track" }
+"~/.pi/agent/mcp.json" = { mode = "track" }
+"~/.pi/agent/models.json" = { mode = "track" }
+"~/.pi/agent/settings.json" = { mode = "track" }
+"~/.pi/agent/themes/rose-pine.json" = { mode = "track" }
+
+[bootstrap.packages]
+"brew:git" = "latest"
+"brew:openssh" = "latest"
+"brew:unzip" = "latest"
+"brew:nushell" = "latest"
+"brew:neovim" = "latest"
+"brew:bat" = "latest"
+"brew:btop" = "latest"
+"brew:difftastic" = "latest"
+"brew:fd" = "latest"
+"brew:fzf" = "latest"
+"brew:gum" = "latest"
+"brew:jq" = "latest"
+"brew:ripgrep" = "latest"
+"brew:tokei" = "latest"
+"brew:tmux" = "latest"
+"brew:tree" = "latest"
+"brew:yq" = "latest"
+"brew:zoxide" = "latest"
+"brew-cask:orbstack" = "latest"
+"brew:docker-compose" = "latest"
+"brew:doctl" = "latest"
+"brew:gh" = "latest"
+"brew:helm" = "latest"
+"brew:helmfile" = "latest"
+"brew:herdr" = "latest"
+"brew:kubernetes-cli" = "latest"
+"brew:kustomize" = "latest"
+"brew:lazydocker" = "latest"
+"brew:lazygit" = "latest"
+"brew:lua-language-server" = "latest"
+"brew:tree-sitter-cli" = "latest"
+"brew:jj" = "latest"
+"brew:ffmpeg" = "latest"
+"brew:imagemagick" = "latest"
+"brew:mpv" = "latest"
+"brew-cask:bitwarden" = "latest"
+"brew-cask:discord" = "latest"
+"brew-cask:ghostty" = "latest"
+"brew-cask:spotify" = "latest"
+
+[bootstrap.macos.defaults."NSGlobalDomain"]
+"ApplePressAndHoldEnabled" = false
+"KeyRepeat" = 2
+"InitialKeyRepeat" = 15
+"NSAutomaticQuoteSubstitutionEnabled" = false
+"NSAutomaticDashSubstitutionEnabled" = false
+"NSAutomaticSpellingCorrectionEnabled" = false
+"com.apple.trackpad.scaling" = "2"
+"com.apple.mouse.scaling" = "2.5"
+"AppleInterfaceStyle" = "Dark"
+"AppleAquaColorVariant" = 6
+"AppleHighlightColor" = "0.847059 0.847059 0.862745"
+"NSWindowShouldDragOnGesture" = true
+"NSDocumentSaveNewDocumentsToCloud" = false
+"NSTableViewDefaultSizeMode" = 1
+
+[bootstrap.macos.defaults."com.microsoft.VSCode"]
+"ApplePressAndHoldEnabled" = false
+
+[bootstrap.macos.defaults."com.apple.dashboard"]
+"mcx-disabled" = true
+
+[bootstrap.macos.defaults."com.apple.desktopservices"]
+"DSDontWriteNetworkStores" = true
+
+[bootstrap.macos.defaults."com.apple.LaunchServices"]
+"LSQuarantine" = false
+
+[bootstrap.macos.defaults."com.apple.menuextra.battery"]
+"ShowPercent" = true
+
+[bootstrap.macos.defaults."com.apple.finder"]
+"FXPreferredViewStyle" = "Nlsv"
+"_FXShowPosixPathInTitle" = true
+"FXEnableExtensionChangeWarning" = false
+"_FXSortFoldersFirst" = true
+"FXDefaultSearchScope" = "SCcf"
+"CreateDesktop" = false
+"WarnOnEmptyTrash" = false
+
+[bootstrap.macos.defaults."com.google.Chrome"]
+"AppleEnableSwipeNavigateWithScrolls" = false
+
+[bootstrap.macos.defaults."com.apple.dock"]
+"mru-spaces" = false
+"tilesize" = 45
+"expose-animation-duration" = 0.1
+"expose-group-by-app" = true
+"autohide-delay" = 0.0
+"autohide-time-modifier" = 0.0
+"autohide" = true
+"launchanim" = false
+"show-recents" = false
+"static-only" = true
+
+[bootstrap.macos.defaults."com.apple.screencapture"]
+"disable-shadow" = true

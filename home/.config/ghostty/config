@@ -1,0 +1,67 @@
+# Font
+font-family = MonoLisaCode
+font-style = Regular
+font-style-italic = Regular Italic
+font-style-bold = Bold
+font-style-bold-italic = Bold Italic
+font-feature = zero
+font-feature = ss01
+font-feature = ss11
+font-size = 10
+
+# General font settings
+font-synthetic-style = false
+
+# Cursor
+cursor-style = block
+cursor-style-blink = true
+mouse-hide-while-typing = true
+
+# Window
+window-inherit-font-size = true
+window-save-state = never
+window-padding-color = background
+window-padding-balance = true
+window-padding-x = 0
+window-padding-y = 0
+window-colorspace = srgb
+window-theme = ghostty
+window-decoration = auto
+title = Ghostty 👻
+
+# Functionality
+command = /opt/homebrew/bin/nu --config-home ~/.config/nushell
+shell-integration = detect
+shell-integration-features = no-cursor,sudo,title,ssh-env,ssh-terminfo
+clipboard-read = allow
+clipboard-write = allow
+clipboard-paste-protection = false
+quit-after-last-window-closed = true
+confirm-close-surface = true
+resize-overlay = never
+scrollback-limit = 100_000_000
+auto-update-channel = tip
+
+# Theme
+theme = Rose Pine
+background-opacity = 1
+background-blur = false
+background-opacity-cells = true
+unfocused-split-opacity = 0.95
+
+# Keybinds
+keybind = opt+enter=new_split:right
+keybind = opt+ctrl+enter=new_split:down
+keybind = performable:ctrl+c=copy_to_clipboard
+keybind = performable:ctrl+v=paste_from_clipboard
+keybind = ctrl+t=new_tab
+keybind = ctrl+1=goto_tab:1
+keybind = ctrl+2=goto_tab:2
+keybind = ctrl+3=goto_tab:3
+keybind = ctrl+4=goto_tab:4
+keybind = ctrl+5=goto_tab:5
+keybind = ctrl+tab=next_tab
+keybind = ctrl+shift+tab=previous_tab
+
+# Platform overrides
+config-file = ?~/.config/ghostty/config.macos

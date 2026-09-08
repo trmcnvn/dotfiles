@@ -1,0 +1,6 @@
+#!/bin/sh
+#MISE description="Ensure the Herdr Pi integration is current"
+set -eu
+if ! herdr integration status | grep -q '^pi: current '; then
+    herdr integration install pi
+fi

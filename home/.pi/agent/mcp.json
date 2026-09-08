@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "toolMode": "proxy",
+    "startup": "lazy",
+    "executor": {
+      "type": "remote",
+      "url": "https://executor.trmcnvn.dev/mcp?elicitation_mode=native"
+    }
+  }
+}

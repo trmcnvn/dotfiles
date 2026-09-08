@@ -1,0 +1,21 @@
+{
+  "openH264Enabled": true,
+  "offloadAdmControls": true,
+  "chromiumSwitches": {},
+  "BACKGROUND_COLOR": "#000000",
+  "IS_MAXIMIZED": false,
+  "IS_MINIMIZED": false,
+  "SKIP_HOST_UPDATE": true,
+  "WINDOW_BOUNDS": {
+    "x": 16,
+    "y": 10,
+    "width": 1411,
+    "height": 1075
+  },
+  "DESKTOP_TTI_DNSTCP_WARMUP": true,
+  "DESKTOP_TTI_HTTP_CDT": true,
+  "DESKTOP_TTI_EARLY_UPDATE_CHECK": true,
+  "DESKTOP_TTI_REMOVE_V8_CACHE_CLEAR": true,
+  "enableHardwareAcceleration": true,
+  "DESKTOP_TTI_SPLASH_USE_WEBP": true
+}

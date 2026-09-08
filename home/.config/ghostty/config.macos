@@ -1,0 +1,9 @@
+# macOS
+font-thicken = false
+macos-option-as-alt = true
+macos-window-shadow = true
+macos-titlebar-proxy-icon = hidden
+macos-titlebar-style = transparent
+macos-icon = official
+window-decoration = auto
+font-size = 13

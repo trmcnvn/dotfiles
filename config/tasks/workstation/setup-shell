@@ -1,0 +1,12 @@
+#!/bin/sh
+#MISE description="Select the macOS system Bash login shell if necessary"
+set -eu
+[ "$(uname -s)" = Darwin ] || exit 0
+current=$(dscl . -read "/Users/$(id -un)" UserShell)
+if [ "$current" != "UserShell: /bin/bash" ]; then
+    if [ ! -t 0 ]; then
+        printf '%s\n' 'Run chsh -s /bin/bash interactively to finish login-shell setup.' >&2
+        exit 1
+    fi
+    chsh -s /bin/bash
+fi

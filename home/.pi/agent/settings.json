@@ -1,0 +1,39 @@
+{
+  "lastChangelogVersion": "0.85.1",
+  "defaultProvider": "openai-codex",
+  "defaultModel": "gpt-6-astra-fast",
+  "defaultThinkingLevel": "medium",
+  "collapseChangelog": true,
+  "quietStartup": false,
+  "defaultProjectTrust": "always",
+  "packages": [
+    {
+      "source": "npm:@plannotator/pi-extension",
+      "skills": []
+    },
+    "npm:pi-extmgr",
+    "git:github.com/dmmulroy/pi-mcp",
+    "git:github.com/trmcnvn/pi-web-tools"
+  ],
+  "hideThinkingBlock": true,
+  "showCacheMissNotices": true,
+  "editorPaddingX": 0,
+  "doubleEscapeAction": "none",
+  "theme": "rose-pine",
+  "enableSkillCommands": true,
+  "steeringMode": "all",
+  "treeFilterMode": "no-tools",
+  "enableInstallTelemetry": true,
+  "followUpMode": "all",
+  "compaction": {
+    "enabled": true
+  },
+  "retry": {
+    "enabled": true
+  },
+  "tuiMode": "regular",
+  "fullscreenScrollbar": "always",
+  "markdown": {
+    "mermaid": "streaming"
+  }
+}
