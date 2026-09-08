@@ -2,12 +2,6 @@
   "format": 1,
   "enrollment": [
     {
-      "path": "config/README.md",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
       "path": "config/config.toml",
       "autosave": true,
       "encrypt": false,
