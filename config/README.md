@@ -145,8 +145,3 @@ version can be published, including temporary edits.
 Keep credentials out of tracked files. Deleting a secret from the current file
 does not remove it from earlier snapshots. Authentication stores, Pi sessions,
 caches, and broad application-state directories are not intentionally enrolled.
-
----
-
-Inspired by [Dotfiles That Save Themselves](https://jdx.dev/posts/2026-09-07-dotfiles-that-save-themselves/).
-See the [mise dotfiles guide](https://mise.jdx.dev/dotfiles.html) for the underlying workflow.
