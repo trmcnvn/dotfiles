@@ -27,7 +27,6 @@ compile = true
 [settings.ruby]
 compile = false
 
-
 [settings.history]
 sync = "sync"
 
