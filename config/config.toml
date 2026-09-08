@@ -75,6 +75,7 @@ builtin = "history-watch"
 "~/.config/herdr/config.toml" = { mode = "track" }
 "~/.config/irb/irbrc" = { mode = "track" }
 "~/.config/jj/config.toml" = { mode = "track" }
+"~/.config/mise/README.md" = { mode = "track" }
 "~/.config/mise/config.toml" = { mode = "track" }
 "~/.config/mise/tasks/bootstrap" = { mode = "track" }
 "~/.config/mise/tasks/workstation/check" = { mode = "track" }
