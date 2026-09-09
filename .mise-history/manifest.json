@@ -812,6 +812,12 @@
       "variants": []
     },
     {
+      "path": "home/.pi/agent/extensions/herdr-delegate/entrypoints.test.ts",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.pi/agent/extensions/herdr-delegate/fake-herdr.mjs",
       "autosave": true,
       "encrypt": false,

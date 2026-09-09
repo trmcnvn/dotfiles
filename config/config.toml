@@ -170,6 +170,7 @@ builtin = "history-watch"
 "~/.pi/agent/extensions/herdr-delegate/README.md" = { mode = "track" }
 "~/.pi/agent/extensions/herdr-delegate/delegation.test.ts" = { mode = "track" }
 "~/.pi/agent/extensions/herdr-delegate/delegation.ts" = { mode = "track" }
+"~/.pi/agent/extensions/herdr-delegate/entrypoints.test.ts" = { mode = "track" }
 "~/.pi/agent/extensions/herdr-delegate/fake-herdr.mjs" = { mode = "track" }
 "~/.pi/agent/extensions/herdr-delegate/index.ts" = { mode = "track" }
 "~/.pi/agent/extensions/herdr-delegate/reporter.test.ts" = { mode = "track" }
