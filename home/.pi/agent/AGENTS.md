@@ -22,6 +22,13 @@
 
 - Do not overwrite user changes without explicit permission
 
+## Dotfiles
+
+- Personal dotfiles are managed by `mise bootstrap dotfiles`, configured in `~/.config/mise/config.toml`, not by direct Git operations in `~` or `~/.config`
+- Inspect the `[dotfiles]` configuration and `mise bootstrap dotfiles status` before changing dotfiles; current entries use `mode = "track"`, so edit the live files in place, not a separate source checkout
+- Use mise's dotfile commands for tracking, history, and synchronization; consult subcommand `--help` before unfamiliar operations
+- Do not run `mise bootstrap dotfiles sync` or otherwise publish changes unless explicitly requested; the backing Git repository is managed through mise
+
 ## Version Control
 
 - Never commit, push, or create a pull request unless explicitly requested
