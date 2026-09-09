@@ -1,8 +1,8 @@
 {
   "lastChangelogVersion": "0.85.1",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-6-astra-fast",
-  "defaultThinkingLevel": "medium",
+  "defaultModel": "gpt-6-astra",
+  "defaultThinkingLevel": "xhigh",
   "collapseChangelog": true,
   "quietStartup": false,
   "defaultProjectTrust": "always",
