@@ -3,7 +3,7 @@
 ruby = "4.0"
 rust = "stable"
 go = "1.25"
-node = "lts"
+node = "latest"
 bun = "latest"
 
 # Personal CLI tools.
