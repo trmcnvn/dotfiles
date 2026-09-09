@@ -56,6 +56,7 @@ builtin = "history-watch"
 "~/.agents/skills/coding-standards/references/parsing-and-schemas.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/persistence.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/sensitive-data-and-observability.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/stylex.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/testing.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/typescript-safety.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/workflows-transactions-and-idempotency.md" = { mode = "track" }

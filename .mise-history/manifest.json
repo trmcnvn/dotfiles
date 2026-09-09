@@ -176,6 +176,12 @@
       "variants": []
     },
     {
+      "path": "home/.agents/skills/coding-standards/references/stylex.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.agents/skills/coding-standards/references/testing.md",
       "autosave": true,
       "encrypt": false,
