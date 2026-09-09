@@ -2,7 +2,7 @@
 # Default runtimes; projects can override these.
 ruby = "4.0"
 rust = "stable"
-go = "1.25"
+go = "1.27"
 node = "latest"
 bun = "latest"
 
