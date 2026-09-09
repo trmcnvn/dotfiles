@@ -746,12 +746,6 @@
       "variants": []
     },
     {
-      "path": "home/.pi/agent/extensions/continue-after-compaction.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
       "path": "home/.pi/agent/extensions/git-interceptor.ts",
       "autosave": true,
       "encrypt": false,
