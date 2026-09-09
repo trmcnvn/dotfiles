@@ -159,7 +159,6 @@ builtin = "history-watch"
 "~/.pi/agent/extensions/codex-fast-variants/index.ts" = { mode = "track" }
 "~/.pi/agent/extensions/codex-fast-variants/json-record.ts" = { mode = "track" }
 "~/.pi/agent/extensions/codex-fast-variants/package.json" = { mode = "track" }
-"~/.pi/agent/extensions/continue-after-compaction.ts" = { mode = "track" }
 "~/.pi/agent/extensions/git-interceptor.ts" = { mode = "track" }
 "~/.pi/agent/extensions/handoff/index.ts" = { mode = "track" }
 "~/.pi/agent/extensions/handoff/package.json" = { mode = "track" }
