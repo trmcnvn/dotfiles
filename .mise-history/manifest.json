@@ -194,6 +194,12 @@
       "variants": []
     },
     {
+      "path": "home/.agents/skills/cua-driver",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.agents/skills/herdr/SKILL.md",
       "autosave": true,
       "encrypt": false,

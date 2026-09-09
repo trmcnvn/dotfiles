@@ -59,6 +59,7 @@ builtin = "history-watch"
 "~/.agents/skills/coding-standards/references/testing.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/typescript-safety.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/workflows-transactions-and-idempotency.md" = { mode = "track" }
+"~/.agents/skills/cua-driver" = { mode = "track" }
 "~/.agents/skills/herdr/SKILL.md" = { mode = "track" }
 "~/.agents/skills/jj-submit/PULL_REQUEST.md" = { mode = "track" }
 "~/.agents/skills/jj-submit/SKILL.md" = { mode = "track" }
