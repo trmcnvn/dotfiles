@@ -2,7 +2,7 @@
 name: reviewer
 description: Fresh read-only reviewer for actionable correctness, safety, and maintainability findings
 model: openai-codex/gpt-6-astra
-thinking: xhigh
+thinking: medium
 tools: read, bash
 ---
 
