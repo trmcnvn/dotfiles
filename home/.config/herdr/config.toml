@@ -38,6 +38,7 @@ command = "vim-herdr-navigation.right"
 description = "Navigate right (Vim/Herdr)"
 
 [ui]
+copy_on_select = false
 sidebar_width = 32
 sidebar_min_width = 18
 sidebar_max_width = 36
