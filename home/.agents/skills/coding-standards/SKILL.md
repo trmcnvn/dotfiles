@@ -54,6 +54,7 @@ Read every applicable reference completely before designing the change:
 - [`references/configuration-and-resources.md`](references/configuration-and-resources.md) — when behavior reads configuration, creates/closes resources, performs startup work, uses time/randomness, or touches global state.
 - [`references/testing.md`](references/testing.md) — whenever behavior, public inference, tests, or test implementations change.
 - [`references/typescript-safety.md`](references/typescript-safety.md) — when types, signatures, mutable values, casts, non-null assumptions, or compiler settings change.
+- [`references/stylex.md`](references/stylex.md) — when authoring, reviewing, or refactoring StyleX styles, tokens, themes, or component styling APIs.
 - [`references/lint-and-policy.md`](references/lint-and-policy.md) — when changing lint configuration, writing rules, or evaluating parser/complexity/unused-export prevention tooling.
 - [`references/imports-exports-and-files.md`](references/imports-exports-and-files.md) — when imports, exports, entrypoints, helper placement, or file organization change.
 - [`references/comments-and-jsdoc.md`](references/comments-and-jsdoc.md) — when exported symbols, comments, JSDoc, user-facing text, or rendered errors change.
