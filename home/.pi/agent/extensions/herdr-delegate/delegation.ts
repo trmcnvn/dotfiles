@@ -8,8 +8,11 @@ import { Value } from "typebox/value";
 
 import { AgentActivityError, readSessionActivity, type AgentActivity, type ReadAgentActivityInput } from "./activity.ts";
 
-/** Supported roles; builder retains its legacy persisted launch identity. */
-export type DelegateRole = "worker" | "scout" | "reviewer" | "builder";
+/** Roles available for current delegation and launch configuration. */
+export type DelegateRole = "worker" | "scout" | "reviewer";
+
+// Retired builders retain ownership evidence only; never load configuration or reuse them.
+type PersistedRole = DelegateRole | "builder";
 
 /** Pi thinking levels accepted in editable role frontmatter. */
 export type Thinking = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
@@ -26,7 +29,7 @@ export type DelegateInput = {
 
 /** Cleanup disposition recorded after a correlated task result is captured. */
 export type DelegateCleanupOutcome =
-	| { readonly status: "retained"; readonly reason: "worker_followups" | "builder_followups" }
+	| { readonly status: "retained"; readonly reason: "worker_followups" }
 	| { readonly status: "closed" }
 	| { readonly status: "failed"; readonly error: string };
 
@@ -104,7 +107,7 @@ export type RoleConfig = {
 
 type PersistedWorker = {
 	readonly id: string;
-	readonly role: DelegateRole;
+	readonly role: PersistedRole;
 	readonly agentName: string;
 	readonly paneId: string;
 	readonly tabId?: string;
@@ -123,7 +126,7 @@ type PendingTask = {
 
 type PersistedWorkerDraft = {
 	id: string;
-	role: DelegateRole;
+	role: PersistedRole;
 	agentName: string;
 	paneId: string;
 	tabId?: string;
@@ -675,7 +678,8 @@ export class DelegateRuntime {
 		const previous = input.worker ? this.#workers.get(input.worker) : undefined;
 		if (input.worker && !previous) return err("worker_unknown", input.worker);
 		const roleName = input.replace ? input.role : previous?.role ?? input.role;
-		if (!roleName) return err("request_invalid", "role missing");
+		if (roleName === "builder") return err("role_retired", "Builder is retired; explicitly replace with role: worker and a complete parent handoff, or use /delegate-cleanup", undefined, previous?.id);
+		if (roleName !== "worker" && roleName !== "scout" && roleName !== "reviewer") return err("request_invalid", "role must be worker, scout, or reviewer");
 		if (previous && previous.role !== "builder" && previous.role !== "worker") {
 			return err(`${previous.role}_reuse_forbidden`, `delegate to a fresh ${previous.role}`);
 		}
@@ -771,7 +775,7 @@ export class DelegateRuntime {
 	}
 
 	async #start(role: RoleConfig, signal?: AbortSignal): Promise<DelegationResult<PersistedWorker>> {
-		if (role.name === "worker" || role.name === "builder") {
+		if (role.name === "worker") {
 			const existing = [...this.#workers.values()].find((worker) => worker.role === "worker" || worker.role === "builder");
 			if (existing) return err("writer_exists", "reuse the retained writer or explicitly replace it with a parent handoff", undefined, existing.id);
 		}
@@ -878,7 +882,7 @@ export class DelegateRuntime {
 		this.#publish();
 		const mismatch = child.provider !== role.provider || child.model !== role.model || child.thinking !== role.thinking;
 		const terminalFailure = mismatch || child.status !== "completed";
-		let cleanup: DelegateCleanupOutcome = { status: "retained", reason: worker.role === "builder" ? "builder_followups" : "worker_followups" };
+		let cleanup: DelegateCleanupOutcome = { status: "retained", reason: "worker_followups" };
 		if (worker.role === "reviewer" || worker.role === "scout" || terminalFailure) {
 			const closed = await this.#closeOwned(worker);
 			if (closed.ok) cleanup = { status: "closed" };
@@ -901,7 +905,7 @@ export class DelegateRuntime {
 			);
 		}
 		const completed: DelegateResult & { persistenceError?: string } = {
-			role: worker.role,
+			role: role.name,
 			worker: worker.id,
 			agentName: worker.agentName,
 			paneId: worker.paneId,
