@@ -108,6 +108,26 @@ type PendingTask = {
 	readonly startedAt: number;
 };
 
+type PersistedWorkerDraft = {
+	id: string;
+	role: DelegateRole;
+	agentName: string;
+	paneId: string;
+	tabId?: string;
+	workspaceId?: string;
+	session: string;
+	roleFingerprint: string;
+	promptPath: string;
+};
+
+type DelegateRuntimeStateDraft = {
+	ownerSessionId: string;
+	workers: readonly PersistedWorker[];
+	pending?: PendingTask;
+	unsafeWriter?: string;
+	unsafeWriterWorker?: string;
+};
+
 /** Persisted worker authority bound to one parent Pi session. */
 export type DelegateRuntimeState = {
 	readonly ownerSessionId: string;
@@ -129,6 +149,20 @@ type ChildResult = {
 	readonly model: string;
 	readonly thinking: string;
 	readonly finishedAt: number;
+};
+
+type ChildResultDraft = {
+	taskId: string;
+	worker: string;
+	status: ChildResult["status"];
+	output: string;
+	error?: string;
+	stopReason?: string;
+	session: string;
+	provider: string;
+	model: string;
+	thinking: string;
+	finishedAt: number;
 };
 
 const roleFrontmatterSchema = Type.Object({
@@ -275,8 +309,10 @@ export function roleFingerprint(role: RoleConfig): string {
 }
 
 /** Parses persisted authority without treating malformed optional safety fields as absent. */
-export function parseDelegateRuntimeState(value: object): DelegationResult<DelegateRuntimeState> {
-	if (!Value.Check(delegateRuntimeStateSchema, value) || !value.ownerSessionId) {
+export function parseDelegateRuntimeState(
+	value: Static<typeof delegateRuntimeStateSchema>,
+): DelegationResult<DelegateRuntimeState> {
+	if (!value.ownerSessionId) {
 		return err("state_invalid", "ownerSessionId or workers missing");
 	}
 	const workers: PersistedWorker[] = [];
@@ -284,10 +320,7 @@ export function parseDelegateRuntimeState(value: object): DelegationResult<Deleg
 		if (!raw.id || (raw.role !== "builder" && raw.role !== "reviewer") || !raw.agentName || !raw.paneId ||
 			!raw.session || !raw.roleFingerprint || !raw.promptPath || (raw.tabId !== undefined && !raw.tabId) ||
 			(raw.workspaceId !== undefined && !raw.workspaceId)) return err("state_invalid", "worker fields invalid");
-		const parsedWorker: {
-			id: string; role: DelegateRole; agentName: string; paneId: string; tabId?: string;
-			workspaceId?: string; session: string; roleFingerprint: string; promptPath: string;
-		} = {
+		const parsedWorker: PersistedWorkerDraft = {
 			id: raw.id, role: raw.role, agentName: raw.agentName, paneId: raw.paneId,
 			session: raw.session, roleFingerprint: raw.roleFingerprint, promptPath: raw.promptPath,
 		};
@@ -306,26 +339,24 @@ export function parseDelegateRuntimeState(value: object): DelegationResult<Deleg
 		(!unsafeWriter || !unsafeWriterWorker || !workers.some((worker) => worker.id === unsafeWriterWorker))) {
 		return err("state_invalid", "unsafeWriterWorker must identify an owned worker when present");
 	}
-	const state: {
-		ownerSessionId: string; workers: readonly PersistedWorker[]; pending?: PendingTask;
-		unsafeWriter?: string; unsafeWriterWorker?: string;
-	} = { ownerSessionId: value.ownerSessionId, workers };
+	const state: DelegateRuntimeStateDraft = { ownerSessionId: value.ownerSessionId, workers };
 	if (pending) state.pending = pending;
 	if (unsafeWriter) state.unsafeWriter = unsafeWriter;
 	if (unsafeWriterWorker) state.unsafeWriterWorker = unsafeWriterWorker;
 	return ok(state);
 }
 
-function parseChildResult(value: object, pending: PendingTask, worker: PersistedWorker): DelegationResult<ChildResult> {
-	if (!Value.Check(childResultSchema, value) || value.version !== 1 || value.taskId !== pending.taskId ||
+function parseChildResult(
+	value: Static<typeof childResultSchema>,
+	pending: PendingTask,
+	worker: PersistedWorker,
+): DelegationResult<ChildResult> {
+	if (value.version !== 1 || value.taskId !== pending.taskId ||
 		value.worker !== worker.id || (value.status !== "completed" && value.status !== "failed" && value.status !== "incomplete") ||
 		value.session !== worker.session || !value.provider || !value.model || !value.thinking || value.finishedAt < pending.startedAt) {
 		return err("result_invalid", "task, native session, or terminal fields did not match");
 	}
-	const child: {
-		taskId: string; worker: string; status: ChildResult["status"]; output: string; error?: string;
-		stopReason?: string; session: string; provider: string; model: string; thinking: string; finishedAt: number;
-	} = {
+	const child: ChildResultDraft = {
 		taskId: value.taskId, worker: worker.id, status: value.status, output: value.output,
 		session: value.session, provider: value.provider, model: value.model, thinking: value.thinking,
 		finishedAt: value.finishedAt,
@@ -351,15 +382,18 @@ function cliFailure(result: CommandResult): string {
 		return text || `exit ${result.code}`;
 	}
 }
-async function readResult(path: string, deadline: number): Promise<DelegationResult<object>> {
-	let cause: unknown;
+async function readResult(
+	path: string,
+	deadline: number,
+): Promise<DelegationResult<Static<typeof childResultSchema>>> {
+	let cause = new Error("result artifact was not available");
 	while (Date.now() <= deadline) {
 		try {
 			const value: unknown = JSON.parse(await readFile(path, "utf8"));
-			if (Value.Check(Type.Object({}, { additionalProperties: true }), value)) return ok(value);
-			cause = new Error("result artifact is not an object");
+			if (Value.Check(childResultSchema, value)) return ok(value);
+			cause = new Error("result artifact did not match the expected contract");
 		} catch (error) {
-			cause = error;
+			cause = error instanceof Error ? error : new Error(String(error));
 		}
 		await new Promise((resolve) => setTimeout(resolve, 25));
 	}
@@ -398,10 +432,7 @@ export class DelegateRuntime {
 	/** Returns the authority snapshot persisted by the Pi extension. */
 	getState(): DelegateRuntimeState {
 		const ownerSessionId = this.#foreignAuthority ? this.#options.initialState?.ownerSessionId ?? this.#options.parentSessionId : this.#options.parentSessionId;
-		const state: {
-			ownerSessionId: string; workers: readonly PersistedWorker[]; pending?: PendingTask;
-			unsafeWriter?: string; unsafeWriterWorker?: string;
-		} = { ownerSessionId, workers: [...this.#workers.values()] };
+		const state: DelegateRuntimeStateDraft = { ownerSessionId, workers: [...this.#workers.values()] };
 		if (this.#pending) state.pending = this.#pending;
 		if (this.#unsafeWriter) state.unsafeWriter = this.#unsafeWriter;
 		if (this.#unsafeWriterWorker) state.unsafeWriterWorker = this.#unsafeWriterWorker;
