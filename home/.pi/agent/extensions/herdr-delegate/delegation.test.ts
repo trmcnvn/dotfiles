@@ -641,7 +641,6 @@ for (const failure of ["replaced", "unavailable", "moved"] as const) {
 	test(`builder follow-up ${failure} identity retains its handle and blocks later writers`, async () => {
 		const fixture = await makeFixture();
 		const built = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "first" }));
-		const calls: readonly string[][] = [];
 		let lookups = 0;
 		const runtime = new DelegateRuntime({
 			...fixture.options, initialState: fixture.runtime.getState(),
@@ -667,7 +666,6 @@ for (const failure of ["replaced", "unavailable", "moved"] as const) {
 		const before = lookups;
 		assert.equal((await runtime.delegate({ role: "builder", task: "another writer" })).ok, false);
 		assert.equal(lookups, before);
-		assert.deepEqual(calls, []);
 	});
 }
 
