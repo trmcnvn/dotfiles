@@ -182,7 +182,8 @@ const persistedWorkerSchema = Type.Object({
 const pendingTaskSchema = Type.Object({
 	taskId: Type.String(), worker: Type.String(), resultPath: Type.String(), startedAt: Type.Number(),
 });
-const delegateRuntimeStateSchema = Type.Object({
+/** Serialized custom-entry contract checked before runtime-state reconstruction. */
+export const delegateRuntimeStateSchema = Type.Object({
 	ownerSessionId: Type.String(),
 	workers: Type.Array(persistedWorkerSchema),
 	pending: Type.Optional(Type.Union([pendingTaskSchema, Type.Null()])),
