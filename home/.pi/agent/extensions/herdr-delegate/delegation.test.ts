@@ -756,6 +756,41 @@ test("cleanup aggregates failures and still closes later verified workers", asyn
 	assert.equal((await runtime.delegate({ role: "builder", task: "must not run" })).ok, false);
 });
 
+test("a failed closure publication does not stop cleanup of other verified workers", async () => {
+	const fixture = await makeFixture();
+	const workers = ["one", "two"].map((id) => ({
+		id, role: "builder" as const, agentName: `delegate-${id}`, paneId: `pane-${id}`,
+		session: `/tmp/${id}.jsonl`, roleFingerprint: "fingerprint", promptPath: `/tmp/${id}.md`,
+	}));
+	const closed: string[] = [];
+	const snapshots: DelegateRuntimeState[] = [];
+	const runtime = new DelegateRuntime({
+		...fixture.options, initialState: { ownerSessionId: "parent-session", workers },
+		runHerdr: async (args) => {
+			if (args[0] === "agent") {
+				const worker = workers.find((candidate) => candidate.agentName === args[2]);
+				assert.ok(worker);
+				return commandResult(JSON.stringify({ result: { agent: {
+					name: worker.agentName, pane_id: worker.paneId, agent_session: { value: worker.session },
+				} } }));
+			}
+			closed.push(args[2] ?? "");
+			return commandResult("{}");
+		},
+		onStateChange: (state) => {
+			snapshots.push(state);
+			throw new Error("disk unavailable");
+		},
+	});
+	const result = await runtime.cleanupOwned();
+	assert.equal(result.ok, false);
+	if (!result.ok) assert.equal(result.error.code, "state_persist_failed");
+	assert.deepEqual(closed, ["pane-one", "pane-two"]);
+	assert.deepEqual(snapshots[0]?.workers.map((worker) => worker.id), ["two"]);
+	assert.deepEqual(runtime.getState().workers, []);
+	assert.ok(runtime.getState().persistenceError);
+});
+
 test("drain waits for accepted delegation and leaves its idle builder retained", async () => {
 	const fixture = await makeFixture();
 	let release = (): void => undefined;
@@ -861,7 +896,7 @@ test("foreign empty snapshots are inert while inherited locks remain foreign", a
 	assert.equal((await locked.cleanupOwned()).ok, false);
 });
 
-for (const evidence of ["absent", "name-absent", "agent-timeout", "agent-not-running", "pane-timeout", "pane-present", "pane-killed", "agent-replaced"] as const) {
+for (const evidence of ["absent", "name-absent", "agent-timeout", "agent-not-running", "pane-timeout", "pane-present", "pane-killed", "agent-replaced", "agent-moved", "agent-malformed"] as const) {
 	test(`cleanup absence evidence ${evidence} only prunes a specifically missing agent and pane`, async () => {
 		const fixture = await makeFixture();
 		requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "first" }));
@@ -881,8 +916,10 @@ for (const evidence of ["absent", "name-absent", "agent-timeout", "agent-not-run
 				if (args[0] === "agent") {
 					if (evidence === "agent-timeout") return missing("timeout");
 					if (evidence === "agent-not-running") return missing("agent_not_running");
-					if (evidence === "agent-replaced") return commandResult(JSON.stringify({ result: { agent: {
-						name: worker.agentName, pane_id: worker.paneId, agent_session: { value: "replacement" },
+					if (evidence === "agent-malformed") return commandResult("{}");
+					if (evidence === "agent-replaced" || evidence === "agent-moved") return commandResult(JSON.stringify({ result: { agent: {
+						name: worker.agentName, pane_id: evidence === "agent-moved" ? "moved-pane" : worker.paneId,
+						agent_session: { value: evidence === "agent-moved" ? worker.session : "replacement" },
 					} } }));
 					return missing(evidence === "name-absent" ? "agent_name_not_found" : "agent_not_found");
 				}
