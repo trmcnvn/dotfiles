@@ -57,6 +57,30 @@ test("reads assistant text, tool activity, errors, branches, and compaction with
 	assert.ok(Buffer.byteLength(result.activity) <= ACTIVITY_OUTPUT_BYTES);
 });
 
+test("preserves independently valid activity fields when optional metadata is malformed", async () => {
+	const path = await sessionFile();
+	await appendFile(path, [
+		entry("mixed-error", {
+			role: "assistant",
+			content: null,
+			errorMessage: "provider failed",
+		}),
+		`${JSON.stringify({
+			type: "message",
+			id: 42,
+			parentId: { malformed: true },
+			summary: ["irrelevant"],
+			message: {
+				role: "assistant",
+				content: [{ type: "toolCall", name: "read", id: 99, arguments: { path: "README.md" } }],
+			},
+		})}\n`,
+	].join(""));
+	const result = await readSessionActivity("worker-one", path);
+	assert.match(result.activity, /mixed-error message\/assistant.*provider failed/);
+	assert.match(result.activity, /line-2 message\/assistant parent=unknown.*tool call read.*README\.md/);
+});
+
 test("does not advance over an incomplete UTF-8 trailing record", async () => {
 	const path = await sessionFile();
 	const complete = entry("assistant-1", { role: "assistant", content: [{ type: "text", text: "café" }] });
