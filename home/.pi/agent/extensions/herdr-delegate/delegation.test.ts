@@ -289,7 +289,10 @@ test("serialized authority contract rejects malformed present optional fields", 
 		{ ownerSessionId: "parent", workers: [], pending: null },
 		{ ownerSessionId: "parent", workers: [], unsafeWriter: 123 },
 	]) {
-		assert.equal(Value.Check(delegateRuntimeStateSchema, value), false);
+		if (!Value.Check(delegateRuntimeStateSchema, value)) continue;
+		const result = parseDelegateRuntimeState(value);
+		assert.equal(result.ok, false);
+		if (!result.ok) assert.equal(result.error.code, "state_invalid");
 	}
 });
 
