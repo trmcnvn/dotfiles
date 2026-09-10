@@ -1,11 +1,11 @@
 ---
 name: orchestrate
-description: Coordinate implementation through a sole Sol builder and fresh Astra reviewer in visible Herdr panes. Use for explicit /skill:orchestrate implementation tasks and ordinary implementation requests suited to delegated build-and-review.
+description: Coordinate implementation through a sole Sol builder and fresh Astra reviewer in visible background Herdr tabs. Use for explicit /skill:orchestrate implementation tasks and ordinary implementation requests suited to delegated build-and-review.
 ---
 
 # Orchestrate
 
-Use the `delegate` tool for a minimal sequential build-and-review workflow. Do not launch agents with bash or control panes manually. Read the Herdr skill before diagnosing or manually inspecting worker panes.
+Use the blocking `delegate` tool for a minimal sequential build-and-review workflow. Workers run in background Herdr tabs. This does not provide streaming token updates or asynchronous orchestration. Do not launch agents with bash or control panes manually. Use `read_agent_activity` with an owned worker handle for bounded JSONL activity when diagnosis is needed; activity is not completion proof. Read the Herdr skill before diagnosing or manually inspecting worker panes.
 
 ## Preconditions
 
@@ -27,6 +27,6 @@ Use one review/fix cycle by default. Stop or ask the user on blockers, contradic
 
 ## Safety and ownership
 
-Delegations are sequential. A timeout, cancellation, killed transport, or stalled prompt may already have been delivered; never resubmit it. If the tool reports unresolved ownership, stop all further delegation. Inspect the reported pane and use `/delegate-cleanup` only when deliberate closure of the pinned worker is appropriate; otherwise escalate.
+Delegations are sequential. A timeout, cancellation, killed transport, or stalled prompt may already have been delivered; never resubmit it. If the tool reports unresolved ownership, stop all further delegation. Once a worker is pinned, the error includes its opaque handle; use `read_agent_activity` if JSONL activity helps diagnosis, then use `/delegate-cleanup` only when deliberate closure of the pinned worker pane is appropriate. Cleanup never closes a whole tab containing user-added panes. Otherwise escalate.
 
 Workers remain visible and inspectable in their Herdr panes. Do not close arbitrary panes. The reviewer has a read-only operating policy, but because it has bash for inspection that policy is not a security sandbox.
