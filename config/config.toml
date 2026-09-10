@@ -143,7 +143,6 @@ builtin = "history-watch"
 "~/.gitexcludes" = { mode = "track" }
 "~/.local/bin/coffee" = { mode = "track" }
 "~/.pi/agent/AGENTS.md" = { mode = "track" }
-"~/.pi/agent/agents/builder.md" = { mode = "track" }
 "~/.pi/agent/agents/reviewer.md" = { mode = "track" }
 "~/.pi/agent/agents/scout.md" = { mode = "track" }
 "~/.pi/agent/agents/worker.md" = { mode = "track" }
