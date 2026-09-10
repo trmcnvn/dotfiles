@@ -522,10 +522,11 @@ export class DelegateRuntime {
 					return closed;
 				}
 			}
+			const transientStateRemains = this.#pending !== undefined || this.#unsafeWriter !== undefined || this.#unsafeWriterWorker !== undefined;
 			this.#pending = undefined;
 			this.#unsafeWriter = undefined;
 			this.#unsafeWriterWorker = undefined;
-			this.#publish();
+			if (transientStateRemains) this.#publish();
 			return ok(undefined);
 		} finally {
 			this.#cleanupInProgress = false;
@@ -534,6 +535,9 @@ export class DelegateRuntime {
 
 	async #delegate(input: DelegateInput, signal?: AbortSignal): Promise<DelegationResult<DelegateResult>> {
 		if (this.#foreignAuthority) return err("foreign_authority", "copied session state cannot adopt another parent session's workers");
+		if (this.#unsafeWriter && !this.#unsafeWriterWorker) {
+			return err("manual_recovery_required", `${this.#unsafeWriter}. No pinned worker handle exists; inspect the reported startup resource manually`);
+		}
 		if (this.#unsafeWriter || this.#pending) {
 			const worker = this.#pending?.worker ?? this.#unsafeWriterWorker;
 			return err("worker_unresolved", `${this.#unsafeWriter ?? `pending task ${this.#pending?.taskId}`} Use read_agent_activity before /delegate-cleanup if diagnosis is needed.`, undefined, worker);
@@ -699,7 +703,7 @@ export class DelegateRuntime {
 			if (closed.ok) cleanup = { status: "closed" };
 			else {
 				cleanup = { status: "failed", error: closed.error.message };
-				this.#lock(`completed task ${pending.taskId} cleanup failed (${closed.error.message})`, worker.id);
+				this.#lock(`correlated task ${pending.taskId} cleanup failed (${closed.error.message})`, worker.id);
 			}
 		}
 		const cleanupText = cleanup.status === "closed" ? "Cleanup: matching owned pane closed."
