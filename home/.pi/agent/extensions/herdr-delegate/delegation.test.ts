@@ -71,7 +71,7 @@ async function makeFixture(scenario = "success", roleOverrides: Partial<Record<"
 		}
 	};
 	let sequence = 0;
-	const runtime = new DelegateRuntime({
+	const options: ConstructorParameters<typeof DelegateRuntime>[0] = {
 		runHerdr: processRun,
 		validateRole: async () => ({ ok: true, value: undefined }),
 		callerWorkspaceId: "workspace",
@@ -81,13 +81,14 @@ async function makeFixture(scenario = "success", roleOverrides: Partial<Record<"
 		reporterPath: "/extension/index.ts",
 		rolePaths,
 		id: () => `id-${++sequence}`,
-	});
+	};
+	const runtime = new DelegateRuntime(options);
 	const state = async () => {
 		const value: unknown = JSON.parse(await readFile(statePath, "utf8"));
 		assert.ok(Value.Check(fakeStateSchema, value));
 		return value;
 	};
-	return { root, runtime, rolePaths, processRun, state };
+	return { root, runtime, rolePaths, processRun, state, options };
 }
 
 function commandResult(stdout = "", code = 0, stderr = ""): CommandResult {
