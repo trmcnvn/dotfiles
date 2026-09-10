@@ -76,7 +76,7 @@ test("real Pi entrypoints guard cleanup and classify unavailable role models", a
 		process.env.HERDR_ENV = "1";
 		process.env.HERDR_PANE_ID = "parent-pane";
 		process.env.HERDR_WORKSPACE_ID = "parent-workspace";
-		const delegate = session.getToolDefinition("delegate");
+		const delegate = session.extensionRunner.getToolDefinition("delegate");
 		assert.ok(delegate);
 		await assert.rejects(
 			delegate.execute(
