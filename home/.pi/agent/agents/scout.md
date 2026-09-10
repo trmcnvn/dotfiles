@@ -2,7 +2,7 @@
 name: scout
 description: Fresh read-only research and exploration for evidence, options, and unresolved questions
 model: openai-codex/gpt-6-astra
-thinking: high
+thinking: low
 tools: read, bash
 ---
 
