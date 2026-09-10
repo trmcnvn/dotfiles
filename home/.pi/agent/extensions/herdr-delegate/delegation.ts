@@ -206,7 +206,7 @@ export async function loadRoleConfig(path: string, role: DelegateRole): Promise<
 			!THINKING_LEVELS.has(frontmatter.thinking as Thinking) || !tools || !body.trim()) {
 			return err("role_invalid", `${role}: require name, description, provider/model, thinking, tools, and body`);
 		}
-		if (tools.includes("delegate")) return err("role_unsafe", `${role}: delegate is forbidden`);
+		if (tools.some((tool) => tool === "delegate" || tool === "read_agent_activity")) return err("role_unsafe", `${role}: parent-only delegation tools are forbidden`);
 		if (role === "reviewer" && tools.some((tool) => tool === "edit" || tool === "write")) return err("role_unsafe", "reviewer write tools are forbidden");
 		const separator = frontmatter.model.indexOf("/");
 		if (separator < 1) return err("role_invalid", `${role}: model must be provider/id`);
