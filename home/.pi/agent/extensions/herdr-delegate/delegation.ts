@@ -350,6 +350,9 @@ export function parseDelegateRuntimeState(
 		return err("state_invalid", "pending must be a task object when present");
 	}
 	const pending = Value.Check(pendingTaskSchema, value.pending) ? value.pending : undefined;
+	if (pending && !workers.some((worker) => worker.id === pending.worker)) {
+		return err("state_invalid", "pending must identify an owned worker");
+	}
 	const unsafeWriter = Value.Check(Type.String({ minLength: 1 }), value.unsafeWriter) ? value.unsafeWriter : undefined;
 	const unsafeWriterWorker = Value.Check(Type.String({ minLength: 1 }), value.unsafeWriterWorker) ? value.unsafeWriterWorker : undefined;
 	if (Object.hasOwn(value, "unsafeWriter") && !unsafeWriter) return err("state_invalid", "unsafeWriter must be a non-empty string when present");
