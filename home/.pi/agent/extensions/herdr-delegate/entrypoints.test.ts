@@ -94,7 +94,10 @@ test("real Pi entrypoints preserve guards, restoration locks, and thinking class
 	assert.deepEqual(loader.getExtensions().errors, []);
 
 	const sessionManager = SessionManager.inMemory(root);
-	sessionManager.appendCustomEntry("herdr-delegate-state", ownedWorkerState);
+	sessionManager.appendCustomEntry("herdr-delegate-state", {
+		...ownedWorkerState,
+		ownerSessionId: sessionManager.getSessionId(),
+	});
 	const { session } = await createAgentSession({
 		cwd: root,
 		agentDir: root,
@@ -144,6 +147,7 @@ test("real Pi entrypoints preserve guards, restoration locks, and thinking class
 		const corruptManager = SessionManager.inMemory(root);
 		corruptManager.appendCustomEntry("herdr-delegate-state", {
 			...ownedWorkerState,
+			ownerSessionId: corruptManager.getSessionId(),
 			pending: { taskId: "", worker: "worker", resultPath: "/tmp/result.json", startedAt: 1 },
 		});
 		const created = await createAgentSession({
