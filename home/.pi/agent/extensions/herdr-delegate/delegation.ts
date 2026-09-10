@@ -524,7 +524,9 @@ export class DelegateRuntime {
 			return err("startup_recovery_unavailable", "requires only an unpinned startup lock, with no workers or pending task; use ordinary owned cleanup for pinned workers");
 		}
 		// Legacy text identifies the supported record kind only, never a native identity or deletion target.
-		if (!this.#startupResource && !["agent startup failed after creating pane=", "tab creation outcome is uncertain (", "tab creation succeeded but its root pane identity was malformed;", "created tab identity mismatched caller authority (", "started delegate-"].some((prefix) => this.#unsafeWriter?.startsWith(prefix))) {
+		const legacyStartup = ["agent startup failed after creating pane=", "tab creation outcome is uncertain (", "tab creation succeeded but its root pane identity was malformed;", "created tab identity mismatched caller authority ("].some((prefix) => this.#unsafeWriter?.startsWith(prefix)) ||
+			(this.#unsafeWriter.startsWith("started delegate-") && ["but native session identity was malformed; inspect and close that pane manually", "without a matching native session identity; inspect and close that pane manually"].some((suffix) => this.#unsafeWriter?.endsWith(suffix)));
+		if (!this.#startupResource && !legacyStartup) {
 			return err("startup_recovery_unavailable", "this unpinned lock is not a recognized startup record");
 		}
 		return ok(`${this.#unsafeWriter}${this.#startupResource ? `\nStartup provenance (not native ownership): ${JSON.stringify(this.#startupResource)}` : "\nLegacy record: no structured native identity is available."}`);
