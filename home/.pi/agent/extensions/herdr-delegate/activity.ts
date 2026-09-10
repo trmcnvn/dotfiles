@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { open } from "node:fs/promises";
 import { basename } from "node:path";
 
+import { Type, type Static } from "typebox";
+import { Value } from "typebox/value";
+
 /** Maximum bytes read from a worker session file in one call. */
 export const ACTIVITY_READ_BYTES = 64 * 1024;
 /** Maximum rendered activity returned in one call. */
@@ -9,25 +12,57 @@ export const ACTIVITY_OUTPUT_BYTES = 20 * 1024;
 const EVENT_BYTES = 2 * 1024;
 const MAX_EVENTS = 50;
 
-type ContinuityAnchor = {
-	readonly position: number;
-	readonly length: number;
-	readonly hash: string;
-};
+const continuityAnchorSchema = Type.Object({
+	position: Type.Integer({ minimum: 0 }),
+	length: Type.Integer({ minimum: 1, maximum: 64 }),
+	hash: Type.String({ minLength: 1 }),
+});
+type ContinuityAnchor = Static<typeof continuityAnchorSchema>;
 
-type ActivityCursor = {
-	readonly version: 2;
-	readonly worker: string;
-	readonly sessionHash: string;
-	readonly device: number;
-	readonly inode: number;
-	readonly observedSize: number;
-	readonly offset: number;
-	readonly scanOffset: number;
-	readonly offsetAnchor: ContinuityAnchor;
-	readonly scanAnchor: ContinuityAnchor;
-	readonly headerId: string;
-};
+const activityCursorSchema = Type.Object({
+	version: Type.Literal(2),
+	worker: Type.String(),
+	sessionHash: Type.String(),
+	device: Type.Integer(),
+	inode: Type.Integer(),
+	observedSize: Type.Integer({ minimum: 0 }),
+	offset: Type.Integer({ minimum: 0 }),
+	scanOffset: Type.Integer({ minimum: 0 }),
+	offsetAnchor: continuityAnchorSchema,
+	scanAnchor: continuityAnchorSchema,
+	headerId: Type.String({ minLength: 1 }),
+});
+type ActivityCursor = Static<typeof activityCursorSchema>;
+
+const textContentSchema = Type.Object({ type: Type.Literal("text"), text: Type.String() });
+const toolCallContentSchema = Type.Object({
+	type: Type.Literal("toolCall"),
+	name: Type.String(),
+	id: Type.Optional(Type.String()),
+	arguments: Type.Optional(Type.Unknown()),
+});
+const messageSchema = Type.Object({
+	role: Type.Optional(Type.String()),
+	content: Type.Optional(Type.Union([Type.String(), Type.Array(Type.Unknown())])),
+	errorMessage: Type.Optional(Type.String()),
+	toolName: Type.Optional(Type.String()),
+	toolCallId: Type.Optional(Type.String()),
+	isError: Type.Optional(Type.Boolean()),
+});
+const sessionEntrySchema = Type.Object({
+	type: Type.Optional(Type.String()),
+	id: Type.Optional(Type.String()),
+	parentId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+	message: Type.Optional(messageSchema),
+	summary: Type.Optional(Type.String()),
+	fromId: Type.Optional(Type.String()),
+});
+type SessionEntry = Static<typeof sessionEntrySchema>;
+
+const sessionHeaderSchema = Type.Object({
+	type: Type.Literal("session"),
+	id: Type.String({ minLength: 1 }),
+});
 
 /** Input for a bounded, repeatable worker activity read. */
 export type ReadAgentActivityInput = {
@@ -56,12 +91,6 @@ export class AgentActivityError extends Error {
 	}
 }
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
-	// SAFETY: the runtime object check establishes the string-keyed representation used below.
-	return value as Record<string, unknown>;
-}
-
 function sessionHash(path: string): string {
 	return createHash("sha256").update(path).digest("base64url");
 }
@@ -70,43 +99,22 @@ function encodeCursor(cursor: ActivityCursor): string {
 	return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
-function parseAnchor(value: unknown): ContinuityAnchor | undefined {
-	const record = asRecord(value);
-	if (!record || typeof record.position !== "number" || !Number.isSafeInteger(record.position) || record.position < 0 ||
-		typeof record.length !== "number" || !Number.isSafeInteger(record.length) || record.length < 1 || record.length > 64 ||
-		typeof record.hash !== "string" || !record.hash) return undefined;
-	return { position: record.position, length: record.length, hash: record.hash };
-}
-
 function parseCursor(encoded: string, worker: string, session: string): ActivityCursor {
 	let value: unknown;
 	try {
-		value = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as unknown;
+		value = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
 	} catch {
 		throw new AgentActivityError("activity_cursor_invalid", "cursor is not valid");
 	}
-	const record = asRecord(value);
-	const offsetAnchor = parseAnchor(record?.offsetAnchor);
-	const scanAnchor = parseAnchor(record?.scanAnchor);
-	if (
-		record?.version !== 2 || record.worker !== worker || record.sessionHash !== sessionHash(session) ||
-		typeof record.device !== "number" || !Number.isSafeInteger(record.device) ||
-		typeof record.inode !== "number" || !Number.isSafeInteger(record.inode) ||
-		typeof record.observedSize !== "number" || !Number.isSafeInteger(record.observedSize) || record.observedSize < 0 ||
-		typeof record.offset !== "number" || !Number.isSafeInteger(record.offset) || record.offset < 0 ||
-		typeof record.scanOffset !== "number" || !Number.isSafeInteger(record.scanOffset) || record.scanOffset < record.offset ||
-		!offsetAnchor || !scanAnchor || typeof record.headerId !== "string" || !record.headerId
-	) {
+	if (!Value.Check(activityCursorSchema, value) || value.worker !== worker ||
+		value.sessionHash !== sessionHash(session) || value.scanOffset < value.offset) {
 		throw new AgentActivityError("activity_cursor_mismatch", "cursor does not belong to this owned worker session");
 	}
-	if (offsetAnchor.position + offsetAnchor.length > record.observedSize || scanAnchor.position + scanAnchor.length > record.observedSize) {
+	if (value.offsetAnchor.position + value.offsetAnchor.length > value.observedSize ||
+		value.scanAnchor.position + value.scanAnchor.length > value.observedSize) {
 		throw new AgentActivityError("activity_cursor_mismatch", "cursor continuity anchors exceed the observed session");
 	}
-	return {
-		version: 2, worker, sessionHash: record.sessionHash, device: record.device, inode: record.inode,
-		observedSize: record.observedSize, offset: record.offset, scanOffset: record.scanOffset,
-		offsetAnchor, scanAnchor, headerId: record.headerId,
-	};
+	return value;
 }
 
 async function createAnchor(file: Awaited<ReturnType<typeof open>>, boundary: number, observedEnd: number): Promise<ContinuityAnchor> {
@@ -151,51 +159,49 @@ function truncate(value: string, bytes = EVENT_BYTES): string {
 	return result + suffix;
 }
 
-function contentText(content: unknown): string {
-	if (typeof content === "string") return content;
-	if (!Array.isArray(content)) return "";
-	return content.flatMap((part) => {
-		const record = asRecord(part);
-		return record?.type === "text" && typeof record.text === "string" ? [record.text] : [];
-	}).join("\n");
+function contentText(content: Static<typeof messageSchema>["content"]): string {
+	if (Value.Check(Type.String(), content)) return content;
+	if (!Value.Check(Type.Array(Type.Unknown()), content)) return "";
+	const rendered: string[] = [];
+	for (const part of content) {
+		if (Value.Check(textContentSchema, part)) rendered.push(part.text);
+	}
+	return rendered.join("\n");
 }
 
-function renderEntry(value: unknown, lineNumber: number): string | undefined {
-	const entry = asRecord(value);
-	if (!entry) return `[line ${lineNumber} malformed] expected object`;
-	const type = typeof entry.type === "string" ? entry.type : "unknown";
-	const id = typeof entry.id === "string" ? entry.id : `line-${lineNumber}`;
-	const parent = typeof entry.parentId === "string" ? entry.parentId : entry.parentId === null ? "root" : "unknown";
+function renderEntry(entry: SessionEntry, lineNumber: number): string | undefined {
+	const type = entry.type ?? "unknown";
+	const id = entry.id ?? `line-${lineNumber}`;
+	const parent = entry.parentId ?? (entry.parentId === null ? "root" : "unknown");
 	const prefix = `[${id} ${type} parent=${parent}]`;
 	if (type === "message") {
-		const message = asRecord(entry.message);
+		const message = entry.message;
 		if (message?.role === "assistant") {
 			const rendered: string[] = [];
-			if (Array.isArray(message.content)) {
+			if (Value.Check(Type.Array(Type.Unknown()), message.content)) {
 				for (const part of message.content) {
-					const block = asRecord(part);
-					if (block?.type === "text" && typeof block.text === "string" && block.text) rendered.push(`assistant: ${truncate(block.text)}`);
-					if (block?.type === "toolCall" && typeof block.name === "string") {
-						const callId = typeof block.id === "string" ? ` ${block.id}` : "";
-						rendered.push(`tool call${callId} ${block.name}: ${truncate(JSON.stringify(block.arguments ?? {}))}`);
+					if (Value.Check(textContentSchema, part) && part.text) rendered.push(`assistant: ${truncate(part.text)}`);
+					if (Value.Check(toolCallContentSchema, part)) {
+						const callId = part.id ? ` ${part.id}` : "";
+						rendered.push(`tool call${callId} ${part.name}: ${truncate(JSON.stringify(part.arguments ?? {}))}`);
 					}
 				}
 			}
-			if (typeof message.errorMessage === "string" && message.errorMessage) rendered.push(`assistant error: ${truncate(message.errorMessage)}`);
+			if (message.errorMessage) rendered.push(`assistant error: ${truncate(message.errorMessage)}`);
 			return rendered.length ? truncate(`[${id} ${type}/assistant parent=${parent}] ${rendered.join("\n")}`) : undefined;
 		}
 		if (message?.role === "toolResult") {
-			const name = typeof message.toolName === "string" ? message.toolName : "unknown";
-			const callId = typeof message.toolCallId === "string" ? ` ${message.toolCallId}` : "";
+			const name = message.toolName ?? "unknown";
+			const callId = message.toolCallId ? ` ${message.toolCallId}` : "";
 			const marker = message.isError === true ? " error" : "";
 			return truncate(`[${id} ${type}/toolResult parent=${parent}] ${name}${callId}${marker}: ${truncate(contentText(message.content) || "(no text output)")}`);
 		}
 		return undefined;
 	}
-	if (type === "compaction") return truncate(`${prefix} ${truncate(typeof entry.summary === "string" ? entry.summary : "context compacted")}`);
+	if (type === "compaction") return truncate(`${prefix} ${truncate(entry.summary ?? "context compacted")}`);
 	if (type === "branch_summary") {
-		const from = typeof entry.fromId === "string" ? ` from=${entry.fromId}` : "";
-		return truncate(`${prefix.slice(0, -1)}${from}] ${truncate(typeof entry.summary === "string" ? entry.summary : "branch changed")}`);
+		const from = entry.fromId ? ` from=${entry.fromId}` : "";
+		return truncate(`${prefix.slice(0, -1)}${from}] ${truncate(entry.summary ?? "branch changed")}`);
 	}
 	return undefined;
 }
@@ -207,15 +213,14 @@ async function readHeader(file: Awaited<ReturnType<typeof open>>): Promise<{ rea
 	if (newline < 0) throw new AgentActivityError("activity_header_invalid", "session header is missing or exceeds 16 KB");
 	let value: unknown;
 	try {
-		value = JSON.parse(buffer.subarray(0, newline).toString("utf8")) as unknown;
+		value = JSON.parse(buffer.subarray(0, newline).toString("utf8"));
 	} catch {
 		throw new AgentActivityError("activity_header_invalid", "session header is malformed");
 	}
-	const header = asRecord(value);
-	if (header?.type !== "session" || typeof header.id !== "string" || !header.id) {
+	if (!Value.Check(sessionHeaderSchema, value)) {
 		throw new AgentActivityError("activity_header_invalid", "session header identity is missing");
 	}
-	return { id: header.id, bytes: newline + 1 };
+	return { id: value.id, bytes: newline + 1 };
 }
 
 /** Reads an owned Pi JSONL session incrementally without reconstructing conversation state. */
@@ -292,7 +297,10 @@ export async function readSessionActivity(
 			const line = bytes.subarray(consumed, end).toString("utf8");
 			let rendered: string | undefined;
 			try {
-				rendered = renderEntry(JSON.parse(line) as unknown, lineNumber);
+				const entry: unknown = JSON.parse(line);
+				rendered = Value.Check(sessionEntrySchema, entry)
+					? renderEntry(entry, lineNumber)
+					: `[line ${lineNumber} malformed] expected object`;
 			} catch {
 				rendered = `[line ${lineNumber} malformed] invalid JSON record`;
 			}
