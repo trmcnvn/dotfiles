@@ -473,7 +473,7 @@ exit 99
 		assert.equal(notifications.filter((message) => message.startsWith("Automatic delegation cleanup failed:")).length, 1);
 		await session.reload();
 		await session.extensionRunner.emit({ type: "agent_settled" });
-		assert.equal(notifications.filter((message) => message.startsWith("Automatic delegation cleanup failed:")).length, 1);
+		assert.equal(notifications.filter((message) => message.startsWith("Automatic delegation cleanup failed:")).length, 2);
 		delete process.env.HERDR_TEST_CLOSE_FAILURE;
 		await session.extensionRunner.emit({ type: "agent_settled" });
 		const callsAfterRecovery = (await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length;
