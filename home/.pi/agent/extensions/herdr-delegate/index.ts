@@ -256,9 +256,9 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 		}
 	});
 	pi.on("session_shutdown", async (event, ctx) => {
+		if (!isInsideHerdr() || !runtime) return;
 		const current = runtime;
 		runtime = undefined;
-		if (!isInsideHerdr() || !current) return;
 		// Pi is already idle while settled handlers run; shutdown must drain them before invalidation.
 		const drained = await current.drain();
 		if (!drained.ok) ctx.ui.notify(drained.error.message, "error");
