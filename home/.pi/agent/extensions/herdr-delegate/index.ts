@@ -12,6 +12,7 @@ import { Value } from "typebox/value";
 import {
 	DelegateRuntime,
 	DelegationError,
+	delegateRuntimeStateSchema,
 	loadRoleConfig,
 	parseDelegateRuntimeState,
 	type DelegateRuntimeState,
@@ -195,7 +196,7 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 		let initialStateError: string | undefined;
 		for (const entry of ctx.sessionManager.getBranch()) {
 			if (entry.type !== "custom" || entry.customType !== STATE_ENTRY) continue;
-			const parsed = Value.Check(Type.Object({}, { additionalProperties: true }), entry.data)
+			const parsed = Value.Check(delegateRuntimeStateSchema, entry.data)
 				? parseDelegateRuntimeState(entry.data)
 				: { ok: false, error: new DelegationError("state_invalid", "persisted state must be an object") } as const;
 			if (parsed.ok) { restoredState = parsed.value; initialStateError = undefined; }
@@ -227,9 +228,14 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 				};
 			}
 		};
-		const runtimeOptions: ConstructorParameters<typeof DelegateRuntime>[0] = {
+		type RuntimeOptionsDraft = ConstructorParameters<typeof DelegateRuntime>[0] & {
+			initialState?: DelegateRuntimeState;
+			initialStateError?: string;
+		};
+		const runtimeOptions: RuntimeOptionsDraft = {
 			runHerdr: async (args, options) => {
-				const execOptions: { signal?: AbortSignal; timeout?: number } = {};
+				type HerdrExecOptions = { signal?: AbortSignal; timeout?: number };
+				const execOptions: HerdrExecOptions = {};
 				if (options?.signal !== undefined) execOptions.signal = options.signal;
 				if (options?.timeoutMs !== undefined) execOptions.timeout = options.timeoutMs;
 				const result = await pi.exec("herdr", [...args], execOptions);
