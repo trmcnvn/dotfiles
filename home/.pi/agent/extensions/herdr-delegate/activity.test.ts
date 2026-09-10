@@ -9,7 +9,7 @@ import { Value } from "typebox/value";
 
 import { ACTIVITY_OUTPUT_BYTES, AgentActivityError, readSessionActivity } from "./activity.ts";
 
- type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 const scanCursorSchema = Type.Object({ scanOffset: Type.Number() }, { additionalProperties: true });
 const mutableCursorSchema = Type.Object({
 	offset: Type.Number(),
