@@ -178,6 +178,8 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		for (const authority of [
 			{ ...locked, ownerSessionId: "foreign-parent" },
 			{ ...locked, pending: null },
+			{ ...locked, startupResource: null },
+			{ ...locked, startupResource: { worker: "", agentName: "agent", paneId: "pane", tabId: "tab", workspaceId: "workspace" } },
 			{ ...ownedWorkerState, ownerSessionId: manager.getSessionId(), unsafeWriter: failure, unsafeWriterWorker: "worker" },
 			{ ...ownedWorkerState, ownerSessionId: manager.getSessionId(), pending: { taskId: "delivered", worker: "worker", resultPath: "/tmp/result", startedAt: 1 } },
 		]) {
