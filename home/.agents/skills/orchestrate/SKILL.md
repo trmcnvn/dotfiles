@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: Coordinate scoped implementation, read-only research, and independent review through Worker, Scout, and Reviewer in visible background Herdr tabs. Use for explicit /skill:orchestrate tasks and ordinary requests that benefit from delegation.
+description: Coordinate scoped implementation, read-only research, and independent review through Worker, Scout, and Reviewer in temporary sibling Herdr panes in the parent's tab. Use for explicit /skill:orchestrate tasks and ordinary requests that benefit from delegation.
 ---
 
 # Orchestrate
@@ -38,6 +38,8 @@ Explicit replacement is allowed when needed, including deliberate model/configur
 Builder is retired: only Worker, Scout, and Reviewer are callable roles. Legacy persisted builders retain their original role, native identity, and fingerprint for safe cleanup or explicit replacement with Worker. Legacy follow-ups return `role_retired` without changing ownership or delivering work; use the replacement handoff above or `/delegate-cleanup`. No legacy role file is required.
 
 ## Safety and lifecycle
+
+Helpers launch as sibling panes in the parent's tab and cwd without taking focus. The extension chooses right or down from the calling pane's geometry; it does not create tabs or workspaces. Cleanup closes only each helper's owned pane, preserving the parent and other work.
 
 A timeout, cancellation, killed transport, or stalled prompt may already have delivered work. Never resubmit it blindly. The extension confirms native identity, stops/closes only the owned pane, and reports cleanup. If identity or closure is unresolved, stop delegation. Use `read_agent_activity` with the returned opaque handle for bounded JSONL diagnosis; activity is not completion proof. Read the Herdr skill before manually inspecting panes. Use `/delegate-cleanup` only as deliberate recovery, not normal workflow.
 
