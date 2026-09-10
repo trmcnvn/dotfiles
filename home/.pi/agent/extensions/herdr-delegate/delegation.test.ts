@@ -106,6 +106,16 @@ function requireSuccess<T>(result: { readonly ok: true; readonly value: T } | { 
 	return result.value;
 }
 
+test("runtime rejects retired Builder launch without effects", async () => {
+	const fixture = await makeFixture();
+	// @ts-expect-error Builder is not a current callable role; exercise an obsolete JavaScript caller.
+	const result = await fixture.runtime.delegate({ role: "builder", task: "must not launch" });
+	assert.equal(result.ok, false);
+	if (!result.ok) assert.equal(result.error.code, "role_retired");
+	assert.deepEqual(fixture.runtime.getState(), { ownerSessionId: "parent-session", workers: [] });
+	assert.deepEqual((await fixture.state()).calls, []);
+});
+
 async function makeLegacyFixture() {
 	const fixture = await makeFixture();
 	const worker = {
