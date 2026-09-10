@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -130,6 +130,22 @@ test("completes a correlated task and launches the editable role model and think
 	assert.deepEqual(create.slice(0, 8), ["tab", "create", "--workspace", "workspace", "--cwd", fixture.root, "--label", "delegate builder"]);
 	assert.ok(create.includes("--no-focus"));
 });
+
+for (const role of ["worker", "scout", "reviewer"] as const) {
+	test(`${role} stores sessions privately outside normal Pi history`, async () => {
+		const fixture = await makeFixture();
+		const result = requireSuccess(await fixture.runtime.delegate({ role, task: "transport check" }));
+		const start = (await fixture.state()).calls.find((call) => call[0] === "agent" && call[1] === "start");
+		assert.ok(start);
+		const sessionDir = join(fixture.options.resultRoot, result.worker, "sessions");
+		assert.deepEqual(start.slice(start.indexOf("--session-dir"), start.indexOf("--session-dir") + 2), ["--session-dir", sessionDir]);
+		assert.equal((await stat(sessionDir)).mode & 0o777, 0o700);
+		assert.equal(start.includes("--no-session"), false, "native session identity and activity require persistence");
+		const manager = SessionManager.create(fixture.root, sessionDir);
+		assert.equal(manager.getSessionDir(), sessionDir);
+		assert.notEqual(manager.getSessionDir(), SessionManager.inMemory(fixture.root).getSessionDir());
+	});
+}
 
 test("retries only a known shell-readiness rejection after confirming the created pane", async () => {
 	const fixture = await makeFixture("busy-once");
