@@ -212,25 +212,24 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 
 	pi.on("session_start", (_event, ctx) => {
 		cleanupNotice = null;
+		let restoredState: DelegateRuntimeState | undefined;
+		let initialStateError: string | undefined;
 		for (const entry of ctx.sessionManager.getBranch()) {
 			if (entry.type !== "custom") continue;
 			if (entry.customType === CLEANUP_NOTICE_ENTRY) {
 				cleanupNotice = Value.Check(cleanupNoticeSchema, entry.data) && entry.data.ownerSessionId === ctx.sessionManager.getSessionId() ? entry.data.error : null;
-			} else if (entry.customType === STATE_ENTRY && Value.Check(delegateRuntimeStateSchema, entry.data)) {
-				const state = parseDelegateRuntimeState(entry.data);
-				// A recovered authority snapshot invalidates older notices even if notice publication failed.
-				if (state.ok && state.value.ownerSessionId === ctx.sessionManager.getSessionId() && state.value.workers.length === 0 && !state.value.unsafeWriter && !state.value.pending && !state.value.persistenceError) cleanupNotice = null;
+				continue;
 			}
-		}
-		let restoredState: DelegateRuntimeState | undefined;
-		let initialStateError: string | undefined;
-		for (const entry of ctx.sessionManager.getBranch()) {
-			if (entry.type !== "custom" || entry.customType !== STATE_ENTRY) continue;
+			if (entry.customType !== STATE_ENTRY) continue;
 			const parsed = Value.Check(delegateRuntimeStateSchema, entry.data)
 				? parseDelegateRuntimeState(entry.data)
 				: { ok: false, error: new DelegationError("state_invalid", "persisted state must be an object") } as const;
-			if (parsed.ok) { restoredState = parsed.value; initialStateError = undefined; }
-			else { restoredState = undefined; initialStateError = `corrupt persisted delegation authority: ${parsed.error.message}`; }
+			if (parsed.ok) {
+				restoredState = parsed.value;
+				initialStateError = undefined;
+				// A recovered authority snapshot invalidates older notices even if notice publication failed.
+				if (restoredState.ownerSessionId === ctx.sessionManager.getSessionId() && restoredState.workers.length === 0 && !restoredState.unsafeWriter && !restoredState.pending && !restoredState.persistenceError) cleanupNotice = null;
+			} else { restoredState = undefined; initialStateError = `corrupt persisted delegation authority: ${parsed.error.message}`; }
 		}
 		const validateRole = async (role: RoleConfig, signal?: AbortSignal): Promise<DelegationResult<void>> => {
 			const model = ctx.modelRegistry.find(role.provider, role.model);
