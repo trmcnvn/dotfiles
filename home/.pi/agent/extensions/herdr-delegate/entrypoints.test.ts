@@ -62,7 +62,18 @@ test("real Pi entrypoints preserve guards, restoration locks, and thinking class
 	delete process.env.PI_HERDR_DELEGATE_WORKER;
 	await mkdir(join(root, "agents"), { recursive: true });
 	await mkdir(bin);
-	await writeFile(join(bin, "herdr"), "#!/bin/sh\nprintf 'called\\n' >> \"$HERDR_TEST_SENTINEL\"\nexit 99\n", { mode: 0o755 });
+	await writeFile(join(bin, "herdr"), `#!/bin/sh
+printf '%s %s %s\\n' "$1" "$2" "$3" >> "$HERDR_TEST_SENTINEL"
+if [ "$1 $2" = "agent get" ]; then
+  printf '%s\\n' '{"result":{"agent":{"name":"delegate-builder-worker","pane_id":"worker-pane","agent_status":"idle","agent_session":{"value":"/tmp/worker.jsonl"}}}}'
+  exit 0
+fi
+if [ "$1 $2" = "pane close" ]; then
+  printf '%s\\n' '{"result":{}}'
+  exit 0
+fi
+exit 99
+`, { mode: 0o755 });
 	process.env.PATH = `${bin}:${previousPath ?? ""}`;
 	process.env.HERDR_TEST_SENTINEL = sentinel;
 
@@ -126,6 +137,15 @@ test("real Pi entrypoints preserve guards, restoration locks, and thinking class
 		process.env.HERDR_ENV = "1";
 		process.env.HERDR_PANE_ID = "parent-pane";
 		process.env.HERDR_WORKSPACE_ID = "parent-workspace";
+		assert.equal(existsSync(sentinel), false);
+		await session.extensionRunner.emit({ type: "agent_end", messages: [] });
+		assert.equal(existsSync(sentinel), false);
+		await session.extensionRunner.emit({ type: "agent_settled" });
+		assert.match(await readFile(sentinel, "utf8"), /^agent get delegate-builder-worker\npane close worker-pane\n$/);
+		const latestState = sessionManager.getBranch().at(-1);
+		assert.equal(latestState?.type, "custom");
+		if (latestState?.type === "custom") assert.deepEqual(latestState.data, { ownerSessionId: sessionManager.getSessionId(), workers: [] });
+
 		const delegate = session.extensionRunner.getToolDefinition("delegate");
 		assert.ok(delegate);
 		await assert.rejects(
@@ -138,7 +158,7 @@ test("real Pi entrypoints preserve guards, restoration locks, and thinking class
 			),
 			/thinking_unsupported/,
 		);
-		assert.equal(existsSync(sentinel), false);
+		assert.equal((await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length, 2);
 
 		const corruptManager = SessionManager.inMemory(root);
 		corruptManager.appendCustomEntry("herdr-delegate-state", {
