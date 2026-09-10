@@ -450,6 +450,7 @@ export class DelegateRuntime {
 	#cleanupInProgress = false;
 	#cleanupDone: Promise<void> = Promise.resolve();
 	#suspended = false;
+	readonly #activityCalls = new Set<Promise<DelegationResult<AgentActivity>>>();
 	#persistenceError: DelegationError | undefined;
 	#pending: PendingTask | undefined;
 	#unsafeWriter: string | undefined;
@@ -505,6 +506,17 @@ export class DelegateRuntime {
 
 	/** Reads bounded JSONL activity only after confirming a pinned native worker identity. */
 	async readAgentActivity(input: ReadAgentActivityInput): Promise<DelegationResult<AgentActivity>> {
+		if (this.#suspended) return err("runtime_closed", "delegation runtime is shutting down");
+		const operation = this.#readAgentActivity(input);
+		this.#activityCalls.add(operation);
+		try {
+			return await operation;
+		} finally {
+			this.#activityCalls.delete(operation);
+		}
+	}
+
+	async #readAgentActivity(input: ReadAgentActivityInput): Promise<DelegationResult<AgentActivity>> {
 		if (this.#foreignAuthority) return err("foreign_authority", "copied session state cannot inspect another parent session's workers");
 		const worker = this.#workers.get(input.worker);
 		if (!worker) return err("worker_unknown", input.worker);
@@ -527,6 +539,7 @@ export class DelegateRuntime {
 		this.#suspended = true;
 		await this.#queue;
 		await this.#cleanupDone;
+		await Promise.all(this.#activityCalls);
 		if (this.#foreignAuthority || this.#unrecoverableAuthority) return ok(undefined);
 		return this.#publish();
 	}
