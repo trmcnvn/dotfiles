@@ -110,6 +110,7 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		assert.equal(notices.at(-1), "Owned delegation workers cleaned up.");
 		assert.equal(confirmations.length, 2);
 
+		await session.extensionRunner.emit({ type: "session_shutdown", reason: "reload" });
 		manager.appendCustomEntry("herdr-delegate-state", locked);
 		await session.reload();
 		failNotify = true;
@@ -119,6 +120,7 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		await settled();
 		await settled();
 		assert.equal(automaticNotices().length, 2, "a later recurrence is visible, and failed notification is retried");
+		await session.extensionRunner.emit({ type: "session_shutdown", reason: "reload" });
 		manager.appendCustomEntry("herdr-delegate-state", { ...locked, unsafeWriter: `${failure}; changed failure` });
 		await session.reload();
 		await settled();
@@ -136,12 +138,14 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 			{ ...ownedWorkerState, ownerSessionId: manager.getSessionId(), unsafeWriter: failure, unsafeWriterWorker: "worker" },
 			{ ...ownedWorkerState, ownerSessionId: manager.getSessionId(), pending: { taskId: "delivered", worker: "worker", resultPath: "/tmp/result", startedAt: 1 } },
 		]) {
+			await session.extensionRunner.emit({ type: "session_shutdown", reason: "reload" });
 			manager.appendCustomEntry("herdr-delegate-state", authority);
 			await session.reload();
 			await cleanup("acknowledge-startup");
 			assert.equal(confirmations.length, beforeRefusals);
 			assert.match(notices.at(-1) ?? "", /foreign_authority|state_corrupt|startup_recovery_unavailable/);
 		}
+		await session.extensionRunner.emit({ type: "session_shutdown", reason: "reload" });
 		manager.appendCustomEntry("herdr-delegate-state", { ...locked, ownerSessionId: "foreign-parent" });
 		await session.reload();
 		await settled();
