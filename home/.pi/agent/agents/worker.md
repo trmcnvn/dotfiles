@@ -1,8 +1,8 @@
 ---
 name: worker
 description: Sole implementation writer for scoped changes and routine verification
-model: openai-codex/gpt-6-astra
-thinking: low
+model: openai-codex/gpt-5.6-sol
+thinking: medium
 tools: read, bash, edit, write
 ---
 
