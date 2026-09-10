@@ -43,7 +43,7 @@ if (command === "tab create") {
 	else response({ agent: { name: state.scenario === "replaced" ? "other" : state.agentName, pane_id: "worker-pane", agent_status: "idle", agent_session: state.scenario === "missing" ? null : { value: state.session } } });
 } else if (command === "agent get") {
 	if (state.scenario === "missing") fail("agent_not_running", "missing");
-	else response({ agent: { name: state.scenario === "replaced" ? "other" : state.agentName, pane_id: "worker-pane", agent_status: state.status, agent_session: state.session ? { value: state.session } : null } });
+	else response({ agent: { name: state.scenario === "replaced" || state.scenario === "failed-replaced-on-cleanup" ? "other" : state.agentName, pane_id: "worker-pane", agent_status: state.status, agent_session: state.session ? { value: state.session } : null } });
 } else if (command === "agent prompt") {
 	if (state.scenario === "timeout" || state.scenario === "stalled" || state.scenario === "timeout-stuck") {
 		state.status = "working";
@@ -59,9 +59,9 @@ if (command === "tab create") {
 				version: 1,
 				taskId: state.scenario === "stale" ? "stale-task" : envelope.taskId,
 				worker: envelope.worker,
-				status: state.scenario === "failed" || state.scenario === "failed-empty" ? "failed" : "completed",
+				status: state.scenario === "failed" || state.scenario === "failed-empty" || state.scenario === "failed-replaced-on-cleanup" ? "failed" : "completed",
 				output: `done:${args[3].split("\n").slice(1).join("\n")}`,
-				error: state.scenario === "failed" ? "child failure" : state.scenario === "failed-empty" ? "" : undefined,
+				error: state.scenario === "failed" || state.scenario === "failed-replaced-on-cleanup" ? "child failure" : state.scenario === "failed-empty" ? "" : undefined,
 				stopReason: state.scenario === "failed-empty" ? "" : undefined,
 				session: state.session,
 				provider: state.modelProvider,
