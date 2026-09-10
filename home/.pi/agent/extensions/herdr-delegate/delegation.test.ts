@@ -198,10 +198,17 @@ for (const scenario of ["timeout", "stalled", "blocked"] as const) {
 	});
 }
 
-test("an ambiguous blocked startup pane is left inspectable rather than closed", async () => {
+test("an ambiguous blocked startup pane remains locked with exact manual recovery", async () => {
 	const fixture = await makeFixture("startup-blocked");
 	const result = await fixture.runtime.delegate({ role: "builder", task: "task" });
 	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "manual_recovery_required");
+		assert.match(result.error.message, /pane=worker-pane, tab=worker-tab, workspace=workspace/);
+	}
+	const cleanup = await fixture.runtime.cleanupOwned();
+	assert.equal(cleanup.ok, false);
+	if (!cleanup.ok) assert.equal(cleanup.error.code, "manual_recovery_required");
 	const calls = (await fixture.state()).calls;
 	assert.equal(calls.some((call) => call[0] === "pane" && call[1] === "close"), false);
 });
