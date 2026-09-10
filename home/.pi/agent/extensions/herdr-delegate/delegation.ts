@@ -725,8 +725,10 @@ export class DelegateRuntime {
 		const agentName = `delegate-${role.name}-${workerId.replaceAll("-", "").slice(0, 8)}`;
 		const workerDir = join(this.#options.resultRoot, workerId);
 		const promptPath = join(workerDir, "role-prompt.md");
+		const sessionDir = join(workerDir, "sessions");
 		try {
 			await mkdir(workerDir, { recursive: true, mode: 0o700 });
+			await mkdir(sessionDir, { recursive: true, mode: 0o700 });
 			await writeFile(promptPath, `${role.systemPrompt}\n`, { encoding: "utf8", mode: 0o600 });
 		} catch (cause) {
 			return err("role_prompt_write_failed", promptPath, cause);
@@ -760,7 +762,7 @@ export class DelegateRuntime {
 		}
 		const startArgs = ["agent", "start", agentName, "--kind", "pi", "--pane", paneId, "--timeout", "60000", "--",
 			"--model", `${role.provider}/${role.model}`, "--thinking", role.thinking, "--tools", role.tools.join(","), "--name", `delegate ${role.name}`,
-			"--append-system-prompt", promptPath, "--extension", this.#options.reporterPath] as const;
+			"--session-dir", sessionDir, "--append-system-prompt", promptPath, "--extension", this.#options.reporterPath] as const;
 		const startOptions = signal === undefined ? { timeoutMs: 65_000 } : { signal, timeoutMs: 65_000 };
 		let start = await this.#run(startArgs, startOptions);
 		if (start.ok && !start.value.killed && start.value.code !== 0 && cliFailure(start.value).startsWith("agent_pane_busy:")) {
