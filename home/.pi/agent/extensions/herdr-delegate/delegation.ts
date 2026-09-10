@@ -135,6 +135,7 @@ type DelegateRuntimeStateDraft = {
 	pending?: PendingTask;
 	unsafeWriter?: string;
 	unsafeWriterWorker?: string;
+	persistenceError?: string;
 };
 
 /** Persisted worker authority bound to one parent Pi session. */
@@ -144,6 +145,8 @@ export type DelegateRuntimeState = {
 	readonly pending?: PendingTask;
 	readonly unsafeWriter?: string;
 	readonly unsafeWriterWorker?: string;
+	/** Publication recovery is distinct from an unpinned, potentially live startup resource. */
+	readonly persistenceError?: string;
 };
 
 type ChildResult = {
@@ -200,6 +203,7 @@ type PersistedStateRepresentation = {
 	readonly pending?: Static<typeof pendingTaskSchema> | null;
 	readonly unsafeWriter?: string | number | null;
 	readonly unsafeWriterWorker?: string | number | null;
+	readonly persistenceError?: string | null;
 };
 /** Serialized custom-entry contract checked before runtime-state reconstruction. */
 export const delegateRuntimeStateSchema = Type.Object({
@@ -208,6 +212,7 @@ export const delegateRuntimeStateSchema = Type.Object({
 	pending: Type.Optional(Type.Union([pendingTaskSchema, Type.Null()])),
 	unsafeWriter: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
 	unsafeWriterWorker: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
+	persistenceError: Type.Optional(Type.Union([Type.String(), Type.Null()])),
 });
 
 const childResultSchema = Type.Object({
@@ -362,10 +367,13 @@ export function parseDelegateRuntimeState(
 		(!unsafeWriter || !unsafeWriterWorker || !workers.some((worker) => worker.id === unsafeWriterWorker))) {
 		return err("state_invalid", "unsafeWriterWorker must identify an owned worker when present");
 	}
+	const persistenceError = Value.Check(Type.String({ minLength: 1 }), value.persistenceError) ? value.persistenceError : undefined;
+	if (Object.hasOwn(value, "persistenceError") && !persistenceError) return err("state_invalid", "persistenceError must be a non-empty string when present");
 	const state: DelegateRuntimeStateDraft = { ownerSessionId: value.ownerSessionId, workers };
 	if (pending) state.pending = pending;
 	if (unsafeWriter) state.unsafeWriter = unsafeWriter;
 	if (unsafeWriterWorker) state.unsafeWriterWorker = unsafeWriterWorker;
+	if (persistenceError) state.persistenceError = persistenceError;
 	return ok(state);
 }
 
@@ -461,8 +469,9 @@ export class DelegateRuntime {
 		this.#options = options;
 		const inherited = options.initialState;
 		this.#foreignAuthority = inherited !== undefined && inherited.ownerSessionId !== options.parentSessionId &&
-			(inherited.workers.length > 0 || inherited.pending !== undefined || inherited.unsafeWriter !== undefined);
+			(inherited.workers.length > 0 || inherited.pending !== undefined || inherited.unsafeWriter !== undefined || inherited.persistenceError !== undefined);
 		this.#unrecoverableAuthority = options.initialStateError !== undefined;
+		if (inherited?.persistenceError) this.#persistenceError = new DelegationError("state_persist_failed", "restored delegation authority requires persistence recovery", inherited.persistenceError);
 		for (const worker of options.initialState?.workers ?? []) this.#workers.set(worker.id, worker);
 		this.#pending = options.initialState?.pending;
 		this.#unsafeWriter = options.initialStateError ?? options.initialState?.unsafeWriter ??
@@ -475,9 +484,9 @@ export class DelegateRuntime {
 		const ownerSessionId = this.#foreignAuthority ? this.#options.initialState?.ownerSessionId ?? this.#options.parentSessionId : this.#options.parentSessionId;
 		const state: DelegateRuntimeStateDraft = { ownerSessionId, workers: [...this.#workers.values()] };
 		if (this.#pending) state.pending = this.#pending;
-		const unsafeWriter = this.#unsafeWriter ?? this.#persistenceError?.message;
-		if (unsafeWriter) state.unsafeWriter = unsafeWriter;
+		if (this.#unsafeWriter) state.unsafeWriter = this.#unsafeWriter;
 		if (this.#unsafeWriterWorker) state.unsafeWriterWorker = this.#unsafeWriterWorker;
+		if (this.#persistenceError) state.persistenceError = this.#persistenceError.message;
 		return state;
 	}
 
