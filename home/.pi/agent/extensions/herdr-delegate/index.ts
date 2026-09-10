@@ -26,7 +26,7 @@ const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const TASK_PREFIX = /^\[\[herdr-delegate:v1:([A-Za-z0-9_-]+)\]\]\n([\s\S]*)$/;
 
 function isInsideHerdr(): boolean {
-	return process.env.HERDR_ENV === "1" && Boolean(process.env.HERDR_PANE_ID);
+	return process.env.HERDR_ENV === "1" && Boolean(process.env.HERDR_PANE_ID) && Boolean(process.env.HERDR_WORKSPACE_ID);
 }
 
 type ActiveTask = {
@@ -215,7 +215,7 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 				const result = await pi.exec("herdr", [...args], { ...(options?.signal ? { signal: options.signal } : {}), ...(options?.timeoutMs ? { timeout: options.timeoutMs } : {}) });
 				return { code: result.code, stdout: result.stdout, stderr: result.stderr, killed: result.killed };
 			},
-			validateRole, callerPaneId: process.env.HERDR_PANE_ID ?? "", parentSessionId: ctx.sessionManager.getSessionId(), cwd: ctx.cwd,
+			validateRole, callerWorkspaceId: process.env.HERDR_WORKSPACE_ID ?? "", parentSessionId: ctx.sessionManager.getSessionId(), cwd: ctx.cwd,
 			resultRoot, reporterPath, rolePaths, ...(restoredState ? { initialState: restoredState } : {}),
 			...(initialStateError ? { initialStateError } : {}), onStateChange: (state) => pi.appendEntry(STATE_ENTRY, state),
 		});
@@ -241,18 +241,36 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 	});
 	pi.registerTool({
 		name: "delegate", label: "Delegate",
-		description: `Delegate one sequential task to a visible Pi worker in a Herdr sibling pane. Roles: ${roleCatalog}. Start with role + task; use worker + task only for fixes in a successful builder. Reviewers are always fresh.`,
-		promptSnippet: "Delegate implementation or fresh review in a visible Herdr pane",
+		description: `Delegate one blocking, sequential task to a visible Pi worker in a background Herdr tab. Roles: ${roleCatalog}. Start with role + task; use worker + task only for fixes in a successful builder. Reviewers are always fresh.`,
+		promptSnippet: "Delegate implementation or fresh review in a visible Herdr background tab",
 		promptGuidelines: ["Use delegate sequentially: one builder writes, a fresh reviewer inspects actual changes, and only the returned builder worker receives necessary fixes."],
 		parameters: Type.Object({ task: Type.String(), role: Type.Optional(StringEnum(["builder", "reviewer"] as const)), worker: Type.Optional(Type.String()), timeoutMs: Type.Optional(Type.Integer({ minimum: 5_000, maximum: 3_600_000 })) }),
 		async execute(_id, params, signal, onUpdate) {
-			if (!isInsideHerdr()) throw new Error("Delegation requires HERDR_ENV=1.");
+			if (!isInsideHerdr()) throw new Error("Delegation requires HERDR_ENV=1 and caller workspace identity.");
 			if (!runtime) throw new Error("Delegation runtime is not initialized.");
 			onUpdate?.({ content: [{ type: "text", text: params.worker ? "Sending builder follow-up…" : `Starting ${params.role ?? "worker"}…` }], details: undefined });
 			const delegated = await runtime.delegate(params, signal);
 			if (!delegated.ok) throw delegated.error;
 			const result = delegated.value;
 			return { content: [{ type: "text", text: [`${result.role} completed task ${result.taskId}.`, `Worker: ${result.worker}`, `Agent: ${result.agentName}`, `Pane: ${result.paneId}`, `Session: ${result.session}`, `Model: ${result.model} (${result.thinking})`, `Result artifact: ${result.resultPath}`, "", result.output].join("\n") }], details: result };
+		},
+	});
+	pi.registerTool({
+		name: "read_agent_activity", label: "Read Agent Activity",
+		description: "Read bounded assistant text, tool calls/results, and errors incrementally from an owned worker's Pi session JSONL. Thinking is excluded. Activity is not completion proof; delegate result artifacts remain authoritative.",
+		promptSnippet: "Read bounded JSONL activity from an owned delegated worker",
+		promptGuidelines: ["Use read_agent_activity only with an opaque worker handle returned by delegate or included in an unresolved delegation error; treat it as activity, not task completion proof."],
+		parameters: Type.Object({ worker: Type.String(), cursor: Type.Optional(Type.String()) }),
+		async execute(_id, params) {
+			if (!isInsideHerdr()) throw new Error("Agent activity inspection requires HERDR_ENV=1 and caller workspace identity.");
+			if (!runtime) throw new Error("Delegation runtime is not initialized.");
+			const read = await runtime.readAgentActivity(params);
+			if (!read.ok) throw read.error;
+			const result = read.value;
+			return {
+				content: [{ type: "text", text: [result.activity, "", `Cursor: ${result.cursor}`, `More complete activity: ${result.hasMore ? "yes" : "no"}`, result.incompleteTrailingLine ? "A trailing partial JSONL record was retained for a later read." : "", "Activity only; the task-correlated delegate result artifact is the sole completion answer."].filter(Boolean).join("\n") }],
+				details: result,
+			};
 		},
 	});
 }
