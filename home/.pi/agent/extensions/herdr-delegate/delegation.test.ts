@@ -351,6 +351,8 @@ test("serialized authority contract rejects malformed present optional fields", 
 		{ ownerSessionId: "parent", workers: [], pending: "bad" },
 		{ ownerSessionId: "parent", workers: [], pending: null },
 		{ ownerSessionId: "parent", workers: [], unsafeWriter: 123 },
+		{ ownerSessionId: "parent", workers: [], persistenceError: null },
+		{ ownerSessionId: "parent", workers: [], persistenceError: "" },
 		{ ownerSessionId: "parent", workers: [], pending: { taskId: "", worker: "worker", resultPath: "/tmp/result", startedAt: 1 } },
 		{ ownerSessionId: "parent", workers: [], pending: { taskId: "task", worker: "", resultPath: "/tmp/result", startedAt: 1 } },
 		{ ownerSessionId: "parent", workers: [], pending: { taskId: "task", worker: "worker", resultPath: "", startedAt: 1 } },
@@ -724,7 +726,7 @@ for (const checkpoint of ["worker", "pending", "terminal", "closure"] as const) 
 			assert.match(await readFile(captured.resultPath, "utf8"), /done:review/);
 			assert.deepEqual(runtime.getState().workers, []);
 		}
-		assert.match(runtime.getState().unsafeWriter ?? "", /state_persist_failed/);
+		assert.match(runtime.getState().persistenceError ?? "", /state_persist_failed/);
 		assert.equal((await runtime.delegate({ role: "builder", task: "must not run" })).ok, false);
 		assert.equal((await runtime.cleanupOwned()).ok, false);
 	});
@@ -800,7 +802,7 @@ test("failed child output and artifact remain available when terminal publicatio
 		assert.match(result.error.message, /matching owned pane closed/);
 	}
 	assert.deepEqual(runtime.getState().workers, []);
-	assert.ok(runtime.getState().unsafeWriter);
+	assert.ok(runtime.getState().persistenceError);
 });
 
 test("persistence failure does not discard output when reviewer closure also fails", async () => {
