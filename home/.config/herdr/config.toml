@@ -37,6 +37,19 @@ type = "plugin_action"
 command = "vim-herdr-navigation.right"
 description = "Navigate right (Vim/Herdr)"
 
+# JJ workspaces
+[[keys.command]]
+key = "prefix+ctrl+m"
+type = "plugin_action"
+command = "trmcnvn.jj.manage"
+description = "manage JJ workspaces"
+
+[[keys.command]]
+key = "prefix+ctrl+n"
+type = "plugin_action"
+command = "trmcnvn.jj.create"
+description = "new JJ workspace with Pi"
+
 # Terminal annotations
 [[keys.command]]
 key = "prefix+a"
