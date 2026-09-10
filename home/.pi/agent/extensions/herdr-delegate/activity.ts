@@ -13,7 +13,7 @@ const EVENT_BYTES = 2 * 1024;
 const MAX_EVENTS = 50;
 
 const continuityAnchorSchema = Type.Object({
-	position: Type.Integer({ minimum: 0 }),
+	position: Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
 	length: Type.Integer({ minimum: 1, maximum: 64 }),
 	hash: Type.String({ minLength: 1 }),
 });
@@ -23,11 +23,11 @@ const activityCursorSchema = Type.Object({
 	version: Type.Literal(2),
 	worker: Type.String(),
 	sessionHash: Type.String(),
-	device: Type.Integer(),
-	inode: Type.Integer(),
-	observedSize: Type.Integer({ minimum: 0 }),
-	offset: Type.Integer({ minimum: 0 }),
-	scanOffset: Type.Integer({ minimum: 0 }),
+	device: Type.Integer({ minimum: Number.MIN_SAFE_INTEGER, maximum: Number.MAX_SAFE_INTEGER }),
+	inode: Type.Integer({ minimum: Number.MIN_SAFE_INTEGER, maximum: Number.MAX_SAFE_INTEGER }),
+	observedSize: Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+	offset: Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+	scanOffset: Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
 	offsetAnchor: continuityAnchorSchema,
 	scanAnchor: continuityAnchorSchema,
 	headerId: Type.String({ minLength: 1 }),
