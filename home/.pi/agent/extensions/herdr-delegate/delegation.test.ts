@@ -50,13 +50,16 @@ async function makeFixture(scenario = "success", roleOverrides: Partial<Record<"
 	}));
 	const rolePaths = {
 		builder: join(root, "builder.md"),
+		worker: join(root, "worker.md"),
+		scout: join(root, "scout.md"),
 		reviewer: join(root, "reviewer.md"),
 	};
-	for (const role of ["builder", "reviewer"] as const) {
+	for (const role of ["builder", "worker", "scout", "reviewer"] as const) {
 		const path = rolePaths[role];
-		const roleModel = role === "builder" ? model : "test-provider/astra";
-		const thinking = role === "builder" ? roleOverrides.thinking ?? "medium" : "xhigh";
-		const tools = role === "builder" ? roleOverrides.tools ?? "read, bash, edit, write" : "read, bash";
+		const writer = role === "builder" || role === "worker";
+		const roleModel = writer ? model : "test-provider/astra";
+		const thinking = writer ? roleOverrides.thinking ?? "medium" : "xhigh";
+		const tools = writer ? roleOverrides.tools ?? "read, bash, edit, write" : "read, bash";
 		await writeFile(path, `---\nname: ${role}\ndescription: ${role} from file\nmodel: ${roleModel}\nthinking: ${thinking}\ntools: ${tools}\n---\n\nDo the ${role} task without delegation.\n`);
 		rolePaths[role] = path;
 	}
