@@ -426,6 +426,11 @@ export class DelegateRuntime {
 				const closed = await this.#run(["pane", "close", worker.paneId], { timeoutMs: 5_000 });
 				if (!closed.ok || closed.value.killed || closed.value.code !== 0) return err("cleanup_failed", closed.ok ? cliFailure(closed.value) : closed.error.message);
 				this.#workers.delete(worker.id);
+				if (this.#pending?.worker === worker.id) this.#pending = undefined;
+				if (this.#unsafeWriterWorker === worker.id) {
+					this.#unsafeWriter = undefined;
+					this.#unsafeWriterWorker = undefined;
+				}
 				this.#publish();
 			}
 			this.#pending = undefined;
