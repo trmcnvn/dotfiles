@@ -24,6 +24,8 @@ Role frontmatter is editable configuration. `model` must be `provider/id`; `thin
 
 ## Runtime and results
 
+New delegated Pi processes receive `--session-dir ~/.pi/agent/herdr-delegate-runs/<worker>/sessions`, a private `0700` directory outside personal session history. Worker, Scout, and Reviewer transcripts therefore do not appear in the parent's normal `/resume` or all-project session list. This deliberately retains private runtime JSONL for native Herdr identity, live activity reads, and diagnostics; it is not `--no-session` and does not automatically erase transcripts. Existing personal/legacy sessions are neither moved nor deleted. This applies to launches through this extension, not arbitrary manual `herdr agent start` commands.
+
 Herdr owns background-tab creation, Pi startup, lifecycle waits, and pane identity. The extension never starts tmux or a raw child Pi subprocess. It explicitly creates the tab in the caller workspace with the caller cwd, a role label, child environment, and `--no-focus`; the worker agent remains pinned to that tab's root pane. A narrowly bounded second `agent start` attempt is allowed only after the known `agent_pane_busy` shell-readiness rejection and a matching, agent-free pane lookup. Each role body is written with mode `0600` to the worker's private artifact directory and its absolute path is passed to `--append-system-prompt`; multiline role text is never placed in the launch argv.
 
 A child reporter recognizes a private task envelope before model input. At Pi's `agent_settled` boundary it atomically writes a task-id/worker-id-correlated JSON result under:
