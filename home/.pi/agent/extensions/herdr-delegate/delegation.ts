@@ -22,6 +22,12 @@ export type DelegateInput = {
 	readonly timeoutMs?: number;
 };
 
+/** Cleanup disposition recorded after a correlated task result is captured. */
+export type DelegateCleanupOutcome =
+	| { readonly status: "retained"; readonly reason: "builder_followups" }
+	| { readonly status: "closed" }
+	| { readonly status: "failed"; readonly error: string };
+
 /** Completed task output and pinned worker identity. */
 export type DelegateResult = {
 	readonly role: DelegateRole;
@@ -34,6 +40,7 @@ export type DelegateResult = {
 	readonly resultPath: string;
 	readonly model: string;
 	readonly thinking: string;
+	readonly cleanup: DelegateCleanupOutcome;
 };
 
 /** Known delegation failure translated to a tool error at the Pi boundary. */
@@ -506,17 +513,8 @@ export class DelegateRuntime {
 			}
 			if (this.#foreignAuthority) return err("foreign_authority", `workers belong to parent Pi session ${this.#options.initialState?.ownerSessionId ?? "unknown"}; this session must not control them`);
 			for (const worker of [...this.#workers.values()]) {
-				const owned = await this.#owned(worker);
-				if (!owned.ok) return owned;
-				const closed = await this.#run(["pane", "close", worker.paneId], { timeoutMs: 5_000 });
-				if (!closed.ok || closed.value.killed || closed.value.code !== 0) return err("cleanup_failed", closed.ok ? cliFailure(closed.value) : closed.error.message);
-				this.#workers.delete(worker.id);
-				if (this.#pending?.worker === worker.id) this.#pending = undefined;
-				if (this.#unsafeWriterWorker === worker.id) {
-					this.#unsafeWriter = undefined;
-					this.#unsafeWriterWorker = undefined;
-				}
-				this.#publish();
+				const closed = await this.#closeOwned(worker);
+				if (!closed.ok) return closed;
 			}
 			this.#pending = undefined;
 			this.#unsafeWriter = undefined;
@@ -658,23 +656,42 @@ export class DelegateRuntime {
 		const result = await readResult(pending.resultPath, Date.now() + 250, pending, worker);
 		if (result.ok) return this.#finishTerminal(worker, role, pending, result.value);
 		const owned = await this.#owned(worker);
-		if (owned.ok) await this.#run(["agent", "send-keys", worker.agentName, "esc"], { timeoutMs: 5_000 });
-		this.#lock(`${worker.agentName} task ${pending.taskId} has uncertain delivery (${reason}); prompt was not resubmitted`, worker.id);
-		return err("worker_unresolved", `${this.#unsafeWriter}. Use read_agent_activity for diagnosis, then run /delegate-cleanup to close the pinned session.`, undefined, worker.id);
+		if (!owned.ok) {
+			this.#lock(`${worker.agentName} task ${pending.taskId} has uncertain delivery (${reason}); native identity could not be confirmed (${owned.error.message})`, worker.id);
+			return err("worker_unresolved", `${this.#unsafeWriter}. Prompt was not resubmitted; use read_agent_activity for diagnosis, then /delegate-cleanup for recovery.`, undefined, worker.id);
+		}
+		await this.#run(["agent", "send-keys", worker.agentName, "esc"], { timeoutMs: 5_000 });
+		const closed = await this.#closeOwned(worker);
+		if (closed.ok) return err("task_cancelled", `${reason}. Cleanup: matching owned pane closed; prompt was not resubmitted.`);
+		this.#lock(`${worker.agentName} task ${pending.taskId} has uncertain delivery (${reason}); cleanup failed (${closed.error.message})`, worker.id);
+		return err("worker_unresolved", `${this.#unsafeWriter}. Prompt was not resubmitted; use read_agent_activity for diagnosis, then /delegate-cleanup for recovery.`, undefined, worker.id);
 	}
 
-	#finishTerminal(worker: PersistedWorker, role: RoleConfig, pending: PendingTask, child: ChildResult): DelegationResult<DelegateResult> {
+	async #finishTerminal(worker: PersistedWorker, role: RoleConfig, pending: PendingTask, child: ChildResult): Promise<DelegationResult<DelegateResult>> {
 		this.#pending = undefined;
 		this.#unsafeWriter = undefined;
 		this.#unsafeWriterWorker = undefined;
 		this.#publish();
-		if (child.provider !== role.provider || child.model !== role.model || child.thinking !== role.thinking) {
-			return err("model_mismatch", `${child.provider}/${child.model} (${child.thinking})`);
+		const mismatch = child.provider !== role.provider || child.model !== role.model || child.thinking !== role.thinking;
+		const terminalFailure = mismatch || child.status !== "completed";
+		let cleanup: DelegateCleanupOutcome = { status: "retained", reason: "builder_followups" };
+		if (worker.role === "reviewer" || terminalFailure) {
+			const closed = await this.#closeOwned(worker);
+			if (closed.ok) cleanup = { status: "closed" };
+			else {
+				cleanup = { status: "failed", error: closed.error.message };
+				this.#lock(`completed task ${pending.taskId} cleanup failed (${closed.error.message})`, worker.id);
+			}
 		}
+		const cleanupText = cleanup.status === "closed" ? "Cleanup: matching owned pane closed."
+			: cleanup.status === "failed" ? `Cleanup failed: ${cleanup.error}` : "Cleanup: builder retained for follow-ups until the parent task settles.";
+		if (mismatch) return err("model_mismatch", `${child.provider}/${child.model} (${child.thinking}). ${cleanupText}`, undefined, cleanup.status === "failed" ? worker.id : undefined);
 		if (child.status !== "completed") {
 			return err(
 				child.status === "incomplete" ? "task_incomplete" : "task_failed",
-				child.error ?? child.stopReason ?? child.status,
+				`${child.error ?? child.stopReason ?? child.status}. ${cleanupText}`,
+				undefined,
+				cleanup.status === "failed" ? worker.id : undefined,
 			);
 		}
 		return ok({
@@ -688,7 +705,25 @@ export class DelegateRuntime {
 			resultPath: pending.resultPath,
 			model: `${child.provider}/${child.model}`,
 			thinking: child.thinking,
+			cleanup,
 		});
+	}
+
+	async #closeOwned(worker: PersistedWorker): Promise<DelegationResult<void>> {
+		const owned = await this.#owned(worker);
+		if (!owned.ok) return owned;
+		const closed = await this.#run(["pane", "close", worker.paneId], { timeoutMs: 5_000 });
+		if (!closed.ok || closed.value.killed || closed.value.code !== 0) {
+			return err("cleanup_failed", closed.ok ? cliFailure(closed.value) : closed.error.message, undefined, worker.id);
+		}
+		this.#workers.delete(worker.id);
+		if (this.#pending?.worker === worker.id) this.#pending = undefined;
+		if (this.#unsafeWriterWorker === worker.id) {
+			this.#unsafeWriter = undefined;
+			this.#unsafeWriterWorker = undefined;
+		}
+		this.#publish();
+		return ok(undefined);
 	}
 
 	async #owned(worker: PersistedWorker): Promise<DelegationResult<AgentIdentity>> {
