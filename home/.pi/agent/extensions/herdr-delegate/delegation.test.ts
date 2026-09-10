@@ -145,7 +145,7 @@ test("closes a fresh reviewer immediately after preserving its correlated result
 	const fixture = await makeFixture();
 	const result = requireSuccess(await fixture.runtime.delegate({ role: "reviewer", task: "review" }));
 	assert.deepEqual(result.cleanup, { status: "closed" });
-	assert.equal(await readFile(result.resultPath, "utf8").then((source) => JSON.parse(source).output), "done:review");
+	assert.match(await readFile(result.resultPath, "utf8"), /"output":"done:review"/);
 	assert.deepEqual(fixture.runtime.getState().workers, []);
 	const calls = (await fixture.state()).calls;
 	assert.ok(calls.some((call) => call[0] === "pane" && call[1] === "close"));
