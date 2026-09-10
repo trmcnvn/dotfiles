@@ -8,23 +8,25 @@ import { Value } from "typebox/value";
 
 import { AgentActivityError, readSessionActivity, type AgentActivity, type ReadAgentActivityInput } from "./activity.ts";
 
-/** Fixed role names supported by the v1 delegation pipeline. */
-export type DelegateRole = "builder" | "reviewer";
+/** Supported roles; builder retains its legacy persisted launch identity. */
+export type DelegateRole = "worker" | "scout" | "reviewer" | "builder";
 
 /** Pi thinking levels accepted in editable role frontmatter. */
 export type Thinking = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
-/** Input for a new role task or a builder follow-up. */
+/** Input for a new task, writer follow-up, or explicit replacement with a parent handoff. */
 export type DelegateInput = {
 	readonly task: string;
 	readonly role?: DelegateRole;
 	readonly worker?: string;
+	/** Requires worker + role: worker + task containing the complete parent handoff. */
+	readonly replace?: boolean;
 	readonly timeoutMs?: number;
 };
 
 /** Cleanup disposition recorded after a correlated task result is captured. */
 export type DelegateCleanupOutcome =
-	| { readonly status: "retained"; readonly reason: "builder_followups" }
+	| { readonly status: "retained"; readonly reason: "worker_followups" | "builder_followups" }
 	| { readonly status: "closed" }
 	| { readonly status: "failed"; readonly error: string };
 
@@ -41,6 +43,8 @@ export type DelegateResult = {
 	readonly model: string;
 	readonly thinking: string;
 	readonly cleanup: DelegateCleanupOutcome;
+	/** Durable parent handoff saved before the previous owned writer was retired. */
+	readonly replacement?: { readonly worker: string; readonly handoffPath: string };
 	/** State publication failed; captured output and the actual cleanup disposition remain valid. */
 	readonly persistenceError?: string;
 };
@@ -313,7 +317,7 @@ export async function loadRoleConfig(path: string, role: DelegateRole): Promise<
 			return err("role_invalid", `${role}: require name, description, provider/model, thinking, tools, and body`);
 		}
 		if (tools.some((tool) => tool === "delegate" || tool === "read_agent_activity")) return err("role_unsafe", `${role}: parent-only delegation tools are forbidden`);
-		if (role === "reviewer" && tools.some((tool) => tool === "edit" || tool === "write")) return err("role_unsafe", "reviewer write tools are forbidden");
+		if ((role === "reviewer" || role === "scout") && tools.some((tool) => tool !== "read" && tool !== "bash")) return err("role_unsafe", `${role}: only read and policy-restricted bash are allowed`);
 		const separator = frontmatter.model.indexOf("/");
 		if (separator < 1) return err("role_invalid", `${role}: model must be provider/id`);
 		const provider = frontmatter.model.slice(0, separator).trim();
@@ -342,7 +346,7 @@ export function parseDelegateRuntimeState(
 	}
 	const workers: PersistedWorker[] = [];
 	for (const raw of value.workers) {
-		if (!raw.id || (raw.role !== "builder" && raw.role !== "reviewer") || !raw.agentName || !raw.paneId ||
+		if (!raw.id || (raw.role !== "builder" && raw.role !== "worker" && raw.role !== "scout" && raw.role !== "reviewer") || !raw.agentName || !raw.paneId ||
 			!raw.session || !raw.roleFingerprint || !raw.promptPath || (raw.tabId !== undefined && !raw.tabId) ||
 			(raw.workspaceId !== undefined && !raw.workspaceId)) return err("state_invalid", "worker fields invalid");
 		const parsedWorker: PersistedWorkerDraft = {
@@ -602,27 +606,43 @@ export class DelegateRuntime {
 			return err("worker_unresolved", `${this.#unsafeWriter ?? `pending task ${this.#pending?.taskId}`} Use read_agent_activity before /delegate-cleanup if diagnosis is needed.`, undefined, worker);
 		}
 		const task = input.task.trim();
-		if (!task || ((input.role === undefined) === (input.worker === undefined))) return err("request_invalid", "provide task and exactly one of role or worker");
+		if (!task || (input.replace
+			? !input.worker || input.role !== "worker"
+			: (input.role === undefined) === (input.worker === undefined))) {
+			return err("request_invalid", "provide task and exactly one of role or worker; replacement requires replace: true, worker, role: worker, and a complete parent handoff in task");
+		}
 		const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 		if (!Number.isInteger(timeoutMs) || timeoutMs < 5_000 || timeoutMs > 3_600_000) return err("request_invalid", "timeoutMs must be 5000..3600000");
 
 		let worker: PersistedWorker;
-		const roleName = input.worker ? this.#workers.get(input.worker)?.role : input.role;
-		if (!roleName) return err("worker_unknown", input.worker ?? "role missing");
-		if (input.worker && roleName !== "builder") return err("reviewer_reuse_forbidden", "delegate to a fresh reviewer");
+		let replacement: DelegateResult["replacement"];
+		const previous = input.worker ? this.#workers.get(input.worker) : undefined;
+		if (input.worker && !previous) return err("worker_unknown", input.worker);
+		const roleName = input.replace ? input.role : previous?.role ?? input.role;
+		if (!roleName) return err("request_invalid", "role missing");
+		if (previous && previous.role !== "builder" && previous.role !== "worker") {
+			return err(`${previous.role}_reuse_forbidden`, `delegate to a fresh ${previous.role}`);
+		}
 		const loaded = await loadRoleConfig(this.#options.rolePaths[roleName], roleName);
 		if (!loaded.ok) return loaded;
 		const role = loaded.value;
 		const valid = await this.#options.validateRole(role, signal);
 		if (!valid.ok) return valid;
-		if (input.worker) {
+		if (input.replace && previous) {
+			const retired = await this.#replace(previous, role, task, signal);
+			if (!retired.ok) return retired;
+			replacement = { worker: previous.id, handoffPath: retired.value };
+			const started = await this.#start(role, signal);
+			if (!started.ok) return err(started.error.code, `${started.error.message}. Preserved handoff: ${retired.value}`, started.error, started.error.worker);
+			worker = started.value;
+		} else if (input.worker) {
 			const existing = this.#workers.get(input.worker);
 			if (!existing) return err("worker_unknown", input.worker);
-			if (existing.roleFingerprint !== roleFingerprint(role)) return err("role_changed", `${role.name} configuration changed; start a new worker`);
+			if (existing.roleFingerprint !== roleFingerprint(role)) return err("role_changed", `${role.name} configuration changed; use explicit replacement with a parent handoff or deliberately clean up before starting a new worker`);
 			worker = existing;
 			const owned = await this.#owned(worker);
 			if (!owned.ok) {
-				this.#lock(`builder identity could not be confirmed (${owned.error.message})`, worker.id);
+				this.#lock(`writer identity could not be confirmed (${owned.error.message})`, worker.id);
 				return err("worker_unresolved", this.#unsafeWriter ?? owned.error.message, owned.error, worker.id);
 			}
 			const status = owned.value.agent_status;
@@ -658,10 +678,40 @@ export class DelegateRuntime {
 		}
 		const result = await readResult(pending.resultPath, Date.now() + RESULT_WAIT_MS, pending, worker);
 		if (!result.ok) return this.#uncertain(worker, role, pending, result.error.message);
-		return this.#finishTerminal(worker, role, pending, result.value);
+		const finished = await this.#finishTerminal(worker, role, pending, result.value);
+		return finished.ok && replacement ? ok({ ...finished.value, replacement }) : finished;
+	}
+
+	async #replace(previous: PersistedWorker, role: RoleConfig, task: string, signal?: AbortSignal): Promise<DelegationResult<string>> {
+		if ([...this.#workers.values()].some((worker) => worker.id !== previous.id && (worker.role === "worker" || worker.role === "builder"))) {
+			return err("writer_exists", "another retained writer must be resolved before replacement");
+		}
+		const handoffId = this.#options.id?.() ?? randomUUID();
+		if (!SAFE_ID.test(handoffId)) return err("task_id_invalid", "generated handoff id is unsafe");
+		const handoffPath = join(this.#options.resultRoot, previous.id, `replacement-${handoffId}.md`);
+		try {
+			await mkdir(join(this.#options.resultRoot, previous.id), { recursive: true, mode: 0o700 });
+			await writeFile(handoffPath, `# Parent replacement handoff\n\nPrevious worker: ${previous.id}\nSession: ${previous.session}\nSelected role: ${role.name}\nModel: ${role.provider}/${role.model}\nThinking: ${role.thinking}\nFingerprint: ${roleFingerprint(role)}\n\n${task}\n`, { encoding: "utf8", mode: 0o600, flag: "wx" });
+		} catch (cause) {
+			return err("handoff_write_failed", "previous writer retained; parent handoff could not be saved", cause, previous.id);
+		}
+		if (signal?.aborted) return err("cancelled", `replacement cancelled before retirement; handoff: ${handoffPath}`, undefined, previous.id);
+		const closed = await this.#closeOwned(previous);
+		if (!closed.ok) {
+			this.#lock(`replacement could not confirm old writer closure (${closed.error.message}); handoff: ${handoffPath}`, previous.id);
+			return err("worker_unresolved", this.#unsafeWriter ?? closed.error.message, closed.error, previous.id);
+		}
+		if (this.#persistenceError) return { ok: false, error: this.#persistenceError };
+		if (signal?.aborted) return err("cancelled", `old writer closed; replacement not launched; handoff: ${handoffPath}`);
+		return ok(handoffPath);
 	}
 
 	async #start(role: RoleConfig, signal?: AbortSignal): Promise<DelegationResult<PersistedWorker>> {
+		if (role.name === "worker" || role.name === "builder") {
+			const existing = [...this.#workers.values()].find((worker) => worker.role === "worker" || worker.role === "builder");
+			if (existing) return err("writer_exists", "reuse the retained writer or explicitly replace it with a parent handoff", undefined, existing.id);
+		}
+		if (signal?.aborted) return err("cancelled", "request aborted before launch");
 		const workerId = this.#options.id?.() ?? randomUUID();
 		if (!SAFE_ID.test(workerId)) return err("worker_id_invalid", workerId);
 		const agentName = `delegate-${role.name}-${workerId.replaceAll("-", "").slice(0, 8)}`;
@@ -760,8 +810,8 @@ export class DelegateRuntime {
 		this.#publish();
 		const mismatch = child.provider !== role.provider || child.model !== role.model || child.thinking !== role.thinking;
 		const terminalFailure = mismatch || child.status !== "completed";
-		let cleanup: DelegateCleanupOutcome = { status: "retained", reason: "builder_followups" };
-		if (worker.role === "reviewer" || terminalFailure) {
+		let cleanup: DelegateCleanupOutcome = { status: "retained", reason: worker.role === "builder" ? "builder_followups" : "worker_followups" };
+		if (worker.role === "reviewer" || worker.role === "scout" || terminalFailure) {
 			const closed = await this.#closeOwned(worker);
 			if (closed.ok) cleanup = { status: "closed" };
 			else {
@@ -771,7 +821,7 @@ export class DelegateRuntime {
 		}
 		const persistenceError = this.#persistenceError?.message;
 		const cleanupText = (cleanup.status === "closed" ? "Cleanup: matching owned pane closed."
-			: cleanup.status === "failed" ? `Cleanup failed: ${cleanup.error}` : "Cleanup: builder retained for follow-ups until the parent task settles.") +
+			: cleanup.status === "failed" ? `Cleanup failed: ${cleanup.error}` : "Cleanup: worker retained for follow-ups until the parent task settles.") +
 			(persistenceError ? ` ${persistenceError}. Result artifact: ${pending.resultPath}\n${formatOutput(child, pending.resultPath)}` : "");
 		if (mismatch) return err("model_mismatch", `${child.provider}/${child.model} (${child.thinking}). ${cleanupText}`, undefined, cleanup.status === "failed" ? worker.id : undefined);
 		if (child.status !== "completed") {
