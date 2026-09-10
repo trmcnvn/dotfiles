@@ -565,7 +565,7 @@ test("partial cleanup persists reloadable authority after closing the unresolved
 	assert.deepEqual(restored.getState().workers, []);
 });
 
-test("persisted unsafe-writer state survives runtime reconstruction and prevents Herdr calls", async () => {
+test("persisted unpinned unsafe state requires manual recovery and prevents Herdr calls", async () => {
 	const fixture = await makeFixture();
 	const runtime = new DelegateRuntime({
 		runHerdr: fixture.processRun, validateRole: async () => ({ ok: true, value: undefined }),
@@ -576,7 +576,7 @@ test("persisted unsafe-writer state survives runtime reconstruction and prevents
 	});
 	const result = await runtime.delegate({ role: "reviewer", task: "do not start" });
 	assert.equal(result.ok, false);
-	if (!result.ok) assert.equal(result.error.code, "worker_unresolved");
+	if (!result.ok) assert.equal(result.error.code, "manual_recovery_required");
 	assert.deepEqual((await fixture.state()).calls, []);
 });
 
