@@ -78,6 +78,7 @@ test("entrypoint guards prevent out-of-Herdr cleanup and reject unsupported xhig
 
 	delete process.env.HERDR_ENV;
 	delete process.env.HERDR_PANE_ID;
+	delete process.env.HERDR_WORKSPACE_ID;
 	await handlers.get("session_start")?.({}, sessionContext);
 	assert.ok(cleanupCommand);
 	await cleanupCommand("", sessionContext);
@@ -88,6 +89,7 @@ test("entrypoint guards prevent out-of-Herdr cleanup and reject unsupported xhig
 
 	process.env.HERDR_ENV = "1";
 	process.env.HERDR_PANE_ID = "parent-pane";
+	process.env.HERDR_WORKSPACE_ID = "parent-workspace";
 	assert.ok(executeDelegate);
 	await assert.rejects(
 		executeDelegate("call", { role: "reviewer", task: "review" }, new AbortController().signal),
@@ -95,5 +97,6 @@ test("entrypoint guards prevent out-of-Herdr cleanup and reject unsupported xhig
 	);
 	delete process.env.HERDR_ENV;
 	delete process.env.HERDR_PANE_ID;
+	delete process.env.HERDR_WORKSPACE_ID;
 	assert.equal(execCalls, 0);
 });
