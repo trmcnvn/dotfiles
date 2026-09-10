@@ -69,6 +69,9 @@ if [ "$1 $2" = "agent get" ]; then
   exit 0
 fi
 if [ "$1 $2" = "pane close" ]; then
+  if [ -n "$HERDR_TEST_CLOSE_GATE" ]; then
+    while [ ! -f "$HERDR_TEST_CLOSE_GATE" ]; do sleep 0.01; done
+  fi
   printf '%s\\n' '{"result":{}}'
   exit 0
 fi
@@ -138,9 +141,26 @@ exit 99
 		process.env.HERDR_PANE_ID = "parent-pane";
 		process.env.HERDR_WORKSPACE_ID = "parent-workspace";
 		assert.equal(existsSync(sentinel), false);
+		await session.reload();
+		assert.equal(existsSync(sentinel), false, "reload alone must retain an idle builder");
 		await session.extensionRunner.emit({ type: "agent_end", messages: [] });
 		assert.equal(existsSync(sentinel), false);
-		await session.extensionRunner.emit({ type: "agent_settled" });
+		const gate = join(root, "allow-close");
+		process.env.HERDR_TEST_CLOSE_GATE = gate;
+		const settled = session.extensionRunner.emit({ type: "agent_settled" });
+		const deadline = Date.now() + 3_000;
+		while (!existsSync(sentinel) || !(await readFile(sentinel, "utf8")).includes("pane close")) {
+			assert.ok(Date.now() < deadline, "settled cleanup should reach the close gate");
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
+		assert.equal(session.isIdle, true, "Pi exposes idle during awaited settled cleanup");
+		let reloaded = false;
+		const reload = session.reload().then(() => { reloaded = true; });
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		assert.equal(reloaded, false, "reload must drain the old cleanup before invalidation");
+		await writeFile(gate, "close");
+		await Promise.all([settled, reload]);
+		delete process.env.HERDR_TEST_CLOSE_GATE;
 		assert.match(await readFile(sentinel, "utf8"), /^agent get delegate-builder-worker\npane close worker-pane\n$/);
 		const latestState = sessionManager.getBranch().at(-1);
 		assert.equal(latestState?.type, "custom");
@@ -208,6 +228,7 @@ exit 99
 		if (previousPath === undefined) delete process.env.PATH;
 		else process.env.PATH = previousPath;
 		delete process.env.HERDR_TEST_SENTINEL;
+		delete process.env.HERDR_TEST_CLOSE_GATE;
 		await rm(root, { recursive: true, force: true });
 	}
 });
