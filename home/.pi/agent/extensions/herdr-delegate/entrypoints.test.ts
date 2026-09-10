@@ -60,6 +60,7 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		manager.appendMessage({ role: "assistant", content: [], api: "anthropic-messages", provider: "fixture", model: "fixture", stopReason: "stop", timestamp: Date.now(), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } });
 		const locked = { ownerSessionId: manager.getSessionId(), workers: [], unsafeWriter: failure };
 		manager.appendCustomEntry("herdr-delegate-state", locked);
+		manager.appendCustomEntry("herdr-delegate-cleanup-notice", { ownerSessionId: "copied-parent", error: `manual_recovery_required: ${failure}` });
 		const settingsManager = SettingsManager.inMemory({ packages: [] });
 		const loader = new DefaultResourceLoader({ cwd: root, agentDir: root, settingsManager, noExtensions: true, additionalExtensionPaths: [join(import.meta.dirname, "index.ts")], noThemes: true, noPromptTemplates: true, noSkills: true });
 		await loader.reload();
@@ -150,7 +151,16 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		await settled();
 		assert.ok(errors.some((error) => error.includes("notification unavailable")));
 		failNotify = false;
-		await settled();
+		await rename(sessionFile, `${sessionFile}.saved`);
+		await mkdir(sessionFile);
+		try {
+			await settled();
+			await settled();
+			assert.equal(automaticNotices().length, 2, "failed notice publication retains in-memory deduplication");
+		} finally {
+			await rm(sessionFile, { recursive: true });
+			await rename(`${sessionFile}.saved`, sessionFile);
+		}
 		await settled();
 		assert.equal(automaticNotices().length, 2, "a later recurrence is visible, and failed notification is retried");
 		await session.extensionRunner.emit({ type: "session_shutdown", reason: "reload" });
