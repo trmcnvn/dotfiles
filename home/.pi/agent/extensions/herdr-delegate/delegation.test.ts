@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -95,7 +95,19 @@ test("completes a correlated task and launches the editable role model and think
 	assert.equal(promptPath.includes("\n"), false);
 	assert.equal(await readFile(promptPath, "utf8"), "Do the builder task without delegation.\n");
 	assert.equal(start.some((argument) => argument.includes("Do the builder task")), false);
-	assert.ok(calls.every((call) => call[0] === "agent" || call[0] === "pane"));
+	assert.ok(calls.every((call) => call[0] === "agent" || call[0] === "pane" || call[0] === "tab"));
+	const create = calls.find((call) => call[0] === "tab" && call[1] === "create");
+	assert.ok(create);
+	assert.deepEqual(create.slice(0, 8), ["tab", "create", "--workspace", "workspace", "--cwd", fixture.root, "--label", "delegate builder"]);
+	assert.ok(create.includes("--no-focus"));
+});
+
+test("retries only a known shell-readiness rejection after confirming the created pane", async () => {
+	const fixture = await makeFixture("busy-once");
+	requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "task" }));
+	const calls = (await fixture.state()).calls;
+	assert.equal(calls.filter((call) => call[0] === "agent" && call[1] === "start").length, 2);
+	assert.equal(calls.filter((call) => call[0] === "pane" && call[1] === "get").length, 1);
 });
 
 test("reuses only the successful builder and correlates a fresh follow-up task", async () => {
@@ -107,11 +119,27 @@ test("reuses only the successful builder and correlates a fresh follow-up task",
 	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "tab" && call[1] === "create").length, 1);
 });
 
-test("a stale task result leaves a recoverable unresolved-writer lock", async () => {
+test("a stale task result leaves a diagnosable unresolved-writer lock", async () => {
 	const fixture = await makeFixture("stale");
 	const result = await fixture.runtime.delegate({ role: "builder", task: "task" });
 	assert.equal(result.ok, false);
-	if (!result.ok) assert.equal(result.error.code, "worker_unresolved");
+	if (!result.ok) {
+		assert.equal(result.error.code, "worker_unresolved");
+		assert.equal(result.error.worker, "id-1");
+		assert.match(result.error.message, /Worker: id-1/);
+	}
+});
+
+test("reads activity only after fake-CLI ownership confirmation", async () => {
+	const fixture = await makeFixture();
+	const delegated = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "task" }));
+	await appendFile(delegated.session, `${JSON.stringify({ type: "message", id: "activity-1", parentId: null, message: { role: "assistant", content: [{ type: "text", text: "progress" }] } })}\n`);
+	const activity = requireSuccess(await fixture.runtime.readAgentActivity({ worker: delegated.worker }));
+	assert.match(activity.activity, /progress/);
+	assert.ok((await fixture.state()).calls.some((call) => call[0] === "agent" && call[1] === "get"));
+	const unknown = await fixture.runtime.readAgentActivity({ worker: "not-owned" });
+	assert.equal(unknown.ok, false);
+	if (!unknown.ok) assert.equal(unknown.error.code, "worker_unknown");
 });
 
 for (const scenario of ["timeout", "stalled", "blocked"] as const) {
