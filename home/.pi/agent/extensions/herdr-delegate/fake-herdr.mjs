@@ -18,7 +18,16 @@ const identity = (pane) => ({
 });
 const target = Object.values(state.panes).find((pane) => pane.id === args[2] || pane.agentName === args[2]);
 
-if (command === "tab create") {
+if (command === "pane current") {
+	response({ pane: { pane_id: "caller-pane", tab_id: "caller-tab", workspace_id: "workspace" } });
+} else if (command === "pane layout") {
+	response({ layout: { tab_id: "caller-tab", workspace_id: "workspace", focused_pane_id: "other-pane",
+		panes: [
+			{ pane_id: "caller-pane", rect: { width: state.scenario === "narrow" ? 70 : 180, height: 44 } },
+			{ pane_id: "other-pane", rect: { width: 20, height: 44 } },
+		],
+	} });
+} else if (command === "pane split") {
 	const env = {};
 	for (let index = 0; index < args.length; index += 1) {
 		if (args[index] !== "--env") continue;
@@ -28,15 +37,13 @@ if (command === "tab create") {
 	state.created = (state.created ?? 0) + 1;
 	const suffix = state.created === 1 ? "" : `-${state.created}`;
 	const pane = {
-		id: `worker-pane${suffix}`, tabId: `worker-tab${suffix}`,
-		workspaceId: args[args.indexOf("--workspace") + 1], env,
+		id: `worker-pane${suffix}`, tabId: "caller-tab",
+		workspaceId: "workspace", env,
 	};
 	state.panes[pane.id] = pane;
 	response({
-		type: "tab_created",
-		workspace: { workspace_id: pane.workspaceId },
-		tab: { tab_id: pane.tabId, workspace_id: pane.workspaceId },
-		root_pane: { pane_id: pane.id, tab_id: pane.tabId, workspace_id: pane.workspaceId, agent: null },
+		type: "pane_split",
+		pane: { pane_id: pane.id, tab_id: pane.tabId, workspace_id: pane.workspaceId, agent: null },
 	});
 } else if (command === "agent start") {
 	const pane = state.panes[args[args.indexOf("--pane") + 1]];
