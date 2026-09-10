@@ -79,7 +79,9 @@ if (command === "tab create") {
 	if (state.scenario === "timeout-stuck") fail("timeout", "still working");
 	else response({ agent: { name: state.agentName, pane_id: "worker-pane", agent_status: state.status } });
 } else if (command === "pane get") {
-	response({ pane: { pane_id: "worker-pane", tab_id: state.tabId, workspace_id: state.workspaceId, ...(state.scenario === "startup-blocked" ? { agent: "pi" } : {}) } });
+	const pane = { pane_id: "worker-pane", tab_id: state.tabId, workspace_id: state.workspaceId };
+	if (state.scenario === "startup-blocked") pane.agent = "pi";
+	response({ pane });
 } else if (command === "pane close") {
 	response({});
 } else {
