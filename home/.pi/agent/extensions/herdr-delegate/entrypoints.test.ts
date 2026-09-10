@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -56,7 +56,8 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		process.env.HERDR_PANE_ID = "parent-pane";
 		process.env.HERDR_WORKSPACE_ID = "workspace";
 		const failure = "agent startup failed after creating pane=missing-pane, tab=missing-tab, workspace=workspace (timeout); native session identity was not pinned";
-		const manager = SessionManager.inMemory(root);
+		const manager = SessionManager.create(root, join(root, "sessions"));
+		manager.appendMessage({ role: "assistant", content: [], api: "anthropic-messages", provider: "fixture", model: "fixture", stopReason: "stop", timestamp: Date.now(), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } });
 		const locked = { ownerSessionId: manager.getSessionId(), workers: [], unsafeWriter: failure };
 		manager.appendCustomEntry("herdr-delegate-state", locked);
 		const settingsManager = SettingsManager.inMemory({ packages: [] });
@@ -95,6 +96,15 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		assert.equal(automaticNotices().length, 1, "same-session reload restores deduplication");
 		await cleanup("force");
 		assert.equal(confirmations.length, 0);
+		const ui = session.extensionRunner.getUIContext();
+		session.extensionRunner.setUIContext(undefined, "print");
+		await cleanup("acknowledge-startup");
+		assert.equal(confirmations.length, 0, "headless recovery must not assume confirmation");
+		session.extensionRunner.setUIContext(ui, "tui");
+		await session.followUp("queued parent continuation");
+		await cleanup("acknowledge-startup");
+		assert.equal(confirmations.length, 0, "queued parent activity refuses confirmation");
+		session.clearQueue();
 		await cleanup("acknowledge-startup");
 		assert.equal(confirmations.length, 1);
 		assert.match(confirmations[0] ?? "", /missing-pane/);
@@ -103,12 +113,35 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		await cleanup();
 		assert.match(notices.at(-1) ?? "", /manual_recovery_required/);
 		confirm = true;
+		beforeConfirm = () => created.session.followUp("continuation arriving during confirmation");
+		await cleanup("acknowledge-startup");
+		assert.match(notices.at(-1) ?? "", /Parent activity changed; safety lock retained/);
+		beforeConfirm = undefined;
+		session.clearQueue();
+		const sessionFile = manager.getSessionFile();
+		assert.ok(sessionFile);
+		await rename(sessionFile, `${sessionFile}.saved`);
+		await mkdir(sessionFile);
+		try {
+			await cleanup("acknowledge-startup");
+			assert.match(notices.at(-1) ?? "", /state_persist_failed/);
+			await session.reload();
+			await cleanup();
+			assert.match(notices.at(-1) ?? "", /manual_recovery_required/, "publication failure stays locked through real SDK reload");
+		} finally {
+			await rm(sessionFile, { recursive: true });
+			await rename(`${sessionFile}.saved`, sessionFile);
+		}
 		await cleanup("acknowledge-startup");
 		assert.match(notices.at(-1) ?? "", /cleared by your explicit attestation/);
 		await session.reload();
 		await cleanup();
 		assert.equal(notices.at(-1), "Owned delegation workers cleaned up.");
-		assert.equal(confirmations.length, 2);
+		assert.equal(confirmations.length, 4);
+		const reopened = SessionManager.open(sessionFile);
+		const recoveredEntry = reopened.getBranch().findLast((entry) => entry.type === "custom" && entry.customType === "herdr-delegate-state");
+		assert.ok(recoveredEntry?.type === "custom");
+		assert.deepEqual(recoveredEntry.data, { ownerSessionId: manager.getSessionId(), workers: [] });
 
 		await session.extensionRunner.emit({ type: "session_shutdown", reason: "reload" });
 		manager.appendCustomEntry("herdr-delegate-state", locked);
