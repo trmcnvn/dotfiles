@@ -514,7 +514,10 @@ export class DelegateRuntime {
 			if (this.#foreignAuthority) return err("foreign_authority", `workers belong to parent Pi session ${this.#options.initialState?.ownerSessionId ?? "unknown"}; this session must not control them`);
 			for (const worker of [...this.#workers.values()]) {
 				const closed = await this.#closeOwned(worker);
-				if (!closed.ok) return closed;
+				if (!closed.ok) {
+					this.#lock(`cleanup could not safely close ${worker.agentName} (${closed.error.message})`, worker.id);
+					return closed;
+				}
 			}
 			this.#pending = undefined;
 			this.#unsafeWriter = undefined;
