@@ -10,7 +10,7 @@ Start a normal Pi session (its default model is unchanged), then run:
 /skill:orchestrate <task>
 ```
 
-Pi may also load the orchestration skill for ordinary requests that benefit from delegation. Tiny, clear, reversible tasks can stay direct; use Scout for material uncertainty and independent Reviewer for consequential ownership, security, concurrency, persistence, or broad changes, not mandatory ceremony. The extension has no startup spawn and no keyword trigger.
+The orchestration skill has `disable-model-invocation: true`: Pi hides it from the model's skill catalog while keeping `/skill:orchestrate` available for explicit user invocation. This does not disable the separate `delegate` tool. Tiny, clear, reversible tasks can stay direct; use Scout for material uncertainty and independent Reviewer for consequential ownership, security, concurrency, persistence, or broad changes, not mandatory ceremony. The extension has no startup spawn and no keyword trigger.
 
 The tool catalog lists three roles from their global files:
 
