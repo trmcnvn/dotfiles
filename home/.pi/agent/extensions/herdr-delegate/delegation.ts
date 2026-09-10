@@ -198,6 +198,9 @@ export const delegateRuntimeStateSchema = Type.Object({
 	unsafeWriterWorker: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
 });
 
+const serializedObjectSchema = Type.Object({}, { additionalProperties: true });
+type SerializedObject = Static<typeof serializedObjectSchema>;
+
 const childResultSchema = Type.Object({
 	version: Type.Number(), taskId: Type.String(), worker: Type.String(), status: Type.String(), output: Type.String(),
 	error: Type.Optional(Type.String()), stopReason: Type.Optional(Type.String()), session: Type.String(),
@@ -355,11 +358,11 @@ export function parseDelegateRuntimeState(
 }
 
 function parseChildResult(
-	value: Static<typeof childResultSchema>,
+	value: SerializedObject,
 	pending: PendingTask,
 	worker: PersistedWorker,
 ): DelegationResult<ChildResult> {
-	if (value.version !== 1 || value.taskId !== pending.taskId ||
+	if (!Value.Check(childResultSchema, value) || value.version !== 1 || value.taskId !== pending.taskId ||
 		value.worker !== worker.id || (value.status !== "completed" && value.status !== "failed" && value.status !== "incomplete") ||
 		value.session !== worker.session || !value.provider || !value.model || !value.thinking || value.finishedAt < pending.startedAt) {
 		return err("result_invalid", "task, native session, or terminal fields did not match");
@@ -393,13 +396,13 @@ function cliFailure(result: CommandResult): string {
 async function readResult(
 	path: string,
 	deadline: number,
-): Promise<DelegationResult<Static<typeof childResultSchema>>> {
+): Promise<DelegationResult<SerializedObject>> {
 	let cause = new Error("result artifact was not available");
 	while (Date.now() <= deadline) {
 		try {
 			const value: unknown = JSON.parse(await readFile(path, "utf8"));
-			if (Value.Check(childResultSchema, value)) return ok(value);
-			cause = new Error("result artifact did not match the expected contract");
+			if (Value.Check(serializedObjectSchema, value)) return ok(value);
+			cause = new Error("result artifact is not an object");
 		} catch (error) {
 			cause = error instanceof Error ? error : new Error(String(error));
 		}
