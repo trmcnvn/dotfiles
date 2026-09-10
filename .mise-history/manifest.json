@@ -662,6 +662,18 @@
       "variants": []
     },
     {
+      "path": "home/.pi/agent/agents/scout.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.pi/agent/agents/worker.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.pi/agent/extensions/answer.ts",
       "autosave": true,
       "encrypt": false,
