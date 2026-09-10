@@ -298,6 +298,9 @@ test("serialized authority contract rejects malformed present optional fields", 
 		{ ownerSessionId: "parent", workers: [], pending: "bad" },
 		{ ownerSessionId: "parent", workers: [], pending: null },
 		{ ownerSessionId: "parent", workers: [], unsafeWriter: 123 },
+		{ ownerSessionId: "parent", workers: [], pending: { taskId: "", worker: "worker", resultPath: "/tmp/result", startedAt: 1 } },
+		{ ownerSessionId: "parent", workers: [], pending: { taskId: "task", worker: "", resultPath: "/tmp/result", startedAt: 1 } },
+		{ ownerSessionId: "parent", workers: [], pending: { taskId: "task", worker: "worker", resultPath: "", startedAt: 1 } },
 	]) {
 		if (!Value.Check(delegateRuntimeStateSchema, value)) continue;
 		const result = parseDelegateRuntimeState(value);
