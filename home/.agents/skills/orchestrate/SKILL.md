@@ -1,36 +1,50 @@
 ---
 name: orchestrate
-description: Coordinate implementation through a sole Sol builder and fresh Astra reviewer in visible background Herdr tabs. Use for explicit /skill:orchestrate implementation tasks and ordinary implementation requests suited to delegated build-and-review.
+description: Coordinate scoped implementation, read-only research, and independent review through Worker, Scout, and Reviewer in visible background Herdr tabs. Use for explicit /skill:orchestrate tasks and ordinary requests that benefit from delegation.
 ---
 
 # Orchestrate
 
-Use the blocking `delegate` tool for a minimal sequential build-and-review workflow. Workers run in background Herdr tabs. This does not provide streaming token updates or asynchronous orchestration. Do not launch agents with bash or control panes manually. Use `read_agent_activity` with an owned worker handle for bounded JSONL activity when diagnosis is needed; activity is not completion proof. Read the Herdr skill before diagnosing or manually inspecting worker panes.
+The parent owns intent, scope, and acceptance. Use the blocking `delegate` tool sequentially; no asynchronous orchestration, parallel mutation, recursive planners, or background supervisor. Honor explicit routing, approval, safety, and no-delegation constraints. Outside Herdr, explain that delegation is unavailable; never substitute hidden subprocess workers. Do not launch agents with bash or control panes manually.
 
-## Preconditions
+## Choose the needed work
 
-- Confirm the task is implementation, not merely a question, research request, plan, or recommendation.
-- Honor explicit routing, approval, safety, and no-delegation constraints.
-- Outside Herdr, stop and explain; never fall back to hidden subprocess workers.
+- Work directly for tiny, clear, reversible tasks; do not add delegation ceremony.
+- Use `role: "worker"` for clear scoped implementation and routine checks.
+- Use `role: "scout"` when uncertainty materially affects the plan, including pure research, exploration, questions, or recommendations. Scout is read-only, not an implementation prerequisite.
+- Use a fresh `role: "reviewer"` for consequential ownership, security, concurrency, persistence, or broad changes. Independent review is not mandatory for every small change.
 
-## Workflow
+Role model and thinking defaults live in their editable role files, not this skill. Scout and Reviewer are always fresh and close after their correlated result is captured. Worker remains available for in-task fixes and closes when the parent truly settles.
 
-1. Scope the goal, relevant context, allowed files, constraints, and acceptance checks. Resolve material ambiguity before delegation.
-2. Call `delegate` with `role: "builder"` and the complete implementation brief. Sol is the only writer.
-3. Inspect the returned actual changes as needed. Do not treat builder reasoning as evidence.
-4. Call `delegate` with `role: "reviewer"` and provide the original requirements plus paths/diff scope for the actual changes. Every review uses a fresh Astra worker. Do not ask the reviewer to run write-producing checks.
-5. Adjudicate findings against the requirements and repository evidence. Do not apply an unconditional fix pass.
-6. For necessary fixes only, call `delegate` with the successful builder's opaque `worker` id and a precise fix request. Never send fixes to a new writer.
-7. Verify with the smallest relevant checks and summarize changed paths, review outcome, checks, and limitations. When the parent task settles after all review, fixes, and verification, automatic owned-worker cleanup closes the retained builder.
+## Briefs and acceptance
 
-Use one review/fix cycle by default. Stop or ask the user on blockers, contradictory findings, repeated failure, or a decision that materially changes scope. Never create infinite review loops.
+Give the child the desired outcome, relevant context, boundaries, acceptance evidence, and escalation conditions—not a prescriptive implementation recipe. Ask for changes or findings, exact checks/evidence, risks, discoveries, unresolved questions, and deviations useful to reconsider the plan.
 
-## Safety and ownership
+Inspect returned actual changes and evidence. A successful tool response means the worker finished; it does not mean the task is accepted. Adjudicate review findings against requirements and repository evidence; do not demand an unconditional fix pass or speculative refactors. Prefer one review/fix cycle; stop or escalate material scope changes, contradictory evidence, repeated failures, or blockers. Select `timeoutMs` deliberately within 5000–3600000 ms (default 20 minutes); a timeout is not proof of nondelivery.
 
-Delegations are sequential. A timeout, cancellation, killed transport, or stalled prompt may already have been delivered; never resubmit it. The extension confirms native session identity, stops/closes only that owned pane, and reports the cleanup outcome. If identity or cleanup remains unresolved, the error includes the opaque worker handle and retains the delegation lock: stop all further delegation, use `read_agent_activity` if JSONL activity helps diagnosis, then use `/delegate-cleanup` only as deliberate recovery. Never treat `/delegate-cleanup` as a normal workflow step. Cleanup never closes a whole tab containing user-added panes.
+## One writer and handoffs
 
-A reviewer is always fresh and its pane closes after its correlated result is captured. A successful builder remains available for review fixes during the same parent task, then closes automatically only at Pi's `agent_settled` boundary, after retries, compaction retries, and queued continuations are exhausted. Completed output and its result artifact remain authoritative even if pane cleanup or state persistence fails; inspect both the cleanup disposition and any persistence error. A persistence error blocks further delegation. Reload drains active operations and saves their final state without closing a retained idle builder merely because of reload.
+One writer per workflow: while an implementation worker owns the changes, the parent, Scout, and Reviewer do not edit alongside it. This is not global cross-session checkout locking.
 
-Recovery cleans independently verified owned workers even when another worker or an unpinned startup resource remains unresolved, and reports the remaining failures without clearing unknown authority. Stale ownership is pruned only when Herdr specifically reports both the named agent missing and its pinned pane not found; timeouts, moved/replaced sessions, and unknown responses are not absence evidence. Copied empty snapshots are inert, but actual inherited worker or recovery authority is never adopted.
+Prefer the same successful writer for necessary fixes using its opaque `worker` handle plus `task`. The parameter `worker` is a handle, distinct from `role: "worker"`. A new implementation role request is rejected while an existing writer is retained.
 
-Workers remain visible while active. Do not close arbitrary panes. The reviewer has a read-only operating policy, but because it has bash for inspection that policy is not a security sandbox.
+Explicit replacement is allowed when needed, including deliberate model/configuration changes:
+
+1. Inspect current changes and available result artifacts. Never blind-redeliver uncertain work.
+2. Supply `replace: true`, the old `worker` handle, `role: "worker"`, and a complete parent handoff in `task`: outcome, boundaries, current changes, checks/results, risks, unresolved work, and the next acceptance evidence. State that the replacement must inspect current files before continuing.
+3. The runtime validates the currently selected Worker configuration, saves the handoff before retirement, and closes only the exact verified old owned pane (or confirms both agent and pane are absent) before starting the replacement. Ambiguous closure blocks replacement. No silent model fallback or fingerprint update is allowed.
+4. Preserve the old result artifacts and returned handoff path. If a failed worker was already closed, use a fresh Worker with the same parent-provided handoff in `task`; do not attempt to reuse a retired handle.
+
+Legacy persisted builders retain their original role, native identity, and fingerprint. Their frozen `builder.md` remains compatibility configuration for follow-ups only. New public `role: "builder"` calls are a compatibility alias for Worker; use `worker.md` for new defaults. If legacy configuration drifts, explicitly replace instead of silently adopting new settings.
+
+## Safety and lifecycle
+
+A timeout, cancellation, killed transport, or stalled prompt may already have delivered work. Never resubmit it blindly. The extension confirms native identity, stops/closes only the owned pane, and reports cleanup. If identity or closure is unresolved, stop delegation. Use `read_agent_activity` with the returned opaque handle for bounded JSONL diagnosis; activity is not completion proof. Read the Herdr skill before manually inspecting panes. Use `/delegate-cleanup` only as deliberate recovery, not normal workflow.
+
+A retained Worker closes at Pi's `agent_settled` boundary, after retries, compaction retries, and queued continuations are exhausted. Correlated results and artifacts survive cleanup or persistence failure. Inspect cleanup disposition and persistence errors; persistence failure blocks further delegation. Reload drains accepted operations and persists final state without closing an idle retained writer just for reload.
+
+Recovery cleans independently verified owned workers even when another worker or unpinned startup resource remains unresolved. It never clears unknown authority, adopts foreign/forked ownership, or closes a whole tab containing user-added peer panes. Stale authority is pruned only after explicit missing-agent and missing-pane responses, not timeouts or moved/replaced sessions. Copied empty snapshots are inert.
+
+Actual-target-shell launch preflight is deferred: native Herdr `agent.start` has no environment-validation operation, and `pane process-info` reports process identity rather than shell command resolution/environment. Do not substitute parent-only validation or terminal probes. Existing conservative startup failures remain locked for manual inspection; resolved physical startup alone does not automatically clear an old unpinned lock.
+
+Scout and Reviewer use a read-only Bash policy, not a security sandbox. Children cannot delegate, launch other agents, or invoke this skill. Do not add worktrees, commits, token-budget enforcement, or scheduling infrastructure.
