@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -15,6 +15,8 @@ import {
 	delegateRuntimeStateSchema,
 	loadRoleConfig,
 	parseDelegateRuntimeState,
+	roleFingerprint,
+	type DelegateInput,
 	type CommandResult,
 	type DelegateRuntimeState,
 	type RunHerdr,
@@ -971,6 +973,223 @@ for (const evidence of ["absent", "name-absent", "agent-timeout", "agent-not-run
 		assert.equal(calls.some((call) => call[1] === "close" || call[1] === "send-keys"), false);
 	});
 }
+
+test("Worker survives fresh Scout and Reviewer results, then accepts in-task fixes", async () => {
+	const fixture = await makeFixture();
+	const worker = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "implement" }));
+	assert.deepEqual(worker.cleanup, { status: "retained", reason: "worker_followups" });
+	for (const role of ["scout", "reviewer"] as const) {
+		const result = requireSuccess(await fixture.runtime.delegate({ role, task: "inspect" }));
+		assert.equal(result.role, role);
+		assert.deepEqual(result.cleanup, { status: "closed" });
+		assert.match(await readFile(result.resultPath, "utf8"), /done:inspect/);
+		assert.deepEqual(fixture.runtime.getState().workers.map((owned) => owned.id), [worker.worker]);
+		assert.equal((await fixture.runtime.delegate({ worker: result.worker, task: "reuse" })).ok, false);
+	}
+	const fixed = requireSuccess(await fixture.runtime.delegate({ worker: worker.worker, task: "fix" }));
+	assert.equal(fixed.session, worker.session);
+	assert.equal(fixed.output, "done:fix");
+	requireSuccess(await fixture.runtime.cleanupOwned());
+	assert.deepEqual(fixture.runtime.getState().workers, []);
+});
+
+for (const role of ["worker", "scout", "reviewer", "builder"] as const) {
+	test(`${role} persisted identity and fingerprint survive reconstruction unchanged`, async () => {
+		const fixture = await makeFixture();
+		const built = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "legacy" }));
+		const original = fixture.runtime.getState().workers[0];
+		assert.ok(original);
+		const config = requireSuccess(await loadRoleConfig(fixture.rolePaths[role], role));
+		const persisted = { ...original, role, roleFingerprint: roleFingerprint(config) };
+		const parsed = requireSuccess(parseDelegateRuntimeState({ ownerSessionId: "parent-session", workers: [persisted] }));
+		assert.deepEqual(parsed.workers, [persisted]);
+		const restored = new DelegateRuntime({ ...fixture.options, initialState: parsed });
+		const result = await restored.delegate({ worker: built.worker, task: "follow-up" });
+		if (role === "scout" || role === "reviewer") {
+			assert.equal(result.ok, false);
+			if (!result.ok) assert.equal(result.error.code, `${role}_reuse_forbidden`);
+		} else {
+			assert.equal(requireSuccess(result).session, built.session);
+			assert.deepEqual(restored.getState().workers, [persisted]);
+		}
+	});
+}
+
+for (const role of ["scout", "reviewer"] as const) {
+	for (const tools of ["read, write", "read, edit", "read, delegate", "read, read_agent_activity", "read, custom_mutator"]) {
+		test(`${role} rejects unsafe tool configuration ${tools}`, async () => {
+			const fixture = await makeFixture();
+			const source = await readFile(fixture.rolePaths[role], "utf8");
+			await writeFile(fixture.rolePaths[role], source.replace("tools: read, bash", `tools: ${tools}`));
+			const result = await fixture.runtime.delegate({ role, task: "inspect" });
+			assert.equal(result.ok, false);
+			if (!result.ok) assert.equal(result.error.code, "role_unsafe");
+			assert.deepEqual((await fixture.state()).calls, []);
+		});
+	}
+}
+
+test("Scout captures output even when cleanup fails and blocks subsequent work", async () => {
+	const fixture = await makeFixture("cleanup-fails");
+	const scout = requireSuccess(await fixture.runtime.delegate({ role: "scout", task: "research only" }));
+	assert.equal(scout.output, "done:research only");
+	assert.equal(scout.cleanup.status, "failed");
+	assert.equal(fixture.runtime.getState().unsafeWriterWorker, scout.worker);
+	assert.equal((await fixture.runtime.delegate({ role: "worker", task: "must not start" })).ok, false);
+});
+
+test("writer admission excludes both canonical and legacy second writers", async () => {
+	const fixture = await makeFixture();
+	const retained = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
+	for (const role of ["worker", "builder"] as const) {
+		const result = await fixture.runtime.delegate({ role, task: "another writer" });
+		assert.equal(result.ok, false);
+		if (!result.ok) {
+			assert.equal(result.error.code, "writer_exists");
+			assert.equal(result.error.worker, retained.worker);
+		}
+	}
+	assert.equal((await fixture.state()).calls.filter((call) => call[1] === "start").length, 1);
+});
+
+test("explicit replacement saves a handoff before closure and selects current Worker settings", async () => {
+	const fixture = await makeFixture();
+	const old = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "old changes" }));
+	const before = await readFile(old.resultPath, "utf8");
+	const source = await readFile(fixture.rolePaths.worker, "utf8");
+	await writeFile(fixture.rolePaths.worker, source.replace("test-provider/sol", "new-provider/selected-model").replace("thinking: medium", "thinking: high"));
+	let handoffAtClosure = "";
+	const runtime = new DelegateRuntime({
+		...fixture.options, initialState: fixture.runtime.getState(),
+		runHerdr: async (args) => {
+			if (args[0] === "pane" && args[1] === "close") {
+				const directory = join(fixture.options.resultRoot, old.worker);
+				const handoff = (await readdir(directory)).find((file) => file.startsWith("replacement-"));
+				assert.ok(handoff);
+				handoffAtClosure = await readFile(join(directory, handoff), "utf8");
+			}
+			return fixture.processRun(args);
+		},
+	});
+	const next = requireSuccess(await runtime.delegate({ replace: true, worker: old.worker, role: "worker", task: "Inspect existing changes; finish remaining checks within the original scope." }));
+	assert.notEqual(next.worker, old.worker);
+	assert.equal(next.role, "worker");
+	assert.equal(next.model, "new-provider/selected-model");
+	assert.equal(next.thinking, "high");
+	assert.match(handoffAtClosure, /Inspect existing changes/);
+	assert.match(handoffAtClosure, /Model: new-provider\/selected-model/);
+	assert.ok(next.replacement);
+	assert.equal(next.replacement.worker, old.worker);
+	assert.equal(await readFile(next.replacement.handoffPath, "utf8"), handoffAtClosure);
+	assert.equal(await readFile(old.resultPath, "utf8"), before);
+	const calls = (await fixture.state()).calls;
+	const closeIndex = calls.findIndex((call) => call[1] === "close");
+	assert.ok(closeIndex < calls.findLastIndex((call) => call[1] === "start"));
+	assert.equal((await runtime.delegate({ worker: old.worker, task: "old handle" })).ok, false);
+	requireSuccess(await runtime.delegate({ worker: next.worker, task: "follow-up" }));
+});
+
+test("replacement argument combinations fail before Herdr mutation", async () => {
+	const fixture = await makeFixture();
+	const invalid: readonly DelegateInput[] = [
+		{ replace: true, task: "handoff" },
+		{ replace: true, role: "worker", task: "handoff" },
+		{ replace: true, worker: "old", task: "handoff" },
+		{ replace: true, worker: "old", role: "reviewer", task: "handoff" },
+		{ replace: true, worker: "old", role: "scout", task: "handoff" },
+		{ replace: true, worker: "old", role: "builder", task: "handoff" },
+		{ replace: false, worker: "old", role: "worker", task: "handoff" },
+		{ replace: true, worker: "old", role: "worker", task: "  " },
+	];
+	for (const input of invalid) {
+		const result = await fixture.runtime.delegate(input);
+		assert.equal(result.ok, false);
+		if (!result.ok) assert.equal(result.error.code, "request_invalid");
+	}
+	assert.deepEqual((await fixture.state()).calls, []);
+});
+
+test("concurrent replacements cannot launch two writers or redeliver the old task", async () => {
+	const fixture = await makeFixture();
+	const old = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
+	const input = { replace: true, worker: old.worker, role: "worker", task: "Inspect current files and continue from this handoff." } as const;
+	const [first, second, third] = await Promise.all([
+		fixture.runtime.delegate(input), fixture.runtime.delegate(input), fixture.runtime.delegate({ role: "worker", task: "third writer" }),
+	]);
+	requireSuccess(first);
+	assert.equal(second.ok, false);
+	if (!second.ok) assert.equal(second.error.code, "worker_unknown");
+	assert.equal(third.ok, false);
+	if (!third.ok) assert.equal(third.error.code, "writer_exists");
+	assert.equal((await fixture.state()).calls.filter((call) => call[1] === "start").length, 2);
+});
+
+for (const failure of ["close", "killed-close", "identity", "lookup", "publication", "handoff"] as const) {
+	test(`replacement ${failure} failure preserves evidence and prevents a new writer`, async () => {
+		const fixture = await makeFixture();
+		const old = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
+		const root = failure === "handoff" ? join(fixture.root, "not-a-directory") : fixture.options.resultRoot;
+		if (failure === "handoff") await writeFile(root, "file");
+		const runtime = new DelegateRuntime({
+			...fixture.options, resultRoot: root, initialState: fixture.runtime.getState(),
+			onStateChange: () => { if (failure === "publication") throw new Error("disk unavailable"); },
+			runHerdr: async (args) => {
+				if (args[1] === "close" && failure === "close") return commandResult("", 1, "close failed");
+				if (args[1] === "close" && failure === "killed-close") return { ...commandResult(), killed: true };
+				if (args[0] === "agent" && args[1] === "get" && failure === "lookup") return commandResult("", 1, "lookup timed out");
+				if (args[0] === "agent" && args[1] === "get" && failure === "identity") return commandResult(JSON.stringify({ result: { agent: {
+					name: old.agentName, pane_id: old.paneId, agent_session: { value: "replacement-session" },
+				} } }));
+				return fixture.processRun(args);
+			},
+		});
+		const result = await runtime.delegate({ replace: true, role: "worker", worker: old.worker, task: "Parent handoff preserving current changes and checks." });
+		assert.equal(result.ok, false);
+		if (!result.ok) assert.equal(result.error.code, failure === "handoff" ? "handoff_write_failed" : failure === "publication" ? "state_persist_failed" : "worker_unresolved");
+		assert.match(await readFile(old.resultPath, "utf8"), /done:first/);
+		assert.equal((await fixture.state()).calls.filter((call) => call[1] === "start").length, 1);
+		if (failure !== "handoff") {
+			assert.ok((await readdir(join(fixture.options.resultRoot, old.worker))).some((file) => file.startsWith("replacement-")));
+			assert.equal((await runtime.delegate({ role: "worker", task: "must not launch" })).ok, false);
+		}
+		assert.equal(runtime.getState().workers.length, failure === "publication" ? 0 : 1);
+	});
+}
+
+test("aborting replacement after confirmed closure never launches the next writer", async () => {
+	const fixture = await makeFixture();
+	const old = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
+	const controller = new AbortController();
+	const runtime = new DelegateRuntime({
+		...fixture.options, initialState: fixture.runtime.getState(),
+		runHerdr: async (args) => {
+			const result = await fixture.processRun(args);
+			if (args[1] === "close") controller.abort();
+			return result;
+		},
+	});
+	const result = await runtime.delegate({ replace: true, role: "worker", worker: old.worker, task: "Parent handoff" }, controller.signal);
+	assert.equal(result.ok, false);
+	if (!result.ok) assert.match(result.error.message, /old writer closed.*handoff:/);
+	assert.deepEqual(runtime.getState().workers, []);
+	assert.equal((await fixture.state()).calls.filter((call) => call[1] === "start").length, 1);
+});
+
+test("a deferred target-shell shim failure keeps conservative unpinned startup authority", async () => {
+	const fixture = await makeFixture("startup-shim-error");
+	const result = await fixture.runtime.delegate({ role: "worker", task: "must not deliver" });
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "manual_recovery_required");
+		assert.match(result.error.message, /mise ERROR pi is not installed for node 26.8.2/);
+	}
+	assert.equal((await fixture.runtime.cleanupOwned()).ok, false);
+	const restored = new DelegateRuntime({ ...fixture.options, initialState: fixture.runtime.getState() });
+	assert.equal((await restored.delegate({ role: "scout", task: "must not bypass lock" })).ok, false);
+	const calls = (await fixture.state()).calls;
+	assert.equal(calls.filter((call) => call[1] === "start").length, 1);
+	assert.equal(calls.some((call) => ["close", "prompt", "run", "send-text", "process-info"].includes(call[1] ?? "")), false);
+});
 
 test("cleanup closes only a worker whose live identity and session still match", async () => {
 	const fixture = await makeFixture();
