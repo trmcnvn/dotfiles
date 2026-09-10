@@ -23,7 +23,8 @@ json.dump({
     "paths": {
       "@earendil-works/pi-coding-agent": [f"{root}/dist/index.d.ts"],
       "@earendil-works/pi-ai": [f"{root}/node_modules/@earendil-works/pi-ai/dist/index.d.ts"],
-      "typebox": [f"{root}/node_modules/typebox/build/index.d.mts"]
+      "typebox": [f"{root}/node_modules/typebox/build/index.d.mts"],
+      "typebox/value": [f"{root}/node_modules/typebox/build/value/index.d.mts"]
     },
     "typeRoots": [f"{root}/node_modules/@types"]
   },
