@@ -84,7 +84,8 @@ if (command === "tab create") {
 	if (state.scenario === "startup-blocked") pane.agent = "pi";
 	response({ pane });
 } else if (command === "pane close") {
-	response({});
+	if (state.scenario === "cleanup-fails") fail("close_failed", "pane remained open");
+	else response({});
 } else {
 	fail("unsupported", command);
 }
