@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { appendFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import test, { afterEach } from "node:test";
 
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 
@@ -731,6 +732,35 @@ for (const checkpoint of ["worker", "pending", "terminal", "closure"] as const) 
 		assert.equal((await runtime.cleanupOwned()).ok, false);
 	});
 }
+
+test("real Pi session append failure retains the pinned worker and prevents prompt delivery", async () => {
+	const fixture = await makeFixture();
+	const sessionPath = join(fixture.root, "parent.jsonl");
+	await writeFile(sessionPath, `${JSON.stringify({ type: "session", version: 3, id: "parent-session", timestamp: new Date().toISOString(), cwd: fixture.root })}\n`);
+	const sessionManager = SessionManager.open(sessionPath);
+	const runtime = new DelegateRuntime({
+		...fixture.options,
+		onStateChange: (state) => { sessionManager.appendCustomEntry("herdr-delegate-state", state); },
+		runHerdr: async (args) => {
+			const result = await fixture.processRun(args);
+			if (args[0] === "agent" && args[1] === "start") {
+				await rm(sessionPath);
+				await mkdir(sessionPath);
+			}
+			return result;
+		},
+	});
+	const result = await runtime.delegate({ role: "builder", task: "must not deliver" });
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "state_persist_failed");
+		assert.equal(result.error.worker, runtime.getState().workers[0]?.id);
+		assert.ok(result.error.cause instanceof Error);
+	}
+	assert.equal(runtime.getState().workers.length, 1);
+	assert.ok(runtime.getState().persistenceError);
+	assert.equal((await fixture.state()).calls.some((call) => call[1] === "prompt"), false);
+});
 
 test("cleanup aggregates failures and still closes later verified workers", async () => {
 	const fixture = await makeFixture();
