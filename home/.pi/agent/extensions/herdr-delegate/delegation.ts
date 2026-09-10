@@ -180,7 +180,10 @@ const persistedWorkerSchema = Type.Object({
 	roleFingerprint: Type.String(), promptPath: Type.String(),
 });
 const pendingTaskSchema = Type.Object({
-	taskId: Type.String(), worker: Type.String(), resultPath: Type.String(), startedAt: Type.Number(),
+	taskId: Type.String({ minLength: 1 }),
+	worker: Type.String({ minLength: 1 }),
+	resultPath: Type.String({ minLength: 1 }),
+	startedAt: Type.Number(),
 });
 type PersistedStateRepresentation = {
 	readonly ownerSessionId: string;
@@ -197,9 +200,6 @@ export const delegateRuntimeStateSchema = Type.Object({
 	unsafeWriter: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
 	unsafeWriterWorker: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
 });
-
-const serializedObjectSchema = Type.Object({}, { additionalProperties: true });
-type SerializedObject = Static<typeof serializedObjectSchema>;
 
 const childResultSchema = Type.Object({
 	version: Type.Number(), taskId: Type.String(), worker: Type.String(), status: Type.String(), output: Type.String(),
@@ -358,12 +358,12 @@ export function parseDelegateRuntimeState(
 }
 
 function parseChildResult(
-	value: SerializedObject,
+	value: Static<typeof childResultSchema>,
 	pending: PendingTask,
 	worker: PersistedWorker,
 ): DelegationResult<ChildResult> {
-	if (!Value.Check(childResultSchema, value) || value.version !== 1 || value.taskId !== pending.taskId ||
-		value.worker !== worker.id || (value.status !== "completed" && value.status !== "failed" && value.status !== "incomplete") ||
+	if (value.version !== 1 || value.taskId !== pending.taskId || value.worker !== worker.id ||
+		(value.status !== "completed" && value.status !== "failed" && value.status !== "incomplete") ||
 		value.session !== worker.session || !value.provider || !value.model || !value.thinking || value.finishedAt < pending.startedAt) {
 		return err("result_invalid", "task, native session, or terminal fields did not match");
 	}
@@ -372,8 +372,8 @@ function parseChildResult(
 		session: value.session, provider: value.provider, model: value.model, thinking: value.thinking,
 		finishedAt: value.finishedAt,
 	};
-	if (value.error !== undefined) child.error = value.error;
-	if (value.stopReason !== undefined) child.stopReason = value.stopReason;
+	if (value.error) child.error = value.error;
+	if (value.stopReason) child.stopReason = value.stopReason;
 	return ok(child);
 }
 
@@ -396,17 +396,20 @@ function cliFailure(result: CommandResult): string {
 async function readResult(
 	path: string,
 	deadline: number,
-): Promise<DelegationResult<SerializedObject>> {
+	pending: PendingTask,
+	worker: PersistedWorker,
+): Promise<DelegationResult<ChildResult>> {
 	let cause = new Error("result artifact was not available");
 	while (Date.now() <= deadline) {
 		try {
 			const value: unknown = JSON.parse(await readFile(path, "utf8"));
-			if (Value.Check(serializedObjectSchema, value)) return ok(value);
-			cause = new Error("result artifact is not an object");
+			return Value.Check(childResultSchema, value)
+				? parseChildResult(value, pending, worker)
+				: err("result_invalid", "task result did not match the expected contract");
 		} catch (error) {
 			cause = error instanceof Error ? error : new Error(String(error));
+			await new Promise((resolve) => setTimeout(resolve, 25));
 		}
-		await new Promise((resolve) => setTimeout(resolve, 25));
 	}
 	return err("result_missing", path, cause);
 }
@@ -582,11 +585,9 @@ export class DelegateRuntime {
 		if (promptAgent.name !== worker.agentName || promptAgent.agent_session?.value !== worker.session || promptAgent.agent_status === "blocked") {
 			return this.#uncertain(worker, role, pending, "prompt returned blocked or mismatched owner");
 		}
-		const raw = await readResult(pending.resultPath, Date.now() + RESULT_WAIT_MS);
-		if (!raw.ok) return this.#uncertain(worker, role, pending, raw.error.message);
-		const parsed = parseChildResult(raw.value, pending, worker);
-		if (!parsed.ok) return this.#uncertain(worker, role, pending, parsed.error.message);
-		return this.#finishTerminal(worker, role, pending, parsed.value);
+		const result = await readResult(pending.resultPath, Date.now() + RESULT_WAIT_MS, pending, worker);
+		if (!result.ok) return this.#uncertain(worker, role, pending, result.error.message);
+		return this.#finishTerminal(worker, role, pending, result.value);
 	}
 
 	async #start(role: RoleConfig, signal?: AbortSignal): Promise<DelegationResult<PersistedWorker>> {
@@ -654,11 +655,8 @@ export class DelegateRuntime {
 	}
 
 	async #uncertain(worker: PersistedWorker, role: RoleConfig, pending: PendingTask, reason: string): Promise<DelegationResult<DelegateResult>> {
-		const raw = await readResult(pending.resultPath, Date.now() + 250);
-		if (raw.ok) {
-			const parsed = parseChildResult(raw.value, pending, worker);
-			if (parsed.ok) return this.#finishTerminal(worker, role, pending, parsed.value);
-		}
+		const result = await readResult(pending.resultPath, Date.now() + 250, pending, worker);
+		if (result.ok) return this.#finishTerminal(worker, role, pending, result.value);
 		const owned = await this.#owned(worker);
 		if (owned.ok) await this.#run(["agent", "send-keys", worker.agentName, "esc"], { timeoutMs: 5_000 });
 		this.#lock(`${worker.agentName} task ${pending.taskId} has uncertain delivery (${reason}); prompt was not resubmitted`, worker.id);
