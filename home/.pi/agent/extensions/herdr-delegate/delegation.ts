@@ -663,6 +663,7 @@ export class DelegateRuntime {
 	}
 
 	async #runTask(worker: PersistedWorker, role: RoleConfig, task: string, timeoutMs: number, signal?: AbortSignal): Promise<DelegationResult<DelegateResult>> {
+		if (signal?.aborted) return err("cancelled", "request aborted before task delivery", undefined, worker.id);
 		const taskId = this.#options.id?.() ?? randomUUID();
 		if (!SAFE_ID.test(taskId) || !SAFE_ID.test(worker.id)) return err("task_id_invalid", "generated task or worker id is unsafe");
 		const pending: PendingTask = { taskId, worker: worker.id, resultPath: join(this.#options.resultRoot, worker.id, `${taskId}.json`), startedAt: this.#options.now?.() ?? Date.now() };
@@ -689,6 +690,7 @@ export class DelegateRuntime {
 	}
 
 	async #replace(previous: PersistedWorker, role: RoleConfig, task: string, signal?: AbortSignal): Promise<DelegationResult<string>> {
+		if (!SAFE_ID.test(previous.id)) return err("worker_id_invalid", "persisted worker id is unsafe for a handoff path");
 		if ([...this.#workers.values()].some((worker) => worker.id !== previous.id && (worker.role === "worker" || worker.role === "builder"))) {
 			return err("writer_exists", "another retained writer must be resolved before replacement");
 		}
