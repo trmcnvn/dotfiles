@@ -292,7 +292,7 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 			if (!isInsideHerdr()) throw new Error("Delegation requires HERDR_ENV=1 and caller workspace identity.");
 			if (!runtime) throw new Error("Delegation runtime is not initialized.");
 			onUpdate?.({ content: [{ type: "text", text: params.replace ? "Replacing owned worker after preserving handoff…" : params.worker ? "Sending worker follow-up…" : `Starting ${params.role ?? "worker"}…` }], details: undefined });
-			const delegated = await runtime.delegate(params.role === "builder" ? { ...params, role: "worker" } : params, signal);
+			const delegated = await runtime.delegate(params.role === "builder" && !params.replace ? { ...params, role: "worker" } : params, signal);
 			if (!delegated.ok) throw delegated.error;
 			const result = delegated.value;
 			const cleanup = result.cleanup.status === "closed" ? "matching owned pane closed"
