@@ -498,5 +498,7 @@ test("cleanup closes only a worker whose live identity and session still match",
 	const fixture = await makeFixture();
 	requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "task" }));
 	requireSuccess(await fixture.runtime.cleanupOwned());
-	assert.ok((await fixture.state()).calls.some((call) => call[0] === "pane" && call[1] === "close"));
+	const calls = (await fixture.state()).calls;
+	assert.ok(calls.some((call) => call[0] === "pane" && call[1] === "close"));
+	assert.equal(calls.some((call) => call[0] === "tab" && call[1] === "close"), false);
 });
