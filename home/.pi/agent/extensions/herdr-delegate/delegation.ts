@@ -41,6 +41,8 @@ export type DelegateResult = {
 	readonly model: string;
 	readonly thinking: string;
 	readonly cleanup: DelegateCleanupOutcome;
+	/** State publication failed; captured output and the actual cleanup disposition remain valid. */
+	readonly persistenceError?: string;
 };
 
 /** Known delegation failure translated to a tool error at the Pi boundary. */
@@ -403,6 +405,15 @@ function cliFailure(result: CommandResult): string {
 		return text || `exit ${result.code}`;
 	}
 }
+function hasCliError(result: CommandResult, codes: readonly string[]): boolean {
+	if (result.killed || result.code === 0) return false;
+	try {
+		const value: unknown = JSON.parse(result.stderr.trim() || result.stdout.trim());
+		return Value.Check(herdrFailureSchema, value) && codes.includes(value.error.code);
+	} catch {
+		return false;
+	}
+}
 async function readResult(
 	path: string,
 	deadline: number,
@@ -437,6 +448,9 @@ export class DelegateRuntime {
 	#queue: Promise<void> = Promise.resolve();
 	#activeCalls = 0;
 	#cleanupInProgress = false;
+	#cleanupDone: Promise<void> = Promise.resolve();
+	#suspended = false;
+	#persistenceError: DelegationError | undefined;
 	#pending: PendingTask | undefined;
 	#unsafeWriter: string | undefined;
 	#unsafeWriterWorker: string | undefined;
@@ -444,7 +458,9 @@ export class DelegateRuntime {
 	/** Creates a runtime from current or persisted parent-session authority. */
 	constructor(options: RuntimeOptions) {
 		this.#options = options;
-		this.#foreignAuthority = options.initialState !== undefined && options.initialState.ownerSessionId !== options.parentSessionId;
+		const inherited = options.initialState;
+		this.#foreignAuthority = inherited !== undefined && inherited.ownerSessionId !== options.parentSessionId &&
+			(inherited.workers.length > 0 || inherited.pending !== undefined || inherited.unsafeWriter !== undefined);
 		this.#unrecoverableAuthority = options.initialStateError !== undefined;
 		for (const worker of options.initialState?.workers ?? []) this.#workers.set(worker.id, worker);
 		this.#pending = options.initialState?.pending;
@@ -458,13 +474,15 @@ export class DelegateRuntime {
 		const ownerSessionId = this.#foreignAuthority ? this.#options.initialState?.ownerSessionId ?? this.#options.parentSessionId : this.#options.parentSessionId;
 		const state: DelegateRuntimeStateDraft = { ownerSessionId, workers: [...this.#workers.values()] };
 		if (this.#pending) state.pending = this.#pending;
-		if (this.#unsafeWriter) state.unsafeWriter = this.#unsafeWriter;
+		const unsafeWriter = this.#unsafeWriter ?? this.#persistenceError?.message;
+		if (unsafeWriter) state.unsafeWriter = unsafeWriter;
 		if (this.#unsafeWriterWorker) state.unsafeWriterWorker = this.#unsafeWriterWorker;
 		return state;
 	}
 
 	/** Runs one serialized task and prevents pre-aborted requests from mutating resources. */
 	async delegate(input: DelegateInput, signal?: AbortSignal): Promise<DelegationResult<DelegateResult>> {
+		if (this.#suspended) return err("runtime_closed", "delegation runtime is shutting down");
 		if (signal?.aborted) return err("cancelled", "request was already aborted; no action taken");
 		if (this.#cleanupInProgress) return err("cleanup_busy", "delegation cleanup is in progress");
 		this.#activeCalls += 1;
@@ -504,40 +522,53 @@ export class DelegateRuntime {
 		}
 	}
 
+	/** Drains accepted mutations and persists their final snapshot before Pi invalidates this instance. */
+	async drain(): Promise<DelegationResult<void>> {
+		this.#suspended = true;
+		await this.#queue;
+		await this.#cleanupDone;
+		if (this.#foreignAuthority || this.#unrecoverableAuthority) return ok(undefined);
+		return this.#publish();
+	}
+
 	/** Closes only pinned workers when no delegation call is active. */
 	async cleanupOwned(): Promise<DelegationResult<void>> {
 		if (this.#activeCalls > 0 || this.#cleanupInProgress) {
 			return err("cleanup_busy", "delegation or cleanup is active; wait for it to return before cleanup");
 		}
 		this.#cleanupInProgress = true;
+		let release = (): void => undefined;
+		this.#cleanupDone = new Promise<void>((resolve) => { release = resolve; });
 		try {
 			if (this.#unrecoverableAuthority) {
 				return err("state_corrupt", this.#unsafeWriter ?? "persisted delegation authority is corrupt");
 			}
 			if (this.#foreignAuthority) return err("foreign_authority", `workers belong to parent Pi session ${this.#options.initialState?.ownerSessionId ?? "unknown"}; this session must not control them`);
-			if (this.#unsafeWriter && !this.#unsafeWriterWorker) {
-				return err("manual_recovery_required", `${this.#unsafeWriter}. No pinned native session identity is available, so no pane was touched`);
-			}
+			const unpinned = this.#unsafeWriter && !this.#unsafeWriterWorker ? this.#unsafeWriter : undefined;
+			const failures: string[] = [];
 			for (const worker of [...this.#workers.values()]) {
 				const closed = await this.#closeOwned(worker);
 				if (!closed.ok) {
-					this.#lock(`cleanup could not safely close ${worker.agentName} (${closed.error.message})`, worker.id);
-					return closed;
+					failures.push(closed.error.message);
+					if (!unpinned) this.#lock(`cleanup could not safely close ${worker.agentName} (${closed.error.message})`, worker.id);
 				}
 			}
-			const transientStateRemains = this.#pending !== undefined || this.#unsafeWriter !== undefined || this.#unsafeWriterWorker !== undefined;
-			this.#pending = undefined;
-			this.#unsafeWriter = undefined;
-			this.#unsafeWriterWorker = undefined;
-			if (transientStateRemains) this.#publish();
+			if (unpinned) failures.unshift(unpinned);
+			if (failures.length) return err(unpinned ? "manual_recovery_required" : "cleanup_failed", failures.join("; "));
+			if (this.#persistenceError) {
+				this.#persistenceError = undefined;
+				return this.#publish();
+			}
 			return ok(undefined);
 		} finally {
 			this.#cleanupInProgress = false;
+			release();
 		}
 	}
 
 	async #delegate(input: DelegateInput, signal?: AbortSignal): Promise<DelegationResult<DelegateResult>> {
 		if (this.#foreignAuthority) return err("foreign_authority", "copied session state cannot adopt another parent session's workers");
+		if (this.#persistenceError) return { ok: false, error: this.#persistenceError };
 		if (this.#unsafeWriter && !this.#unsafeWriterWorker) {
 			return err("manual_recovery_required", `${this.#unsafeWriter}. No pinned worker handle exists; inspect the reported startup resource manually`);
 		}
@@ -565,7 +596,10 @@ export class DelegateRuntime {
 			if (existing.roleFingerprint !== roleFingerprint(role)) return err("role_changed", `${role.name} configuration changed; start a new worker`);
 			worker = existing;
 			const owned = await this.#owned(worker);
-			if (!owned.ok) return owned;
+			if (!owned.ok) {
+				this.#lock(`builder identity could not be confirmed (${owned.error.message})`, worker.id);
+				return err("worker_unresolved", this.#unsafeWriter ?? owned.error.message, owned.error, worker.id);
+			}
 			const status = owned.value.agent_status;
 			if (status !== "idle" && status !== "done") {
 				this.#lock(`${worker.agentName} is ${status ?? "unknown"} before prompt`, worker.id);
@@ -586,7 +620,8 @@ export class DelegateRuntime {
 			return err("result_path_unavailable", pending.resultPath, cause);
 		}
 		this.#pending = pending;
-		this.#publish();
+		const persisted = this.#publish();
+		if (!persisted.ok) return persisted;
 		const promptOptions = signal === undefined ? { timeoutMs: timeoutMs + 5_000 } : { signal, timeoutMs: timeoutMs + 5_000 };
 		const prompted = await this.#run(["agent", "prompt", worker.paneId, encodeTask(pending, task), "--wait", "--timeout", String(timeoutMs)], promptOptions);
 		if (!prompted.ok || prompted.value.killed || prompted.value.code !== 0) return this.#uncertain(worker, role, pending, prompted.ok ? cliFailure(prompted.value) : prompted.error.message);
@@ -674,8 +709,8 @@ export class DelegateRuntime {
 		}
 		const worker: PersistedWorker = { id: workerId, role: role.name, agentName, paneId, tabId, workspaceId, session, roleFingerprint: roleFingerprint(role), promptPath };
 		this.#workers.set(worker.id, worker);
-		this.#publish();
-		return ok(worker);
+		const persisted = this.#publish();
+		return persisted.ok ? ok(worker) : persisted;
 	}
 
 	async #uncertain(worker: PersistedWorker, role: RoleConfig, pending: PendingTask, reason: string): Promise<DelegationResult<DelegateResult>> {
@@ -709,8 +744,10 @@ export class DelegateRuntime {
 				this.#lock(`correlated task ${pending.taskId} cleanup failed (${closed.error.message})`, worker.id);
 			}
 		}
-		const cleanupText = cleanup.status === "closed" ? "Cleanup: matching owned pane closed."
-			: cleanup.status === "failed" ? `Cleanup failed: ${cleanup.error}` : "Cleanup: builder retained for follow-ups until the parent task settles.";
+		const persistenceError = this.#persistenceError?.message;
+		const cleanupText = (cleanup.status === "closed" ? "Cleanup: matching owned pane closed."
+			: cleanup.status === "failed" ? `Cleanup failed: ${cleanup.error}` : "Cleanup: builder retained for follow-ups until the parent task settles.") +
+			(persistenceError ? ` ${persistenceError}. Result artifact: ${pending.resultPath}\n${formatOutput(child, pending.resultPath)}` : "");
 		if (mismatch) return err("model_mismatch", `${child.provider}/${child.model} (${child.thinking}). ${cleanupText}`, undefined, cleanup.status === "failed" ? worker.id : undefined);
 		if (child.status !== "completed") {
 			return err(
@@ -720,7 +757,7 @@ export class DelegateRuntime {
 				cleanup.status === "failed" ? worker.id : undefined,
 			);
 		}
-		return ok({
+		const completed: DelegateResult & { persistenceError?: string } = {
 			role: worker.role,
 			worker: worker.id,
 			agentName: worker.agentName,
@@ -732,15 +769,26 @@ export class DelegateRuntime {
 			model: `${child.provider}/${child.model}`,
 			thinking: child.thinking,
 			cleanup,
-		});
+		};
+		if (persistenceError) completed.persistenceError = persistenceError;
+		return ok(completed);
 	}
 
 	async #closeOwned(worker: PersistedWorker): Promise<DelegationResult<void>> {
 		const owned = await this.#owned(worker);
-		if (!owned.ok) return owned;
-		const closed = await this.#run(["pane", "close", worker.paneId], { timeoutMs: 5_000 });
-		if (!closed.ok || closed.value.killed || closed.value.code !== 0) {
-			return err("cleanup_failed", closed.ok ? cliFailure(closed.value) : closed.error.message, undefined, worker.id);
+		if (!owned.ok) {
+			if (owned.error.code !== "worker_missing") return owned;
+			const pane = await this.#run(["pane", "get", worker.paneId], { timeoutMs: 5_000 });
+			if (!pane.ok || !hasCliError(pane.value, ["pane_not_found"])) return owned;
+		} else {
+			if (worker.tabId !== undefined || worker.workspaceId !== undefined) {
+				const located = await this.#locatePane(worker);
+				if (!located.ok) return located;
+			}
+			const closed = await this.#run(["pane", "close", worker.paneId], { timeoutMs: 5_000 });
+			if (!closed.ok || closed.value.killed || closed.value.code !== 0) {
+				return err("cleanup_failed", closed.ok ? cliFailure(closed.value) : closed.error.message, undefined, worker.id);
+			}
 		}
 		this.#workers.delete(worker.id);
 		if (this.#pending?.worker === worker.id) this.#pending = undefined;
@@ -752,9 +800,23 @@ export class DelegateRuntime {
 		return ok(undefined);
 	}
 
+	async #locatePane(worker: PersistedWorker): Promise<DelegationResult<void>> {
+		const current = await this.#run(["pane", "get", worker.paneId], { timeoutMs: 5_000 });
+		if (!current.ok || current.value.killed || current.value.code !== 0) return err("worker_unavailable", current.ok ? cliFailure(current.value) : current.error.message, undefined, worker.id);
+		const parsed = parseJson(current.value.stdout, "pane get", paneResponseSchema);
+		if (!parsed.ok) return parsed;
+		const pane = parsed.value.result.pane;
+		if (pane.pane_id !== worker.paneId || (worker.tabId !== undefined && pane.tab_id !== worker.tabId) ||
+			(worker.workspaceId !== undefined && pane.workspace_id !== worker.workspaceId)) return err("worker_moved", worker.agentName, undefined, worker.id);
+		return ok(undefined);
+	}
+
 	async #owned(worker: PersistedWorker): Promise<DelegationResult<AgentIdentity>> {
 		const current = await this.#run(["agent", "get", worker.agentName], { timeoutMs: 5_000 });
-		if (!current.ok || current.value.killed || current.value.code !== 0) return err("worker_unavailable", current.ok ? cliFailure(current.value) : current.error.message);
+		if (!current.ok || current.value.killed || current.value.code !== 0) {
+			const missing = current.ok && hasCliError(current.value, ["agent_not_found", "agent_name_not_found"]);
+			return err(missing ? "worker_missing" : "worker_unavailable", current.ok ? cliFailure(current.value) : current.error.message, undefined, worker.id);
+		}
 		const parsed = parseJson(current.value.stdout, "agent get", agentResponseSchema);
 		if (!parsed.ok) return parsed;
 		const agent = parsed.value.result.agent;
@@ -773,7 +835,13 @@ export class DelegateRuntime {
 		this.#unsafeWriterWorker = worker;
 		this.#publish();
 	}
-	#publish(): void {
-		this.#options.onStateChange?.(this.getState());
+	#publish(): DelegationResult<void> {
+		try {
+			this.#options.onStateChange?.(this.getState());
+			return ok(undefined);
+		} catch (cause) {
+			this.#persistenceError = new DelegationError("state_persist_failed", "delegation authority could not be persisted; further delegation is locked until cleanup succeeds", cause, this.#pending?.worker);
+			return { ok: false, error: this.#persistenceError };
+		}
 	}
 }
