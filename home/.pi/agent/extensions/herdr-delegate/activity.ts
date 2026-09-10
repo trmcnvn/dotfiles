@@ -76,6 +76,13 @@ type ActivityMessage = {
 	readonly isError?: boolean;
 };
 
+type ActivityToolCallDraft = {
+	kind: "toolCall";
+	name: string;
+	id?: string;
+	argumentsText: string;
+};
+
 type ActivityMessageDraft = {
 	role?: string;
 	textContent?: string;
@@ -220,7 +227,7 @@ function parseActivityMessage(value: Static<typeof messageRepresentationSchema>)
 				parts.push({ kind: "text", text: rawPart.text });
 			}
 			if (rawPart.type === "toolCall" && Value.Check(stringSchema, rawPart.name)) {
-				const part: { kind: "toolCall"; name: string; id?: string; argumentsText: string } = {
+				const part: ActivityToolCallDraft = {
 					kind: "toolCall",
 					name: rawPart.name,
 					argumentsText: JSON.stringify(rawPart.arguments ?? {}) ?? "{}",
