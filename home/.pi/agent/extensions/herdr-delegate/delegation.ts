@@ -3,6 +3,8 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, parseFrontmatter, truncateHead } from "@earendil-works/pi-coding-agent";
+import { Type, type Static, type TSchema } from "typebox";
+import { Value } from "typebox/value";
 
 import { AgentActivityError, readSessionActivity, type AgentActivity, type ReadAgentActivityInput } from "./activity.ts";
 
@@ -129,7 +131,56 @@ type ChildResult = {
 	readonly finishedAt: number;
 };
 
-type RoleFrontmatter = { name?: unknown; description?: unknown; model?: unknown; thinking?: unknown; tools?: unknown };
+const roleFrontmatterSchema = Type.Object({
+	name: Type.Optional(Type.String()),
+	description: Type.Optional(Type.String()),
+	model: Type.Optional(Type.String()),
+	thinking: Type.Optional(Type.String()),
+	tools: Type.Optional(Type.Union([Type.String(), Type.Array(Type.String())])),
+});
+type RoleFrontmatter = Static<typeof roleFrontmatterSchema>;
+
+const persistedWorkerSchema = Type.Object({
+	id: Type.String(), role: Type.String(), agentName: Type.String(), paneId: Type.String(),
+	tabId: Type.Optional(Type.String()), workspaceId: Type.Optional(Type.String()), session: Type.String(),
+	roleFingerprint: Type.String(), promptPath: Type.String(),
+});
+const pendingTaskSchema = Type.Object({
+	taskId: Type.String(), worker: Type.String(), resultPath: Type.String(), startedAt: Type.Number(),
+});
+const delegateRuntimeStateSchema = Type.Object({
+	ownerSessionId: Type.String(),
+	workers: Type.Array(persistedWorkerSchema),
+	pending: Type.Optional(Type.Union([pendingTaskSchema, Type.Null()])),
+	unsafeWriter: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
+	unsafeWriterWorker: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
+});
+
+const childResultSchema = Type.Object({
+	version: Type.Number(), taskId: Type.String(), worker: Type.String(), status: Type.String(), output: Type.String(),
+	error: Type.Optional(Type.String()), stopReason: Type.Optional(Type.String()), session: Type.String(),
+	provider: Type.String(), model: Type.String(), thinking: Type.String(), finishedAt: Type.Number(),
+});
+
+const agentIdentitySchema = Type.Object({
+	name: Type.String(), pane_id: Type.String(), agent_status: Type.Optional(Type.String()),
+	agent_session: Type.Optional(Type.Union([Type.Object({ value: Type.String() }), Type.Null()])),
+});
+type AgentIdentity = Static<typeof agentIdentitySchema>;
+const agentResponseSchema = Type.Object({ result: Type.Object({ agent: agentIdentitySchema }) });
+const paneResponseSchema = Type.Object({
+	result: Type.Object({ pane: Type.Object({
+		pane_id: Type.String(), tab_id: Type.String(), workspace_id: Type.String(),
+		agent: Type.Optional(Type.Unknown()),
+	}) }),
+});
+const tabCreatedResponseSchema = Type.Object({
+	result: Type.Object({
+		root_pane: Type.Object({ pane_id: Type.String(), tab_id: Type.String(), workspace_id: Type.String() }),
+		tab: Type.Object({ tab_id: Type.String(), workspace_id: Type.String() }),
+	}),
+});
+const herdrFailureSchema = Type.Object({ error: Type.Object({ code: Type.String(), message: Type.String() }) });
 
 type RuntimeOptions = {
 	readonly runHerdr: RunHerdr;
@@ -159,35 +210,24 @@ function ok<T>(value: T): DelegationResult<T> {
 function err<T>(code: string, message: string, cause?: unknown, worker?: string): DelegationResult<T> {
 	return { ok: false, error: new DelegationError(code, message, cause, worker) };
 }
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-	if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
-	// SAFETY: the runtime object check establishes the only Record invariant used at this serialized boundary.
-	return value as Record<string, unknown>;
-}
-function objectField(value: unknown, key: string): Record<string, unknown> | undefined {
-	return asRecord(asRecord(value)?.[key]);
-}
-function stringField(value: unknown, key: string): string | undefined {
-	const field = asRecord(value)?.[key];
-	return typeof field === "string" ? field : undefined;
-}
-function numberField(value: unknown, key: string): number | undefined {
-	const field = asRecord(value)?.[key];
-	return typeof field === "number" ? field : undefined;
-}
-function parseJson(text: string, operation: string): DelegationResult<Record<string, unknown>> {
+function parseJson<Schema extends TSchema>(
+	text: string,
+	operation: string,
+	schema: Schema,
+): DelegationResult<Static<Schema>> {
 	try {
-		const record = asRecord(JSON.parse(text) as unknown);
-		return record ? ok(record) : err("invalid_herdr_response", `${operation}: expected object`);
+		const value: unknown = JSON.parse(text);
+		return Value.Check(schema, value)
+			? ok(value)
+			: err("invalid_herdr_response", `${operation}: response did not match the expected contract`);
 	} catch (cause) {
 		return err("invalid_herdr_response", `${operation}: ${text.slice(0, 500)}`, cause);
 	}
 }
-function parseTools(value: unknown): readonly string[] | undefined {
-	const raw = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : undefined;
-	if (!raw || !raw.every((tool) => typeof tool === "string")) return undefined;
-	// SAFETY: every array member was checked immediately above.
-	const tools = (raw as string[]).map((tool) => tool.trim()).filter(Boolean);
+function parseTools(value: RoleFrontmatter["tools"]): readonly string[] | undefined {
+	const raw = Value.Check(Type.Array(Type.String()), value) ? value : value?.split(",");
+	if (!raw) return undefined;
+	const tools = raw.map((tool) => tool.trim()).filter(Boolean);
 	return tools.length ? tools : undefined;
 }
 
