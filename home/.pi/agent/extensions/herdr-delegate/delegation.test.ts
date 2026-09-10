@@ -137,7 +137,29 @@ test("reuses only the successful builder and correlates a fresh follow-up task",
 	const second = requireSuccess(await fixture.runtime.delegate({ worker: first.worker, task: "fix" }));
 	assert.notEqual(first.taskId, second.taskId);
 	assert.equal(second.worker, first.worker);
+	assert.deepEqual(second.cleanup, { status: "retained", reason: "builder_followups" });
 	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "tab" && call[1] === "create").length, 1);
+});
+
+test("closes a fresh reviewer immediately after preserving its correlated result", async () => {
+	const fixture = await makeFixture();
+	const result = requireSuccess(await fixture.runtime.delegate({ role: "reviewer", task: "review" }));
+	assert.deepEqual(result.cleanup, { status: "closed" });
+	assert.equal(await readFile(result.resultPath, "utf8").then((source) => JSON.parse(source).output), "done:review");
+	assert.deepEqual(fixture.runtime.getState().workers, []);
+	const calls = (await fixture.state()).calls;
+	assert.ok(calls.some((call) => call[0] === "pane" && call[1] === "close"));
+	assert.equal(calls.some((call) => call[0] === "tab" && call[1] === "close"), false);
+});
+
+test("returns completed reviewer output when cleanup fails and retains recovery authority", async () => {
+	const fixture = await makeFixture("cleanup-fails");
+	const result = requireSuccess(await fixture.runtime.delegate({ role: "reviewer", task: "review" }));
+	assert.equal(result.output, "done:review");
+	assert.equal(result.cleanup.status, "failed");
+	assert.equal(fixture.runtime.getState().workers.length, 1);
+	assert.equal(fixture.runtime.getState().unsafeWriterWorker, result.worker);
+	assert.match(await readFile(result.resultPath, "utf8"), /done:review/);
 });
 
 test("a stale task result stops and closes the identity-matching worker without resubmission", async () => {
@@ -192,11 +214,29 @@ test("malformed successful prompt response closes only the confirmed native work
 	assert.deepEqual(fixture.runtime.getState().workers, []);
 });
 
-test("a child-reported failure is returned as a typed task failure", async () => {
+test("a child-reported failure is returned as a typed task failure after owned-pane cleanup", async () => {
 	const fixture = await makeFixture("failed");
 	const result = await fixture.runtime.delegate({ role: "builder", task: "task" });
 	assert.equal(result.ok, false);
-	if (!result.ok) assert.equal(result.error.code, "task_failed");
+	if (!result.ok) {
+		assert.equal(result.error.code, "task_failed");
+		assert.match(result.error.message, /matching owned pane closed/);
+	}
+	assert.deepEqual(fixture.runtime.getState().workers, []);
+});
+
+test("a failed task keeps its lock and pane when native session ownership changed", async () => {
+	const fixture = await makeFixture("failed-replaced-on-cleanup");
+	const result = await fixture.runtime.delegate({ role: "builder", task: "task" });
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "task_failed");
+		assert.equal(result.error.worker, "id-1");
+		assert.match(result.error.message, /Cleanup failed/);
+	}
+	const calls = (await fixture.state()).calls;
+	assert.equal(calls.some((call) => call[0] === "pane" && call[1] === "close"), false);
+	assert.equal(fixture.runtime.getState().unsafeWriterWorker, "id-1");
 });
 
 test("empty child error metadata preserves the task-failed status fallback", async () => {
