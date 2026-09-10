@@ -14,8 +14,6 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 
-import { runDelegateCleanup } from "./index.ts";
-
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 const roleSource = (
@@ -111,18 +109,16 @@ test("real Pi entrypoints preserve guards, restoration locks, and thinking class
 	let corruptSession: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
 	try {
 		const notifications: string[] = [];
-		await runDelegateCleanup(undefined, false, {
-			notify(message) { notifications.push(message); },
-		});
-		assert.deepEqual(notifications, ["Delegation cleanup requires HERDR_ENV=1; no panes were touched."]);
-
 		const cleanup = session.extensionRunner.getRegisteredCommands()
 			.find((command) => command.name === "delegate-cleanup");
 		assert.ok(cleanup);
 		delete process.env.HERDR_ENV;
 		delete process.env.HERDR_PANE_ID;
 		delete process.env.HERDR_WORKSPACE_ID;
-		await cleanup.handler("", session.extensionRunner.createCommandContext());
+		const cleanupContext = session.extensionRunner.createCommandContext();
+		cleanupContext.ui.notify = (message) => { notifications.push(message); };
+		await cleanup.handler("", cleanupContext);
+		assert.deepEqual(notifications, ["Delegation cleanup requires HERDR_ENV=1; no panes were touched."]);
 		assert.equal(existsSync(sentinel), false);
 		await session.extensionRunner.emit({ type: "session_shutdown", reason: "quit" });
 		assert.equal(existsSync(sentinel), false);
@@ -165,7 +161,11 @@ test("real Pi entrypoints preserve guards, restoration locks, and thinking class
 			.find((command) => command.name === "delegate-cleanup");
 		assert.ok(corruptCleanup);
 		const entriesBefore = corruptManager.getBranch().length;
-		await corruptCleanup.handler("", corruptSession.extensionRunner.createCommandContext());
+		const corruptNotifications: string[] = [];
+		const corruptContext = corruptSession.extensionRunner.createCommandContext();
+		corruptContext.ui.notify = (message) => { corruptNotifications.push(message); };
+		await corruptCleanup.handler("", corruptContext);
+		assert.match(corruptNotifications[0] ?? "", /state_corrupt/);
 		assert.equal(existsSync(sentinel), false);
 		assert.equal(corruptManager.getBranch().length, entriesBefore);
 	} finally {
