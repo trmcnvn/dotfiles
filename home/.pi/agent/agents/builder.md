@@ -1,8 +1,8 @@
 ---
 name: builder
 description: Sole implementation writer for scoped code changes and focused verification
-model: openai-codex/gpt-5.6-sol
-thinking: medium
+model: openai-codex/gpt-6-astra
+thinking: low
 tools: read, bash, edit, write
 ---
 
