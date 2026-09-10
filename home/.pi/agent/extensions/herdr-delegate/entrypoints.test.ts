@@ -60,7 +60,6 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		manager.appendMessage({ role: "assistant", content: [], api: "anthropic-messages", provider: "fixture", model: "fixture", stopReason: "stop", timestamp: Date.now(), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } } });
 		const locked = { ownerSessionId: manager.getSessionId(), workers: [], unsafeWriter: failure };
 		manager.appendCustomEntry("herdr-delegate-state", locked);
-		manager.appendCustomEntry("herdr-delegate-cleanup-notice", { ownerSessionId: "copied-parent", error: `manual_recovery_required: ${failure}` });
 		const settingsManager = SettingsManager.inMemory({ packages: [] });
 		const loader = new DefaultResourceLoader({ cwd: root, agentDir: root, settingsManager, noExtensions: true, additionalExtensionPaths: [join(import.meta.dirname, "index.ts")], noThemes: true, noPromptTemplates: true, noSkills: true });
 		await loader.reload();
@@ -85,8 +84,29 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		};
 		const settled = () => created.session.extensionRunner.emit({ type: "agent_settled" });
 		const automaticNotices = () => notices.filter((message) => message.startsWith("Automatic delegation cleanup failed:"));
-		await settled();
-		await settled();
+		const sessionFile = manager.getSessionFile();
+		assert.ok(sessionFile);
+		const entriesBeforeNotice = manager.getEntries();
+		const leafBeforeNotice = manager.getLeafId();
+		const diskBeforeNotice = await readFile(sessionFile, "utf8");
+		await rename(sessionFile, `${sessionFile}.saved`);
+		await mkdir(sessionFile);
+		try {
+			await settled();
+			await settled();
+			assert.deepEqual(manager.getEntries(), entriesBeforeNotice, "notification bookkeeping must not append even when disk writes would fail");
+			assert.equal(manager.getLeafId(), leafBeforeNotice, "notification must not advance ancestry");
+		} finally {
+			await rm(sessionFile, { recursive: true });
+			await rename(`${sessionFile}.saved`, sessionFile);
+		}
+		assert.equal(await readFile(sessionFile, "utf8"), diskBeforeNotice);
+		manager.appendMessage({ role: "user", content: "message after cleanup notification", timestamp: Date.now() });
+		const notificationReopen = SessionManager.open(sessionFile);
+		assert.deepEqual(notificationReopen.getBranch(), manager.getBranch(), "message ancestry must survive disk reopen");
+		const survivingLock = notificationReopen.getBranch().findLast((entry) => entry.type === "custom" && entry.customType === "herdr-delegate-state");
+		assert.ok(survivingLock?.type === "custom");
+		assert.deepEqual(survivingLock.data, locked);
 		assert.equal(automaticNotices().length, 1);
 		await cleanup();
 		await cleanup();
@@ -94,7 +114,7 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		await session.reload();
 		assert.equal(session.sessionId, manager.getSessionId());
 		await settled();
-		assert.equal(automaticNotices().length, 1, "same-session reload restores deduplication");
+		assert.equal(automaticNotices().length, 2, "reload may remind once in the new instance");
 		await cleanup("force");
 		assert.equal(confirmations.length, 0);
 		const ui = session.extensionRunner.getUIContext();
@@ -119,8 +139,6 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		assert.match(notices.at(-1) ?? "", /Parent activity changed; safety lock retained/);
 		beforeConfirm = undefined;
 		session.clearQueue();
-		const sessionFile = manager.getSessionFile();
-		assert.ok(sessionFile);
 		await rename(sessionFile, `${sessionFile}.saved`);
 		await mkdir(sessionFile);
 		try {
@@ -156,18 +174,18 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		try {
 			await settled();
 			await settled();
-			assert.equal(automaticNotices().length, 2, "failed notice publication retains in-memory deduplication");
+			assert.equal(automaticNotices().length, 3, "notification deduplication does not require writable session storage");
 		} finally {
 			await rm(sessionFile, { recursive: true });
 			await rename(`${sessionFile}.saved`, sessionFile);
 		}
 		await settled();
-		assert.equal(automaticNotices().length, 2, "a later recurrence is visible, and failed notification is retried");
+		assert.equal(automaticNotices().length, 3, "a later recurrence is visible, and failed notification is retried");
 		await session.extensionRunner.emit({ type: "session_shutdown", reason: "reload" });
 		manager.appendCustomEntry("herdr-delegate-state", { ...locked, unsafeWriter: `${failure}; changed failure` });
 		await session.reload();
 		await settled();
-		assert.equal(automaticNotices().length, 3, "changed failure is reported");
+		assert.equal(automaticNotices().length, 4, "changed failure is reported");
 
 		beforeConfirm = () => created.session.reload();
 		await cleanup("acknowledge-startup");
@@ -199,7 +217,7 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 		const foreignCount = automaticNotices().length;
 		await session.reload();
 		await settled();
-		assert.equal(automaticNotices().length, foreignCount);
+		assert.equal(automaticNotices().length, foreignCount + 1, "foreign authority may remind once after reload");
 	} finally {
 		session?.dispose();
 		for (const [key, value] of environment) {
