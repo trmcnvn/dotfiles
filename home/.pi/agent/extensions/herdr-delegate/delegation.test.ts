@@ -104,6 +104,7 @@ test("completes a correlated task and launches the editable role model and think
 	const result = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "implement it" }));
 	assert.equal(result.output, "done:implement it");
 	assert.equal(result.model, "other-provider/new-sol");
+	assert.deepEqual(result.cleanup, { status: "retained", reason: "builder_followups" });
 	const calls = (await fixture.state()).calls;
 	const start = calls.find((call) => call[0] === "agent" && call[1] === "start");
 	assert.ok(start);
@@ -139,15 +140,15 @@ test("reuses only the successful builder and correlates a fresh follow-up task",
 	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "tab" && call[1] === "create").length, 1);
 });
 
-test("a stale task result leaves a diagnosable unresolved-writer lock", async () => {
+test("a stale task result stops and closes the identity-matching worker without resubmission", async () => {
 	const fixture = await makeFixture("stale");
 	const result = await fixture.runtime.delegate({ role: "builder", task: "task" });
 	assert.equal(result.ok, false);
 	if (!result.ok) {
-		assert.equal(result.error.code, "worker_unresolved");
-		assert.equal(result.error.worker, "id-1");
-		assert.match(result.error.message, /Worker: id-1/);
+		assert.equal(result.error.code, "task_cancelled");
+		assert.match(result.error.message, /matching owned pane closed/);
 	}
+	assert.deepEqual(fixture.runtime.getState().workers, []);
 });
 
 test("reads activity only after fake-CLI ownership confirmation", async () => {
@@ -163,13 +164,15 @@ test("reads activity only after fake-CLI ownership confirmation", async () => {
 });
 
 for (const scenario of ["timeout", "stalled", "blocked"] as const) {
-	test(`${scenario} aborts and settles the owned worker before returning`, async () => {
+	test(`${scenario} stops and closes the identity-matching worker before returning`, async () => {
 		const fixture = await makeFixture(scenario);
 		const result = await fixture.runtime.delegate({ role: "builder", task: "task", timeoutMs: 5_000 });
 		assert.equal(result.ok, false);
 		const calls = (await fixture.state()).calls;
 		assert.ok(calls.some((call) => call[0] === "agent" && call[1] === "send-keys"));
-		if (!result.ok) assert.equal(result.error.code, "worker_unresolved");
+		assert.ok(calls.some((call) => call[0] === "pane" && call[1] === "close"));
+		if (!result.ok) assert.equal(result.error.code, "task_cancelled");
+		assert.deepEqual(fixture.runtime.getState().workers, []);
 	});
 }
 
@@ -181,11 +184,12 @@ test("an ambiguous blocked startup pane is left inspectable rather than closed",
 	assert.equal(calls.some((call) => call[0] === "pane" && call[1] === "close"), false);
 });
 
-test("malformed successful prompt response is treated as uncertain delivery", async () => {
+test("malformed successful prompt response closes only the confirmed native worker", async () => {
 	const fixture = await makeFixture("malformed");
 	const result = await fixture.runtime.delegate({ role: "builder", task: "task" });
 	assert.equal(result.ok, false);
-	if (!result.ok) assert.equal(result.error.code, "worker_unresolved");
+	if (!result.ok) assert.equal(result.error.code, "task_cancelled");
+	assert.deepEqual(fixture.runtime.getState().workers, []);
 });
 
 test("a child-reported failure is returned as a typed task failure", async () => {
@@ -201,20 +205,16 @@ test("empty child error metadata preserves the task-failed status fallback", asy
 	assert.equal(result.ok, false);
 	if (!result.ok) {
 		assert.equal(result.error.code, "task_failed");
-		assert.equal(result.error.message, "task_failed: failed");
+		assert.equal(result.error.message, "task_failed: failed. Cleanup: matching owned pane closed.");
 	}
 });
 
-test("an unsettled timed-out writer locks all later delegation", async () => {
+test("a timed-out worker is closed even when Escape does not make it idle", async () => {
 	const fixture = await makeFixture("timeout-stuck");
 	const first = await fixture.runtime.delegate({ role: "builder", task: "task", timeoutMs: 5_000 });
 	assert.equal(first.ok, false);
-	if (!first.ok) assert.equal(first.error.code, "worker_unresolved");
-	const callCount = (await fixture.state()).calls.length;
-	const second = await fixture.runtime.delegate({ role: "reviewer", task: "do not start" });
-	assert.equal(second.ok, false);
-	if (!second.ok) assert.equal(second.error.code, "worker_unresolved");
-	assert.equal((await fixture.state()).calls.length, callCount);
+	if (!first.ok) assert.equal(first.error.code, "task_cancelled");
+	assert.deepEqual(fixture.runtime.getState().workers, []);
 });
 
 test("a rejected prompt call also triggers owned-worker cancellation", async () => {
@@ -276,11 +276,16 @@ test("invalid or unavailable role configuration causes no Herdr mutation", async
 	assert.deepEqual((await fixture.state()).calls, []);
 });
 
-test("reload reconstruction preserves an in-flight pending task lock", async () => {
-	const fixture = await makeFixture("timeout");
-	await fixture.runtime.delegate({ role: "builder", task: "task", timeoutMs: 5_000 });
-	const persisted = fixture.runtime.getState();
-	assert.ok(persisted.pending);
+test("reload reconstruction preserves an explicitly persisted in-flight task lock", async () => {
+	const fixture = await makeFixture();
+	const built = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "task" }));
+	const worker = fixture.runtime.getState().workers[0];
+	assert.ok(worker);
+	const persisted: DelegateRuntimeState = {
+		ownerSessionId: "parent-session",
+		workers: [worker],
+		pending: { taskId: "interrupted-task", worker: built.worker, resultPath: "/tmp/result.json", startedAt: 1 },
+	};
 	const callCount = (await fixture.state()).calls.length;
 	const restored = new DelegateRuntime({
 		runHerdr: fixture.processRun, validateRole: async () => ({ ok: true, value: undefined }), callerWorkspaceId: "workspace",
@@ -454,8 +459,9 @@ test("cleanup publishes each confirmed worker deletion before continuing", async
 	const result = await runtime.cleanupOwned();
 	assert.equal(result.ok, false);
 	if (!result.ok) assert.equal(result.error.code, "cleanup_failed");
-	assert.deepEqual(snapshots, [["two"]]);
+	assert.deepEqual(snapshots, [["two"], ["two"]]);
 	assert.deepEqual(runtime.getState().workers.map((worker) => worker.id), ["two"]);
+	assert.equal(runtime.getState().unsafeWriterWorker, "two");
 });
 
 test("partial cleanup persists reloadable authority after closing the unresolved worker", async () => {
@@ -499,8 +505,8 @@ test("partial cleanup persists reloadable authority after closing the unresolved
 	const restoredState = requireSuccess(parsed);
 	assert.deepEqual(restoredState.workers.map((worker) => worker.id), ["two"]);
 	assert.equal(restoredState.pending, undefined);
-	assert.equal(restoredState.unsafeWriter, undefined);
-	assert.equal(restoredState.unsafeWriterWorker, undefined);
+	assert.match(restoredState.unsafeWriter ?? "", /cleanup could not safely close/);
+	assert.equal(restoredState.unsafeWriterWorker, "two");
 	const restored = new DelegateRuntime({
 		runHerdr: async (args) => args[0] === "agent" ? identity(workerTwo) : commandResult("{}"),
 		validateRole: async () => ({ ok: true, value: undefined }), callerWorkspaceId: "workspace",
@@ -537,7 +543,7 @@ test("changed role configuration rejects a builder follow-up before prompt", asy
 	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "agent" && call[1] === "prompt").length, promptCount);
 });
 
-test("killed prompt transport remains unresolved even when exit code is zero", async () => {
+test("killed prompt transport closes the confirmed worker even when exit code is zero", async () => {
 	const fixture = await makeFixture();
 	const run: RunHerdr = async (args, options) => args[0] === "agent" && args[1] === "prompt"
 		? { code: 0, stdout: "", stderr: "", killed: true }
@@ -549,7 +555,8 @@ test("killed prompt transport remains unresolved even when exit code is zero", a
 	});
 	const result = await runtime.delegate({ role: "builder", task: "task" });
 	assert.equal(result.ok, false);
-	if (!result.ok) assert.equal(result.error.code, "worker_unresolved");
+	if (!result.ok) assert.equal(result.error.code, "task_cancelled");
+	assert.deepEqual(runtime.getState().workers, []);
 });
 
 test("a forked parent session neither adopts nor cleans copied worker authority", async () => {
