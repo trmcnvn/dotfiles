@@ -6,14 +6,25 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import test, { afterEach } from "node:test";
 
+import { Type } from "typebox";
+import { Value } from "typebox/value";
+
 import {
 	DelegateRuntime,
+	delegateRuntimeStateSchema,
 	loadRoleConfig,
 	parseDelegateRuntimeState,
 	type CommandResult,
-	type DelegateRole,
+	type DelegateRuntimeState,
 	type RunHerdr,
 } from "./delegation.ts";
+
+const processFailureSchema = Type.Object({
+	code: Type.Optional(Type.Number()),
+	stdout: Type.Optional(Type.String()),
+	stderr: Type.Optional(Type.String()),
+});
+const fakeStateSchema = Type.Object({ calls: Type.Array(Type.Array(Type.String())) });
 
 const execFileAsync = promisify(execFile);
 const fakeHerdr = join(import.meta.dirname, "fake-herdr.mjs");
@@ -36,9 +47,12 @@ async function makeFixture(scenario = "success", roleOverrides: Partial<Record<"
 		calls: [], env: {}, scenario, status: "idle", modelProvider: provider, model: modelId,
 		thinking: roleOverrides.thinking ?? "medium",
 	}));
-	const rolePaths = {} as Record<DelegateRole, string>;
+	const rolePaths = {
+		builder: join(root, "builder.md"),
+		reviewer: join(root, "reviewer.md"),
+	};
 	for (const role of ["builder", "reviewer"] as const) {
-		const path = join(root, `${role}.md`);
+		const path = rolePaths[role];
 		const roleModel = role === "builder" ? model : "test-provider/astra";
 		const thinking = role === "builder" ? roleOverrides.thinking ?? "medium" : "xhigh";
 		const tools = role === "builder" ? roleOverrides.tools ?? "read, bash, edit, write" : "read, bash";
@@ -50,8 +64,10 @@ async function makeFixture(scenario = "success", roleOverrides: Partial<Record<"
 			const result = await execFileAsync(process.execPath, [fakeHerdr, statePath, ...args]);
 			return { code: 0, stdout: result.stdout, stderr: result.stderr, killed: false };
 		} catch (cause) {
-			const failure = cause as { readonly code?: number; readonly stdout?: string; readonly stderr?: string };
-			return { code: typeof failure.code === "number" ? failure.code : 1, stdout: failure.stdout ?? "", stderr: failure.stderr ?? "", killed: false };
+			if (!Value.Check(processFailureSchema, cause)) {
+				return { code: 1, stdout: "", stderr: "", killed: false };
+			}
+			return { code: cause.code ?? 1, stdout: cause.stdout ?? "", stderr: cause.stderr ?? "", killed: false };
 		}
 	};
 	let sequence = 0;
@@ -66,7 +82,11 @@ async function makeFixture(scenario = "success", roleOverrides: Partial<Record<"
 		rolePaths,
 		id: () => `id-${++sequence}`,
 	});
-	const state = async () => JSON.parse(await readFile(statePath, "utf8")) as { calls: string[][] };
+	const state = async () => {
+		const value: unknown = JSON.parse(await readFile(statePath, "utf8"));
+		assert.ok(Value.Check(fakeStateSchema, value));
+		return value;
+	};
 	return { root, runtime, rolePaths, processRun, state };
 }
 
@@ -263,15 +283,13 @@ test("reload reconstruction preserves an in-flight pending task lock", async () 
 	assert.equal((await fixture.state()).calls.length, callCount);
 });
 
-test("malformed present optional authority fields are rejected", () => {
+test("serialized authority contract rejects malformed present optional fields", () => {
 	for (const value of [
 		{ ownerSessionId: "parent", workers: [], pending: "bad" },
 		{ ownerSessionId: "parent", workers: [], pending: null },
 		{ ownerSessionId: "parent", workers: [], unsafeWriter: 123 },
 	]) {
-		const result = parseDelegateRuntimeState(value);
-		assert.equal(result.ok, false);
-		if (!result.ok) assert.equal(result.error.code, "state_invalid");
+		assert.equal(Value.Check(delegateRuntimeStateSchema, value), false);
 	}
 });
 
@@ -439,7 +457,7 @@ test("partial cleanup persists reloadable authority after closing the unresolved
 	const workerTwo = workers[1];
 	assert.ok(workerOne);
 	assert.ok(workerTwo);
-	let persisted: unknown;
+	let persisted: DelegateRuntimeState = { ownerSessionId: "parent-session", workers: [] };
 	const identity = (worker: (typeof workers)[number]) => commandResult(JSON.stringify({ result: { agent: {
 		name: worker.agentName, pane_id: worker.paneId, agent_status: "idle", agent_session: { value: worker.session },
 	} } }));
