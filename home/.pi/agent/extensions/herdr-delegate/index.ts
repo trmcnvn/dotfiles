@@ -117,7 +117,7 @@ export function registerChildReporter(pi: ExtensionAPI, resultRoot: string, work
 		active = envelope;
 		return { action: "transform", text: `Delegated task:\n\n${task}` };
 	});
-	pi.on("before_agent_start", (event) => ({ systemPrompt: removeOrchestrationCatalog(event) }));
+	pi.on("before_agent_start", (event) => ({ systemPrompt: `${removeOrchestrationCatalog(event)}\n\nDo not delegate, launch other agents, or invoke the orchestration skill. The parent owns intent, scope, and acceptance. Inspect current files before continuing existing work; never blindly repeat an uncertain task. Report changes, checks, risks, discoveries, and deviations that could change the parent's plan.` }));
 
 	const report = async (ctx: ExtensionContext, shutdownError?: string): Promise<void> => {
 		const task = active;
@@ -173,18 +173,18 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 
 	const agentDir = getAgentDir();
 	const rolePaths = {
-		builder: join(agentDir, "agents", "builder.md"),
+		builder: join(agentDir, "agents", "builder.md"), // Legacy persisted fingerprints only; never a catalog default.
+		worker: join(agentDir, "agents", "worker.md"),
+		scout: join(agentDir, "agents", "scout.md"),
 		reviewer: join(agentDir, "agents", "reviewer.md"),
 	} as const;
-	const [builder, reviewer] = await Promise.all([
-		loadRoleConfig(rolePaths.builder, "builder"),
-		loadRoleConfig(rolePaths.reviewer, "reviewer"),
-	]);
-	const roleCatalog = [builder, reviewer]
+	const roles = ["worker", "scout", "reviewer"] as const;
+	const configurations = await Promise.all(roles.map((role) => loadRoleConfig(rolePaths[role], role)));
+	const roleCatalog = configurations
 		.map((result, index) =>
 			result.ok
 				? `${result.value.name} — ${result.value.description}`
-				: `${index === 0 ? "builder" : "reviewer"} — invalid configuration`,
+				: `${roles[index]} — invalid configuration`,
 		)
 		.join("; ");
 	const resultRoot = join(agentDir, "herdr-delegate-runs");
@@ -284,21 +284,21 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 	});
 	pi.registerTool({
 		name: "delegate", label: "Delegate",
-		description: `Delegate one blocking, sequential task to a visible Pi worker in a background Herdr tab. Roles: ${roleCatalog}. Start with role + task; use worker + task only for fixes in a successful builder. Reviewers are always fresh.`,
-		promptSnippet: "Delegate implementation or fresh review in a visible Herdr background tab",
-		promptGuidelines: ["Use delegate sequentially: one builder writes, a fresh reviewer inspects actual changes, and only the returned builder worker receives necessary fixes."],
-		parameters: Type.Object({ task: Type.String(), role: Type.Optional(StringEnum(["builder", "reviewer"] as const)), worker: Type.Optional(Type.String()), timeoutMs: Type.Optional(Type.Integer({ minimum: 5_000, maximum: 3_600_000 })) }),
+		description: `Delegate one blocking, sequential task to a visible Pi worker in a background Herdr tab. Roles: ${roleCatalog}. Start with role + task; worker + task reuses an implementation writer. Scout and Reviewer are always fresh. To replace a writer, pass replace: true, worker, role: worker, and a complete parent handoff in task; old owned pane must close before launch. builder is a compatibility alias for new worker tasks.`,
+		promptSnippet: "Delegate scoped implementation, research, or independent review in Herdr",
+		promptGuidelines: ["Use delegate for scoped work, scout for material uncertainty, and independent reviewer for consequential changes; tiny clear reversible tasks can be direct. Give outcome, boundaries, acceptance evidence, and escalation conditions, not an implementation recipe. One writer per workflow; prefer that worker for fixes. Worker finished is execution evidence, not parent acceptance."],
+		parameters: Type.Object({ task: Type.String(), role: Type.Optional(StringEnum(["worker", "scout", "reviewer", "builder"] as const)), worker: Type.Optional(Type.String()), replace: Type.Optional(Type.Boolean()), timeoutMs: Type.Optional(Type.Integer({ minimum: 5_000, maximum: 3_600_000 })) }),
 		async execute(_id, params, signal, onUpdate) {
 			if (!isInsideHerdr()) throw new Error("Delegation requires HERDR_ENV=1 and caller workspace identity.");
 			if (!runtime) throw new Error("Delegation runtime is not initialized.");
-			onUpdate?.({ content: [{ type: "text", text: params.worker ? "Sending builder follow-up…" : `Starting ${params.role ?? "worker"}…` }], details: undefined });
-			const delegated = await runtime.delegate(params, signal);
+			onUpdate?.({ content: [{ type: "text", text: params.replace ? "Replacing owned worker after preserving handoff…" : params.worker ? "Sending worker follow-up…" : `Starting ${params.role ?? "worker"}…` }], details: undefined });
+			const delegated = await runtime.delegate(params.role === "builder" ? { ...params, role: "worker" } : params, signal);
 			if (!delegated.ok) throw delegated.error;
 			const result = delegated.value;
 			const cleanup = result.cleanup.status === "closed" ? "matching owned pane closed"
-				: result.cleanup.status === "retained" ? "builder retained until the parent task settles"
+				: result.cleanup.status === "retained" ? "worker retained until the parent task settles"
 				: `failed (${result.cleanup.error}); recovery lock retained`;
-			return { content: [{ type: "text", text: [`${result.role} completed task ${result.taskId}.`, `Worker: ${result.worker}`, `Agent: ${result.agentName}`, `Pane: ${result.paneId}`, `Session: ${result.session}`, `Model: ${result.model} (${result.thinking})`, `Result artifact: ${result.resultPath}`, `Cleanup: ${cleanup}`, result.persistenceError ?? "", "", result.output].join("\n") }], details: result };
+			return { content: [{ type: "text", text: [`Worker finished (${result.role}) task ${result.taskId}; parent acceptance remains separate.`, `Worker: ${result.worker}`, `Agent: ${result.agentName}`, `Pane: ${result.paneId}`, `Session: ${result.session}`, `Model: ${result.model} (${result.thinking})`, `Result artifact: ${result.resultPath}`, `Cleanup: ${cleanup}`, result.replacement ? `Replaced worker: ${result.replacement.worker}; handoff: ${result.replacement.handoffPath}` : "", result.persistenceError ?? "", "", result.output].join("\n") }], details: result };
 		},
 	});
 	pi.registerTool({
