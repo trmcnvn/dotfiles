@@ -1,6 +1,7 @@
 ---
 name: orchestrate
-description: Coordinate scoped implementation, read-only research, and independent review through Worker, Scout, and Reviewer in temporary sibling Herdr panes in the parent's tab. Use for explicit /skill:orchestrate tasks and ordinary requests that benefit from delegation.
+description: Coordinate scoped implementation, read-only research, and independent review through Worker, Scout, and Reviewer in temporary sibling Herdr panes in the parent's tab. Use only when explicitly invoked by the user with /skill:orchestrate.
+disable-model-invocation: true
 ---
 
 # Orchestrate
