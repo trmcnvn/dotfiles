@@ -63,7 +63,7 @@ test("real SDK tool validation covers canonical roles, builder alias, replacemen
 		await writeFile(join(bin, "herdr"), `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dirname, "fake-herdr.mjs")}" "${statePath}" "$@"\n`, { mode: 0o755 });
 		process.env.PATH = `${bin}:${process.env.PATH ?? ""}`;
 		const modelRuntime = await ModelRuntime.create({ allowModelNetwork: false });
-		const model = modelRuntime.getModels().find((candidate) => candidate.provider === "anthropic");
+		const model = modelRuntime.getModels().find((candidate) => candidate.provider === "anthropic" && getSupportedThinkingLevels(candidate).includes("off"));
 		assert.ok(model);
 		await modelRuntime.setRuntimeApiKey(model.provider, "fixture-not-a-real-key");
 		for (const role of ["worker", "scout", "reviewer"] as const) {
