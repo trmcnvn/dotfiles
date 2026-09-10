@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, parseFrontmatter, truncateHead } from "@earendil-works/pi-coding-agent";
 
+import { AgentActivityError, readSessionActivity, type AgentActivity, type ReadAgentActivityInput } from "./activity.ts";
+
 /** Fixed role names supported by the v1 delegation pipeline. */
 export type DelegateRole = "builder" | "reviewer";
 
@@ -40,13 +42,17 @@ export class DelegationError extends Error {
 	/** Stable machine-readable failure category. */
 	readonly code: string;
 
+	/** Opaque owned worker handle available for diagnosis, when one was pinned. */
+	readonly worker: string | undefined;
+
 	/** Original boundary failure, when available. */
 	override readonly cause: unknown;
 
 	/** Creates a safely classified delegation failure. */
-	constructor(code: string, message: string, cause?: unknown) {
-		super(`${code}: ${message}`);
+	constructor(code: string, message: string, cause?: unknown, worker?: string) {
+		super(`${code}: ${message}${worker ? ` Worker: ${worker}.` : ""}`);
 		this.code = code;
+		this.worker = worker;
 		this.cause = cause;
 	}
 }
@@ -86,6 +92,8 @@ type PersistedWorker = {
 	readonly role: DelegateRole;
 	readonly agentName: string;
 	readonly paneId: string;
+	readonly tabId?: string;
+	readonly workspaceId?: string;
 	readonly session: string;
 	readonly roleFingerprint: string;
 	readonly promptPath: string;
@@ -125,7 +133,7 @@ type RoleFrontmatter = { name?: unknown; description?: unknown; model?: unknown;
 type RuntimeOptions = {
 	readonly runHerdr: RunHerdr;
 	readonly validateRole: (role: RoleConfig, signal?: AbortSignal) => Promise<DelegationResult<void>>;
-	readonly callerPaneId: string;
+	readonly callerWorkspaceId: string;
 	readonly parentSessionId: string;
 	readonly cwd: string;
 	readonly resultRoot: string;
@@ -147,8 +155,8 @@ function ok<T>(value: T): DelegationResult<T> {
 	return { ok: true, value };
 }
 
-function err<T>(code: string, message: string, cause?: unknown): DelegationResult<T> {
-	return { ok: false, error: new DelegationError(code, message, cause) };
+function err<T>(code: string, message: string, cause?: unknown, worker?: string): DelegationResult<T> {
+	return { ok: false, error: new DelegationError(code, message, cause, worker) };
 }
 function asRecord(value: unknown): Record<string, unknown> | undefined {
 	if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
@@ -235,11 +243,16 @@ export function parseDelegateRuntimeState(value: unknown): DelegationResult<Dele
 		const role = stringField(raw, "role");
 		const agentName = stringField(raw, "agentName");
 		const paneId = stringField(raw, "paneId");
+		const tabIdPresent = Object.hasOwn(asRecord(raw) ?? {}, "tabId");
+		const workspaceIdPresent = Object.hasOwn(asRecord(raw) ?? {}, "workspaceId");
+		const tabId = stringField(raw, "tabId");
+		const workspaceId = stringField(raw, "workspaceId");
 		const session = stringField(raw, "session");
 		const roleFingerprintValue = stringField(raw, "roleFingerprint");
 		const promptPath = stringField(raw, "promptPath");
-		if (!id || (role !== "builder" && role !== "reviewer") || !agentName || !paneId || !session || !roleFingerprintValue || !promptPath) return err("state_invalid", "worker fields invalid");
-		workers.push({ id, role, agentName, paneId, session, roleFingerprint: roleFingerprintValue, promptPath });
+		if (!id || (role !== "builder" && role !== "reviewer") || !agentName || !paneId || !session || !roleFingerprintValue || !promptPath ||
+			(tabIdPresent && !tabId) || (workspaceIdPresent && !workspaceId)) return err("state_invalid", "worker fields invalid");
+		workers.push({ id, role, agentName, paneId, ...(tabId ? { tabId } : {}), ...(workspaceId ? { workspaceId } : {}), session, roleFingerprint: roleFingerprintValue, promptPath });
 	}
 	const pendingPresent = Object.hasOwn(record, "pending");
 	const rawPending = objectField(record, "pending");
@@ -370,6 +383,25 @@ export class DelegateRuntime {
 		}
 	}
 
+	/** Reads bounded JSONL activity only after confirming a pinned native worker identity. */
+	async readAgentActivity(input: ReadAgentActivityInput): Promise<DelegationResult<AgentActivity>> {
+		if (this.#foreignAuthority) return err("foreign_authority", "copied session state cannot inspect another parent session's workers");
+		const worker = this.#workers.get(input.worker);
+		if (!worker) return err("worker_unknown", input.worker);
+		const owned = await this.#owned(worker);
+		if (!owned.ok) return owned;
+		try {
+			return ok(await readSessionActivity(worker.id, worker.session, input.cursor));
+		} catch (cause) {
+			return err(
+				cause instanceof AgentActivityError ? cause.code : "activity_read_failed",
+				cause instanceof AgentActivityError ? cause.message.slice(cause.message.indexOf(":") + 2) : "owned worker activity could not be read",
+				cause,
+				worker.id,
+			);
+		}
+	}
+
 	/** Closes only pinned workers when no delegation call is active. */
 	async cleanupOwned(): Promise<DelegationResult<void>> {
 		if (this.#activeCalls > 0 || this.#cleanupInProgress) {
@@ -400,7 +432,10 @@ export class DelegateRuntime {
 
 	async #delegate(input: DelegateInput, signal?: AbortSignal): Promise<DelegationResult<DelegateResult>> {
 		if (this.#foreignAuthority) return err("foreign_authority", "copied session state cannot adopt another parent session's workers");
-		if (this.#unsafeWriter || this.#pending) return err("worker_unresolved", `${this.#unsafeWriter ?? `pending task ${this.#pending?.taskId}`} Run /delegate-cleanup after inspecting the owned pane.`);
+		if (this.#unsafeWriter || this.#pending) {
+			const worker = this.#pending?.worker;
+			return err("worker_unresolved", `${this.#unsafeWriter ?? `pending task ${this.#pending?.taskId}`} Use read_agent_activity before /delegate-cleanup if diagnosis is needed.`, undefined, worker);
+		}
 		const task = input.task.trim();
 		if (!task || ((input.role === undefined) === (input.worker === undefined))) return err("request_invalid", "provide task and exactly one of role or worker");
 		const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -472,32 +507,36 @@ export class DelegateRuntime {
 		} catch (cause) {
 			return err("role_prompt_write_failed", promptPath, cause);
 		}
-		const layout = await this.#run(
-			["pane", "layout", "--pane", this.#options.callerPaneId],
-			{ ...(signal ? { signal } : {}), timeoutMs: 5_000 },
-		);
-		if (!layout.ok || layout.value.killed || layout.value.code !== 0) {
+		const created = await this.#run(["tab", "create", "--workspace", this.#options.callerWorkspaceId, "--cwd", this.#options.cwd,
+			"--label", `delegate ${role.name}`, "--env", "PI_HERDR_DELEGATE_CHILD=1", "--env", `PI_HERDR_DELEGATE_RESULT_ROOT=${this.#options.resultRoot}`,
+			"--env", `PI_HERDR_DELEGATE_WORKER=${workerId}`, "--no-focus"], { ...(signal ? { signal } : {}), timeoutMs: 10_000 });
+		if (!created.ok || created.value.killed || created.value.code !== 0) {
 			await rm(workerDir, { recursive: true, force: true });
-			return err("pane_layout_failed", layout.ok ? cliFailure(layout.value) : layout.error.message);
+			return err("tab_create_failed", created.ok ? cliFailure(created.value) : created.error.message);
 		}
-		const parsedLayout = parseJson(layout.value.stdout, "pane layout");
-		if (!parsedLayout.ok) return parsedLayout;
-		const panes = objectField(objectField(parsedLayout.value, "result"), "layout")?.panes;
-		if (!Array.isArray(panes)) return err("invalid_herdr_response", "layout panes missing");
-		const rect = objectField(panes.find((pane) => stringField(pane, "pane_id") === this.#options.callerPaneId), "rect");
-		const width = numberField(rect, "width");
-		const height = numberField(rect, "height");
-		if (width === undefined || height === undefined) return err("invalid_herdr_response", "caller geometry missing");
-		const split = await this.#run(["pane", "split", "--pane", this.#options.callerPaneId, "--direction", width >= height * 2 ? "right" : "down", "--cwd", this.#options.cwd,
-			"--env", "PI_HERDR_DELEGATE_CHILD=1", "--env", `PI_HERDR_DELEGATE_RESULT_ROOT=${this.#options.resultRoot}`, "--env", `PI_HERDR_DELEGATE_WORKER=${workerId}`, "--no-focus"], { ...(signal ? { signal } : {}), timeoutMs: 10_000 });
-		if (!split.ok || split.value.killed || split.value.code !== 0) return err("pane_split_failed", split.ok ? cliFailure(split.value) : split.error.message);
-		const splitJson = parseJson(split.value.stdout, "pane split");
-		if (!splitJson.ok) return splitJson;
-		const paneId = stringField(objectField(objectField(splitJson.value, "result"), "pane"), "pane_id");
-		if (!paneId) return err("invalid_herdr_response", "split pane id missing");
-		const start = await this.#run(["agent", "start", agentName, "--kind", "pi", "--pane", paneId, "--timeout", "60000", "--",
+		const createdJson = parseJson(created.value.stdout, "tab create");
+		if (!createdJson.ok) return createdJson;
+		const createdResult = objectField(createdJson.value, "result");
+		const pane = objectField(createdResult, "root_pane");
+		const tab = objectField(createdResult, "tab");
+		const paneId = stringField(pane, "pane_id");
+		const tabId = stringField(tab, "tab_id");
+		const workspaceId = stringField(tab, "workspace_id");
+		if (!paneId || !tabId || workspaceId !== this.#options.callerWorkspaceId || stringField(pane, "tab_id") !== tabId || stringField(pane, "workspace_id") !== workspaceId) {
+			return err("invalid_herdr_response", "created tab identity is missing or mismatched");
+		}
+		const startArgs = ["agent", "start", agentName, "--kind", "pi", "--pane", paneId, "--timeout", "60000", "--",
 			"--model", `${role.provider}/${role.model}`, "--thinking", role.thinking, "--tools", role.tools.join(","), "--name", `delegate ${role.name}`,
-			"--append-system-prompt", promptPath, "--extension", this.#options.reporterPath], { ...(signal ? { signal } : {}), timeoutMs: 65_000 });
+			"--append-system-prompt", promptPath, "--extension", this.#options.reporterPath] as const;
+		let start = await this.#run(startArgs, { ...(signal ? { signal } : {}), timeoutMs: 65_000 });
+		if (start.ok && !start.value.killed && start.value.code !== 0 && cliFailure(start.value).startsWith("agent_pane_busy:")) {
+			const current = await this.#run(["pane", "get", paneId], { timeoutMs: 5_000 });
+			const currentJson = current.ok && !current.value.killed && current.value.code === 0 ? parseJson(current.value.stdout, "pane get") : undefined;
+			const currentPane = currentJson?.ok ? objectField(objectField(currentJson.value, "result"), "pane") : undefined;
+			if (stringField(currentPane, "pane_id") === paneId && stringField(currentPane, "tab_id") === tabId && stringField(currentPane, "workspace_id") === workspaceId && currentPane?.agent === null) {
+				start = await this.#run(startArgs, { ...(signal ? { signal } : {}), timeoutMs: 65_000 });
+			}
+		}
 		if (!start.ok || start.value.killed || start.value.code !== 0) return err("agent_start_failed", `${start.ok ? cliFailure(start.value) : start.error.message}; pane=${paneId}; inspect and close manually if appropriate`);
 		const startJson = parseJson(start.value.stdout, "agent start");
 		if (!startJson.ok) {
@@ -510,7 +549,7 @@ export class DelegateRuntime {
 			this.#lock(`started ${agentName} in ${paneId} without a native session identity; inspect and close manually`);
 			return err("worker_unresolved", this.#unsafeWriter ?? paneId);
 		}
-		const worker: PersistedWorker = { id: workerId, role: role.name, agentName, paneId, session, roleFingerprint: roleFingerprint(role), promptPath };
+		const worker: PersistedWorker = { id: workerId, role: role.name, agentName, paneId, tabId, workspaceId, session, roleFingerprint: roleFingerprint(role), promptPath };
 		this.#workers.set(worker.id, worker);
 		this.#publish();
 		return ok(worker);
@@ -525,7 +564,7 @@ export class DelegateRuntime {
 		const owned = await this.#owned(worker);
 		if (owned.ok) await this.#run(["agent", "send-keys", worker.agentName, "esc"], { timeoutMs: 5_000 });
 		this.#lock(`${worker.agentName} task ${pending.taskId} has uncertain delivery (${reason}); prompt was not resubmitted`);
-		return err("worker_unresolved", `${this.#unsafeWriter}. Inspect ${worker.paneId}, then run /delegate-cleanup to close the pinned session.`);
+		return err("worker_unresolved", `${this.#unsafeWriter}. Use read_agent_activity for diagnosis, then run /delegate-cleanup to close the pinned session.`, undefined, worker.id);
 	}
 
 	#finishTerminal(worker: PersistedWorker, role: RoleConfig, pending: PendingTask, child: ChildResult): DelegationResult<DelegateResult> {
