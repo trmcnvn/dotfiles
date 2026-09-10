@@ -68,7 +68,7 @@ test("entrypoint guards prevent out-of-Herdr cleanup and reject unsupported xhig
 				id: "gpt-6-astra",
 				provider: "openai-codex",
 				api: "openai-codex-responses",
-				reasoning: true,
+				reasoning: false,
 				input: ["text"],
 				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 				contextWindow: 1,
