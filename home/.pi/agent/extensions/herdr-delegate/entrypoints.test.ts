@@ -165,6 +165,8 @@ exit 99
 		const latestState = sessionManager.getBranch().at(-1);
 		assert.equal(latestState?.type, "custom");
 		if (latestState?.type === "custom") assert.deepEqual(latestState.data, { ownerSessionId: sessionManager.getSessionId(), workers: [] });
+		await session.extensionRunner.emit({ type: "agent_settled" });
+		assert.equal((await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length, 2, "reloaded runtime must not retain stale closed authority");
 
 		const delegate = session.extensionRunner.getToolDefinition("delegate");
 		assert.ok(delegate);
