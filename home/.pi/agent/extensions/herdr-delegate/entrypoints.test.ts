@@ -120,7 +120,7 @@ exit 99
 		tools: ["read", "bash", "edit", "write"],
 	});
 	const extensionErrors: string[] = [];
-	await session.bindExtensions({ mode: "print", onError: (error) => { extensionErrors.push(error.message); } });
+	await session.bindExtensions({ mode: "print", onError: (error) => { extensionErrors.push(error.error); } });
 	let corruptSession: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
 	try {
 		const notifications: string[] = [];
