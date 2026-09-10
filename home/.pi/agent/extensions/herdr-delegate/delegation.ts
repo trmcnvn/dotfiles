@@ -328,21 +328,25 @@ function cliFailure(result: CommandResult): string {
 	if (result.killed) return "command was killed before transport completion";
 	const text = result.stderr.trim() || result.stdout.trim();
 	try {
-		const error = objectField(JSON.parse(text) as unknown, "error");
-		return `${stringField(error, "code") ?? "herdr_error"}: ${stringField(error, "message") ?? text}`;
+		const value: unknown = JSON.parse(text);
+		return Value.Check(herdrFailureSchema, value)
+			? `${value.error.code}: ${value.error.message}`
+			: text || `exit ${result.code}`;
 	} catch {
 		return text || `exit ${result.code}`;
 	}
 }
-async function readResult(path: string, deadline: number): Promise<DelegationResult<unknown>> {
+async function readResult(path: string, deadline: number): Promise<DelegationResult<object>> {
 	let cause: unknown;
 	while (Date.now() <= deadline) {
 		try {
-			return ok(JSON.parse(await readFile(path, "utf8")) as unknown);
+			const value: unknown = JSON.parse(await readFile(path, "utf8"));
+			if (Value.Check(Type.Object({}, { additionalProperties: true }), value)) return ok(value);
+			cause = new Error("result artifact is not an object");
 		} catch (error) {
 			cause = error;
-			await new Promise((resolve) => setTimeout(resolve, 25));
 		}
+		await new Promise((resolve) => setTimeout(resolve, 25));
 	}
 	return err("result_missing", path, cause);
 }
