@@ -272,7 +272,6 @@ for (const emptyField of ["pane", "tab", "workspace"] as const) {
 					pane: { pane_id: emptyField === "pane" ? "" : "pane", tab_id: emptyField === "tab" ? "" : "caller-tab", workspace_id: emptyField === "workspace" ? "" : "workspace" },
 				} }));
 				return fixture.processRun(args);
-
 			},
 		});
 		const result = await runtime.delegate({ role: "worker", task: "must not be delivered" });
@@ -340,6 +339,58 @@ test("completes a correlated task and launches the editable role model and think
 	assert.deepEqual(fixture.runtime.getState().workers.map((worker) => worker.tabId), ["caller-tab"]);
 	assert.ok(create.includes("--no-focus"));
 });
+
+test("narrow caller panes split down without creating or closing tabs", async () => {
+	const fixture = await makeFixture("narrow");
+	requireSuccess(await fixture.runtime.delegate({ role: "scout", task: "research" }));
+	const calls = (await fixture.state()).calls;
+	assert.deepEqual(calls.find((call) => call[1] === "split")?.slice(0, 7), ["pane", "split", "caller-pane", "--direction", "down", "--cwd", fixture.root]);
+	assert.equal(calls.some((call) => call[0] === "tab"), false);
+	assert.deepEqual(calls.filter((call) => call[1] === "close"), [["pane", "close", "worker-pane"]]);
+});
+
+for (const operation of ["current", "layout"] as const) {
+	for (const failure of ["error", "killed", "malformed"] as const) {
+		test(`${operation} ${failure} stops before any pane creation`, async () => {
+			const fixture = await makeFixture();
+			const calls: string[][] = [];
+			const runtime = new DelegateRuntime({ ...fixture.options, runHerdr: async (args) => {
+				calls.push([...args]);
+				if (args[0] === "pane" && args[1] === operation) {
+					if (failure === "killed") return { ...commandResult(), killed: true };
+					return commandResult("{}", failure === "error" ? 1 : 0, "lookup failed");
+				}
+				return fixture.processRun(args);
+			} });
+			assert.equal((await runtime.delegate({ role: "worker", task: "task" })).ok, false);
+			assert.ok(calls.every((call) => call[0] === "pane" && (call[1] === "current" || call[1] === "layout")));
+			assert.deepEqual(runtime.getState(), { ownerSessionId: "parent-session", workers: [] });
+		});
+	}
+}
+
+for (const mismatch of ["parent-pane", "tab", "workspace"] as const) {
+	test(`split ${mismatch} mismatch never starts or closes a process`, async () => {
+		const fixture = await makeFixture();
+		const calls: string[][] = [];
+		const runtime = new DelegateRuntime({ ...fixture.options, runHerdr: async (args) => {
+			calls.push([...args]);
+			if (args[0] === "pane" && args[1] === "split") return commandResult(JSON.stringify({ result: { pane: {
+				pane_id: mismatch === "parent-pane" ? "caller-pane" : "new-pane",
+				tab_id: mismatch === "tab" ? "other-tab" : "caller-tab",
+				workspace_id: mismatch === "workspace" ? "other-workspace" : "workspace",
+			} } }));
+			return fixture.processRun(args);
+		} });
+		const result = await runtime.delegate({ role: "worker", task: "must not start" });
+		assert.equal(result.ok, false);
+		if (!result.ok) assert.equal(result.error.code, "manual_recovery_required");
+		assert.deepEqual(calls.map((call) => call.slice(0, 2)), [["pane", "current"], ["pane", "layout"], ["pane", "split"]]);
+		assert.match(requireSuccess(runtime.getStartupRecovery()), /split pane identity mismatched caller authority/);
+		assert.equal((await runtime.cleanupOwned()).ok, false);
+		assert.equal(calls.length, 3);
+	});
+}
 
 for (const role of ["worker", "scout", "reviewer"] as const) {
 	test(`${role} stores sessions privately outside normal Pi history`, async () => {
