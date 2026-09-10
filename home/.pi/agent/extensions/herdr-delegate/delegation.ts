@@ -133,12 +133,19 @@ type PersistedWorkerDraft = {
 	promptPath: string;
 };
 
+const startupResourceSchema = Type.Object({
+	worker: Type.String({ minLength: 1 }), agentName: Type.String({ minLength: 1 }),
+	paneId: Type.String({ minLength: 1 }), tabId: Type.String({ minLength: 1 }), workspaceId: Type.String({ minLength: 1 }),
+});
+type StartupResource = Static<typeof startupResourceSchema>;
+
 type DelegateRuntimeStateDraft = {
 	ownerSessionId: string;
 	workers: readonly PersistedWorker[];
 	pending?: PendingTask;
 	unsafeWriter?: string;
 	unsafeWriterWorker?: string;
+	startupResource?: StartupResource;
 	persistenceError?: string;
 };
 
@@ -149,6 +156,8 @@ export type DelegateRuntimeState = {
 	readonly pending?: PendingTask;
 	readonly unsafeWriter?: string;
 	readonly unsafeWriterWorker?: string;
+	/** Diagnostic startup provenance only; never native ownership or deletion authority. */
+	readonly startupResource?: StartupResource;
 	/** Publication recovery is distinct from an unpinned, potentially live startup resource. */
 	readonly persistenceError?: string;
 };
@@ -208,6 +217,7 @@ type PersistedStateRepresentation = {
 	readonly unsafeWriter?: string | number | null;
 	readonly unsafeWriterWorker?: string | number | null;
 	readonly persistenceError?: string | null;
+	readonly startupResource?: StartupResource;
 };
 /** Serialized custom-entry contract checked before runtime-state reconstruction. */
 export const delegateRuntimeStateSchema = Type.Object({
@@ -217,6 +227,7 @@ export const delegateRuntimeStateSchema = Type.Object({
 	unsafeWriter: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
 	unsafeWriterWorker: Type.Optional(Type.Union([Type.String(), Type.Number(), Type.Null()])),
 	persistenceError: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+	startupResource: Type.Optional(startupResourceSchema),
 });
 
 const childResultSchema = Type.Object({
@@ -378,6 +389,12 @@ export function parseDelegateRuntimeState(
 	if (unsafeWriter) state.unsafeWriter = unsafeWriter;
 	if (unsafeWriterWorker) state.unsafeWriterWorker = unsafeWriterWorker;
 	if (persistenceError) state.persistenceError = persistenceError;
+	if (Object.hasOwn(value, "startupResource")) {
+		if (!Value.Check(startupResourceSchema, value.startupResource) || !unsafeWriter || unsafeWriterWorker || pending) {
+			return err("state_invalid", "startupResource requires unpinned startup authority without a pending task");
+		}
+		state.startupResource = value.startupResource;
+	}
 	return ok(state);
 }
 
@@ -467,6 +484,7 @@ export class DelegateRuntime {
 	#pending: PendingTask | undefined;
 	#unsafeWriter: string | undefined;
 	#unsafeWriterWorker: string | undefined;
+	#startupResource: StartupResource | undefined;
 
 	/** Creates a runtime from current or persisted parent-session authority. */
 	constructor(options: RuntimeOptions) {
@@ -477,6 +495,7 @@ export class DelegateRuntime {
 		this.#unrecoverableAuthority = options.initialStateError !== undefined;
 		if (inherited?.persistenceError) this.#persistenceError = new DelegationError("state_persist_failed", "restored delegation authority requires persistence recovery", inherited.persistenceError);
 		for (const worker of options.initialState?.workers ?? []) this.#workers.set(worker.id, worker);
+		this.#startupResource = options.initialState?.startupResource;
 		this.#pending = options.initialState?.pending;
 		this.#unsafeWriter = options.initialStateError ?? options.initialState?.unsafeWriter ??
 			(options.initialState?.pending ? `pending task ${options.initialState.pending.taskId} requires owned-worker cleanup` : undefined);
@@ -490,8 +509,43 @@ export class DelegateRuntime {
 		if (this.#pending) state.pending = this.#pending;
 		if (this.#unsafeWriter) state.unsafeWriter = this.#unsafeWriter;
 		if (this.#unsafeWriterWorker) state.unsafeWriterWorker = this.#unsafeWriterWorker;
+		if (this.#startupResource && this.#unsafeWriter && !this.#unsafeWriterWorker) state.startupResource = this.#startupResource;
 		if (this.#persistenceError) state.persistenceError = this.#persistenceError.message;
 		return state;
+	}
+
+	/** Shows the exact unpinned startup record eligible for human attestation, not automatic proof. */
+	getStartupRecovery(): DelegationResult<string> {
+		if (this.#suspended) return err("runtime_closed", "delegation runtime is shutting down");
+		if (this.#activeCalls > 0 || this.#cleanupInProgress) return err("cleanup_busy", "delegation or cleanup is active; wait before acknowledging startup recovery");
+		if (this.#unrecoverableAuthority) return err("state_corrupt", "corrupt delegation authority cannot be acknowledged");
+		if (this.#foreignAuthority) return err("foreign_authority", "another parent session's startup authority cannot be acknowledged");
+		if (!this.#unsafeWriter || this.#unsafeWriterWorker || this.#pending || this.#workers.size > 0) {
+			return err("startup_recovery_unavailable", "requires only an unpinned startup lock, with no workers or pending task; use ordinary owned cleanup for pinned workers");
+		}
+		// Legacy text identifies the supported record kind only, never a native identity or deletion target.
+		if (!this.#startupResource && !["agent startup failed after creating pane=", "tab creation outcome is uncertain (", "tab creation succeeded but its root pane identity was malformed;", "created tab identity mismatched caller authority (", "started delegate-"].some((prefix) => this.#unsafeWriter?.startsWith(prefix))) {
+			return err("startup_recovery_unavailable", "this unpinned lock is not a recognized startup record");
+		}
+		return ok(`${this.#unsafeWriter}${this.#startupResource ? `\nStartup provenance (not native ownership): ${JSON.stringify(this.#startupResource)}` : "\nLegacy record: no structured native identity is available."}`);
+	}
+
+	/** Clears only the unchanged displayed startup lock after explicit user attestation; failed publication retains it. */
+	acknowledgeStartupRecovery(displayedRecord: string): DelegationResult<void> {
+		const current = this.getStartupRecovery();
+		if (!current.ok) return current;
+		if (current.value !== displayedRecord) return err("startup_recovery_changed", "startup record changed; inspect and confirm it again");
+		const unsafeWriter = this.#unsafeWriter;
+		const startupResource = this.#startupResource;
+		this.#unsafeWriter = undefined;
+		this.#startupResource = undefined;
+		this.#persistenceError = undefined;
+		const published = this.#publish();
+		if (!published.ok) {
+			this.#unsafeWriter = unsafeWriter;
+			this.#startupResource = startupResource;
+		}
+		return published;
 	}
 
 	/** Runs one serialized task and prevents pre-aborted requests from mutating resources. */
@@ -760,6 +814,7 @@ export class DelegateRuntime {
 			this.#lock(`created tab identity mismatched caller authority (pane=${paneId}, tab=${tabId}, workspace=${workspaceId}); inspect it manually`);
 			return err("manual_recovery_required", `${this.#unsafeWriter}. No automatic closure was attempted`);
 		}
+		this.#startupResource = { worker: workerId, agentName, paneId, tabId, workspaceId };
 		const startArgs = ["agent", "start", agentName, "--kind", "pi", "--pane", paneId, "--timeout", "60000", "--",
 			"--model", `${role.provider}/${role.model}`, "--thinking", role.thinking, "--tools", role.tools.join(","), "--name", `delegate ${role.name}`,
 			"--session-dir", sessionDir, "--append-system-prompt", promptPath, "--extension", this.#options.reporterPath] as const;
@@ -793,6 +848,7 @@ export class DelegateRuntime {
 			return err("manual_recovery_required", this.#unsafeWriter ?? paneId);
 		}
 		const worker: PersistedWorker = { id: workerId, role: role.name, agentName, paneId, tabId, workspaceId, session, roleFingerprint: roleFingerprint(role), promptPath };
+		this.#startupResource = undefined;
 		this.#workers.set(worker.id, worker);
 		const persisted = this.#publish(worker.id);
 		return persisted.ok ? ok(worker) : persisted;
