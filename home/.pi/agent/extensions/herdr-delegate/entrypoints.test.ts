@@ -119,7 +119,8 @@ exit 99
 		sessionManager,
 		tools: ["read", "bash", "edit", "write"],
 	});
-	await session.bindExtensions({ mode: "print" });
+	const extensionErrors: string[] = [];
+	await session.bindExtensions({ mode: "print", onError: (error) => { extensionErrors.push(error.message); } });
 	let corruptSession: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
 	try {
 		const notifications: string[] = [];
@@ -160,6 +161,7 @@ exit 99
 		assert.equal(reloaded, false, "reload must drain the old cleanup before invalidation");
 		await writeFile(gate, "close");
 		await Promise.all([settled, reload]);
+		assert.deepEqual(extensionErrors, []);
 		delete process.env.HERDR_TEST_CLOSE_GATE;
 		assert.match(await readFile(sentinel, "utf8"), /^agent get delegate-builder-worker\npane close worker-pane\n$/);
 		const latestState = sessionManager.getBranch().at(-1);
