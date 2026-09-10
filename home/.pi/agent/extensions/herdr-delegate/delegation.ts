@@ -251,11 +251,18 @@ const paneResponseSchema = Type.Object({
 		agent: Type.Optional(Type.Unknown()),
 	}) }),
 });
-const tabCreatedResponseSchema = Type.Object({
+const paneCreatedResponseSchema = Type.Object({
 	result: Type.Object({
-		root_pane: Type.Object({ pane_id: Type.String({ minLength: 1 }), tab_id: Type.String({ minLength: 1 }), workspace_id: Type.String({ minLength: 1 }) }),
-		tab: Type.Object({ tab_id: Type.String({ minLength: 1 }), workspace_id: Type.String({ minLength: 1 }) }),
+		pane: Type.Object({ pane_id: Type.String({ minLength: 1 }), tab_id: Type.String({ minLength: 1 }), workspace_id: Type.String({ minLength: 1 }) }),
 	}),
+});
+const paneLayoutResponseSchema = Type.Object({
+	result: Type.Object({ layout: Type.Object({
+		tab_id: Type.String(), workspace_id: Type.String(),
+		panes: Type.Array(Type.Object({ pane_id: Type.String(), rect: Type.Object({
+			width: Type.Integer({ minimum: 1 }), height: Type.Integer({ minimum: 1 }),
+		}) })),
+	}) }),
 });
 const herdrFailureSchema = Type.Object({ error: Type.Object({ code: Type.String(), message: Type.String() }) });
 
@@ -527,7 +534,7 @@ export class DelegateRuntime {
 			return err("startup_recovery_unavailable", "requires only an unpinned startup lock, with no workers or pending task; use ordinary owned cleanup for pinned workers");
 		}
 		// Legacy text identifies the supported record kind only, never a native identity or deletion target.
-		const legacyStartup = ["agent startup failed after creating pane=", "tab creation outcome is uncertain (", "tab creation succeeded but its root pane identity was malformed;", "created tab identity mismatched caller authority ("].some((prefix) => this.#unsafeWriter?.startsWith(prefix)) ||
+		const legacyStartup = ["agent startup failed after creating pane=", "tab creation outcome is uncertain (", "tab creation succeeded but its root pane identity was malformed;", "created tab identity mismatched caller authority (", "pane split outcome is uncertain (", "pane split succeeded but its identity was malformed;", "split pane identity mismatched caller authority ("].some((prefix) => this.#unsafeWriter?.startsWith(prefix)) ||
 			(this.#unsafeWriter.startsWith("started delegate-") && ["but native session identity was malformed; inspect and close that pane manually", "without a matching native session identity; inspect and close that pane manually"].some((suffix) => this.#unsafeWriter?.endsWith(suffix)));
 		if (!this.#startupResource && !legacyStartup) {
 			return err("startup_recovery_unavailable", "this unpinned lock is not a recognized startup record");
@@ -774,12 +781,33 @@ export class DelegateRuntime {
 		return ok(handoffPath);
 	}
 
+	async #launchLayout(signal?: AbortSignal): Promise<DelegationResult<{ paneId: string; tabId: string; workspaceId: string; direction: "right" | "down" }>> {
+		const options = signal === undefined ? { timeoutMs: 5_000 } : { signal, timeoutMs: 5_000 };
+		const current = await this.#run(["pane", "current", "--current"], options);
+		if (!current.ok || current.value.killed || current.value.code !== 0) return err("pane_current_failed", current.ok ? cliFailure(current.value) : current.error.message);
+		const currentJson = parseJson(current.value.stdout, "pane current", paneCreatedResponseSchema);
+		if (!currentJson.ok) return currentJson;
+		const caller = currentJson.value.result.pane;
+		if (caller.workspace_id !== this.#options.callerWorkspaceId) return err("caller_mismatch", "caller pane is outside the expected workspace");
+		const layout = await this.#run(["pane", "layout", "--pane", caller.pane_id], options);
+		if (!layout.ok || layout.value.killed || layout.value.code !== 0) return err("pane_layout_failed", layout.ok ? cliFailure(layout.value) : layout.error.message);
+		const layoutJson = parseJson(layout.value.stdout, "pane layout", paneLayoutResponseSchema);
+		if (!layoutJson.ok) return layoutJson;
+		const snapshot = layoutJson.value.result.layout;
+		const pane = snapshot.panes.find((entry) => entry.pane_id === caller.pane_id);
+		if (!pane || snapshot.tab_id !== caller.tab_id || snapshot.workspace_id !== caller.workspace_id) return err("caller_mismatch", "caller pane layout changed; no split attempted");
+		return ok({ paneId: caller.pane_id, tabId: caller.tab_id, workspaceId: caller.workspace_id,
+			direction: pane.rect.width >= pane.rect.height * 3 ? "right" : "down" });
+	}
+
 	async #start(role: RoleConfig, signal?: AbortSignal): Promise<DelegationResult<PersistedWorker>> {
 		if (role.name === "worker") {
 			const existing = [...this.#workers.values()].find((worker) => worker.role === "worker" || worker.role === "builder");
 			if (existing) return err("writer_exists", "reuse the retained writer or explicitly replace it with a parent handoff", undefined, existing.id);
 		}
 		if (signal?.aborted) return err("cancelled", "request aborted before launch");
+		const location = await this.#launchLayout(signal);
+		if (!location.ok) return location;
 		const workerId = this.#options.id?.() ?? randomUUID();
 		if (!SAFE_ID.test(workerId)) return err("worker_id_invalid", workerId);
 		const agentName = `delegate-${role.name}-${workerId.replaceAll("-", "").slice(0, 8)}`;
@@ -794,30 +822,29 @@ export class DelegateRuntime {
 			return err("role_prompt_write_failed", promptPath, cause);
 		}
 		const createOptions = signal === undefined ? { timeoutMs: 10_000 } : { signal, timeoutMs: 10_000 };
-		const created = await this.#run(["tab", "create", "--workspace", this.#options.callerWorkspaceId, "--cwd", this.#options.cwd,
-			"--label", `delegate ${role.name}`, "--env", "PI_HERDR_DELEGATE_CHILD=1", "--env", `PI_HERDR_DELEGATE_RESULT_ROOT=${this.#options.resultRoot}`,
+		const created = await this.#run(["pane", "split", location.value.paneId, "--direction", location.value.direction, "--cwd", this.#options.cwd,
+			"--env", "PI_HERDR_DELEGATE_CHILD=1", "--env", `PI_HERDR_DELEGATE_RESULT_ROOT=${this.#options.resultRoot}`,
 			"--env", `PI_HERDR_DELEGATE_WORKER=${workerId}`, "--no-focus"], createOptions);
 		if (!created.ok || created.value.killed || created.value.code !== 0) {
 			await rm(workerDir, { recursive: true, force: true });
 			const failure = created.ok ? cliFailure(created.value) : created.error.message;
 			if (!created.ok || created.value.killed) {
-				this.#lock(`tab creation outcome is uncertain (${failure}); inspect the caller workspace for a newly created 'delegate ${role.name}' tab`);
+				this.#lock(`pane split outcome is uncertain (${failure}); inspect caller tab=${location.value.tabId} for a newly created helper pane`);
 				return err("manual_recovery_required", `${this.#unsafeWriter}. No automatic closure was attempted`);
 			}
-			return err("tab_create_failed", failure);
+			return err("pane_split_failed", failure);
 		}
-		const createdJson = parseJson(created.value.stdout, "tab create", tabCreatedResponseSchema);
+		const createdJson = parseJson(created.value.stdout, "pane split", paneCreatedResponseSchema);
 		if (!createdJson.ok) {
-			this.#lock(`tab creation succeeded but its root pane identity was malformed; inspect the caller workspace for the new 'delegate ${role.name}' tab`);
+			this.#lock(`pane split succeeded but its identity was malformed; inspect caller tab=${location.value.tabId} for the new helper pane`);
 			return err("manual_recovery_required", `${this.#unsafeWriter}. No automatic closure was attempted`);
 		}
-		const pane = createdJson.value.result.root_pane;
-		const tab = createdJson.value.result.tab;
+		const pane = createdJson.value.result.pane;
 		const paneId = pane.pane_id;
-		const tabId = tab.tab_id;
-		const workspaceId = tab.workspace_id;
-		if (workspaceId !== this.#options.callerWorkspaceId || pane.tab_id !== tabId || pane.workspace_id !== workspaceId) {
-			this.#lock(`created tab identity mismatched caller authority (pane=${paneId}, tab=${tabId}, workspace=${workspaceId}); inspect it manually`);
+		const tabId = pane.tab_id;
+		const workspaceId = pane.workspace_id;
+		if (paneId === location.value.paneId || tabId !== location.value.tabId || workspaceId !== location.value.workspaceId) {
+			this.#lock(`split pane identity mismatched caller authority (pane=${paneId}, tab=${tabId}, workspace=${workspaceId}); inspect it manually`);
 			return err("manual_recovery_required", `${this.#unsafeWriter}. No automatic closure was attempted`);
 		}
 		this.#startupResource = { worker: workerId, agentName, paneId, tabId, workspaceId };
