@@ -48,7 +48,8 @@ test("real Pi input and settled events report only stop as completed", async () 
 		assert.equal(session.extensionRunner.getToolDefinition("read_agent_activity"), undefined);
 		assert.equal((await session.extensionRunner.emitInput("/skill:orchestrate another worker", undefined, "interactive")).action, "handled");
 		const skills = ["orchestrate", "coding-standards"].map((name) => ({
-			name, description: `${name} fixture`, filePath: join(root, name, "SKILL.md"), baseDir: join(root, name), source: "custom",
+			name, description: `${name} fixture`, filePath: join(root, name, "SKILL.md"), baseDir: join(root, name), disableModelInvocation: false,
+			sourceInfo: { path: join(root, name, "SKILL.md"), source: "custom", scope: "temporary" as const, origin: "top-level" as const },
 		}));
 		const prompt = await session.extensionRunner.emitBeforeAgentStart("task", undefined, formatSkillsForPrompt(skills, "read"), { cwd, selectedTools: ["read"], skills });
 		assert.ok(prompt?.systemPrompt);
