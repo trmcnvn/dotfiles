@@ -274,7 +274,7 @@ export function parseDelegateRuntimeState(value: unknown): DelegationResult<Dele
 	const unsafeWriterWorkerPresent = Object.hasOwn(record, "unsafeWriterWorker");
 	const unsafeWriterWorker = stringField(record, "unsafeWriterWorker");
 	if (unsafeWriterPresent && !unsafeWriter) return err("state_invalid", "unsafeWriter must be a non-empty string when present");
-	if (unsafeWriterWorkerPresent && (!unsafeWriterWorker || !workers.some((worker) => worker.id === unsafeWriterWorker))) {
+	if (unsafeWriterWorkerPresent && (!unsafeWriter || !unsafeWriterWorker || !workers.some((worker) => worker.id === unsafeWriterWorker))) {
 		return err("state_invalid", "unsafeWriterWorker must identify an owned worker when present");
 	}
 	return ok({
