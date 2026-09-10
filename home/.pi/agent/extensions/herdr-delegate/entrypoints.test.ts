@@ -15,6 +15,7 @@ test("entrypoint guards prevent out-of-Herdr cleanup and reject unsupported xhig
 	) => Promise<unknown>) | undefined;
 	let execCalls = 0;
 	const notifications: string[] = [];
+	const toolNames: string[] = [];
 
 	const pi = {
 		on(name: string, handler: (...args: readonly unknown[]) => unknown) {
@@ -27,6 +28,7 @@ test("entrypoint guards prevent out-of-Herdr cleanup and reject unsupported xhig
 			name: string;
 			execute: (id: string, params: { task: string; role: "reviewer" }, signal: AbortSignal) => Promise<unknown>;
 		}) {
+			toolNames.push(tool.name);
 			if (tool.name === "delegate") executeDelegate = tool.execute;
 		},
 		exec: async () => {
@@ -39,6 +41,7 @@ test("entrypoint guards prevent out-of-Herdr cleanup and reject unsupported xhig
 	} as unknown as ExtensionAPI;
 
 	await herdrDelegateExtension(pi);
+	assert.deepEqual(toolNames, ["delegate", "read_agent_activity"]);
 	const sessionContext = {
 		cwd: process.cwd(),
 		sessionManager: {
