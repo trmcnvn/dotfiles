@@ -567,7 +567,10 @@ export class DelegateRuntime {
 				}
 			}
 			if (unpinned) failures.unshift(unpinned);
-			if (failures.length) return err(unpinned ? "manual_recovery_required" : "cleanup_failed", failures.join("; "));
+			if (failures.length) {
+				if (this.#persistenceError) failures.push(this.#persistenceError.message);
+				return err(unpinned ? "manual_recovery_required" : "cleanup_failed", failures.join("; "));
+			}
 			if (this.#persistenceError) {
 				this.#persistenceError = undefined;
 				return this.#publish();
@@ -722,7 +725,7 @@ export class DelegateRuntime {
 		}
 		const worker: PersistedWorker = { id: workerId, role: role.name, agentName, paneId, tabId, workspaceId, session, roleFingerprint: roleFingerprint(role), promptPath };
 		this.#workers.set(worker.id, worker);
-		const persisted = this.#publish();
+		const persisted = this.#publish(worker.id);
 		return persisted.ok ? ok(worker) : persisted;
 	}
 
@@ -848,12 +851,12 @@ export class DelegateRuntime {
 		this.#unsafeWriterWorker = worker;
 		this.#publish();
 	}
-	#publish(): DelegationResult<void> {
+	#publish(worker?: string): DelegationResult<void> {
 		try {
 			this.#options.onStateChange?.(this.getState());
 			return ok(undefined);
 		} catch (cause) {
-			this.#persistenceError = new DelegationError("state_persist_failed", "delegation authority could not be persisted; further delegation is locked until cleanup succeeds", cause, this.#pending?.worker);
+			this.#persistenceError = new DelegationError("state_persist_failed", "delegation authority could not be persisted; further delegation is locked until cleanup succeeds", cause, worker ?? this.#pending?.worker ?? this.#unsafeWriterWorker);
 			return { ok: false, error: this.#persistenceError };
 		}
 	}
