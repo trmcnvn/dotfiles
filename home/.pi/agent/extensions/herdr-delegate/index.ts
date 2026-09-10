@@ -316,7 +316,7 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 				const record = current.getStartupRecovery();
 				if (!record.ok) { ctx.ui.notify(record.error.message, "error"); return; }
 				const confirmed = await ctx.ui.confirm("Acknowledge manually verified startup recovery?",
-					`${record.value}\n\nConfirm only if you personally verified that no worker from this startup remains, including any moved or renamed agent, and closed leftover startup resources as appropriate. This records your attestation, not automatic proof. No panes will be closed and no task will be resent.`);
+					`${record.value}\n\nConfirm only if you personally verified that no worker from this startup remains, including any moved or renamed agent, and closed leftover startup resources as appropriate. This relies on your attestation, not automatic proof. No panes will be closed and no task will be resent.`);
 				if (runtime !== current) return;
 				if (!confirmed) { ctx.ui.notify("Startup acknowledgment cancelled; safety lock retained.", "info"); return; }
 				if (!ctx.isIdle() || ctx.hasPendingMessages()) { ctx.ui.notify("Parent activity changed; safety lock retained. Inspect and confirm again when idle.", "error"); return; }

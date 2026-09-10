@@ -143,6 +143,7 @@ test("startup acknowledgment refuses foreign, corrupt, pinned, pending, and unre
 	const states: DelegateRuntimeState[] = [
 		{ ...startup, ownerSessionId: "foreign" },
 		{ ...startup, unsafeWriter: "unrelated safety failure" },
+		{ ...startup, unsafeWriter: "started delegate-worker; unrelated safety failure" },
 		{ ...startup, workers: [worker] },
 		{ ...startup, workers: [worker], unsafeWriterWorker: worker.id },
 		{ ...startup, workers: [worker], pending: { worker: worker.id, taskId: "task", resultPath: "/tmp/result", startedAt: 1 } },
