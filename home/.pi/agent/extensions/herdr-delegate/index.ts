@@ -24,8 +24,6 @@ const CHILD_ENV = "PI_HERDR_DELEGATE_CHILD";
 const RESULT_ROOT_ENV = "PI_HERDR_DELEGATE_RESULT_ROOT";
 const WORKER_ENV = "PI_HERDR_DELEGATE_WORKER";
 const STATE_ENTRY = "herdr-delegate-state";
-const CLEANUP_NOTICE_ENTRY = "herdr-delegate-cleanup-notice";
-const cleanupNoticeSchema = Type.Object({ ownerSessionId: Type.String(), error: Type.Union([Type.String(), Type.Null()]) });
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const TASK_PREFIX = /^\[\[herdr-delegate:v1:([A-Za-z0-9_-]+)\]\]\n([\s\S]*)$/;
 
@@ -193,21 +191,11 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 	const reporterPath = fileURLToPath(import.meta.url);
 	let runtime: DelegateRuntime | undefined;
 	let cleanupNotice: string | null = null;
-	const recordCleanupNotice = (error: string | null, ctx: ExtensionContext): void => {
-		if (cleanupNotice === error) return;
-		cleanupNotice = error;
-		try {
-			pi.appendEntry(CLEANUP_NOTICE_ENTRY, { ownerSessionId: ctx.sessionManager.getSessionId(), error });
-		} catch (cause) {
-			// Notification bookkeeping must not mutate or unlock delegation authority.
-			console.error(`[herdr-delegate] Cleanup notification state was not persisted: ${cause instanceof Error ? cause.message : String(cause)}`);
-		}
-	};
 	const reportAutomaticCleanup = (result: DelegationResult<void>, ctx: ExtensionContext): void => {
-		if (result.ok) { recordCleanupNotice(null, ctx); return; }
+		if (result.ok) { cleanupNotice = null; return; }
 		if (result.error.code === "cleanup_busy" || result.error.message === cleanupNotice || !ctx.hasUI) return;
 		ctx.ui.notify(`Automatic delegation cleanup failed: ${result.error.message}`, "error");
-		recordCleanupNotice(result.error.message, ctx);
+		cleanupNotice = result.error.message;
 	};
 
 	pi.on("session_start", (_event, ctx) => {
@@ -215,20 +203,13 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 		let restoredState: DelegateRuntimeState | undefined;
 		let initialStateError: string | undefined;
 		for (const entry of ctx.sessionManager.getBranch()) {
-			if (entry.type !== "custom") continue;
-			if (entry.customType === CLEANUP_NOTICE_ENTRY) {
-				cleanupNotice = Value.Check(cleanupNoticeSchema, entry.data) && entry.data.ownerSessionId === ctx.sessionManager.getSessionId() ? entry.data.error : null;
-				continue;
-			}
-			if (entry.customType !== STATE_ENTRY) continue;
+			if (entry.type !== "custom" || entry.customType !== STATE_ENTRY) continue;
 			const parsed = Value.Check(delegateRuntimeStateSchema, entry.data)
 				? parseDelegateRuntimeState(entry.data)
 				: { ok: false, error: new DelegationError("state_invalid", "persisted state must be an object") } as const;
 			if (parsed.ok) {
 				restoredState = parsed.value;
 				initialStateError = undefined;
-				// A recovered authority snapshot invalidates older notices even if notice publication failed.
-				if (restoredState.ownerSessionId === ctx.sessionManager.getSessionId() && restoredState.workers.length === 0 && !restoredState.unsafeWriter && !restoredState.pending && !restoredState.persistenceError) cleanupNotice = null;
 			} else { restoredState = undefined; initialStateError = `corrupt persisted delegation authority: ${parsed.error.message}`; }
 		}
 		const validateRole = async (role: RoleConfig, signal?: AbortSignal): Promise<DelegationResult<void>> => {
@@ -320,14 +301,14 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 				if (!confirmed) { ctx.ui.notify("Startup acknowledgment cancelled; safety lock retained.", "info"); return; }
 				if (!ctx.isIdle() || ctx.hasPendingMessages()) { ctx.ui.notify("Parent activity changed; safety lock retained. Inspect and confirm again when idle.", "error"); return; }
 				const result = current.acknowledgeStartupRecovery(record.value);
-				if (result.ok) recordCleanupNotice(null, ctx);
+				if (result.ok) cleanupNotice = null;
 				ctx.ui.notify(result.ok ? "Unpinned startup lock cleared by your explicit attestation; no automatic verification or redispatch was performed." : result.error.message, result.ok ? "info" : "error");
 				return;
 			}
 			if (args.trim()) { ctx.ui.notify("Usage: /delegate-cleanup [acknowledge-startup]", "error"); return; }
 			const result = await current.cleanupOwned();
 			if (runtime !== current) return;
-			if (result.ok) recordCleanupNotice(null, ctx);
+			if (result.ok) cleanupNotice = null;
 			ctx.ui.notify(result.ok ? "Owned delegation workers cleaned up." : result.error.message, result.ok ? "info" : "error");
 		},
 	});
