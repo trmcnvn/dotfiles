@@ -1062,6 +1062,12 @@
       "autosave": true,
       "encrypt": false,
       "variants": []
+    },
+    {
+      "path": "home/.plannotator/config.json",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
     }
   ],
   "exclude": [],

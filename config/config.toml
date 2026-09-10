@@ -212,6 +212,7 @@ builtin = "history-watch"
 "~/.pi/agent/models.json" = { mode = "track" }
 "~/.pi/agent/settings.json" = { mode = "track" }
 "~/.pi/agent/themes/rose-pine.json" = { mode = "track" }
+"~/.plannotator/config.json" = { mode = "track" }
 
 [bootstrap.packages]
 "brew:git" = "latest"
