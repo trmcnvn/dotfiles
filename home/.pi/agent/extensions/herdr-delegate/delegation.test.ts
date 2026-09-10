@@ -178,6 +178,42 @@ test("startup acknowledgment rejects accepted queued delegation even before it r
 	assert.deepEqual((await fixture.state()).calls, []);
 });
 
+for (const emptyField of ["pane", "root-tab", "root-workspace", "tab", "workspace"] as const) {
+	test(`empty creation ${emptyField} identity remains a reconstructable malformed-startup lock`, async () => {
+		const fixture = await makeFixture();
+		const manager = SessionManager.inMemory(fixture.root);
+		const calls: string[][] = [];
+		const runtime = new DelegateRuntime({ ...fixture.options,
+			onStateChange: (state) => { manager.appendCustomEntry("herdr-delegate-state", state); },
+			runHerdr: async (args) => {
+				calls.push([...args]);
+				if (args[0] === "tab" && args[1] === "create") return commandResult(JSON.stringify({ result: {
+					root_pane: { pane_id: emptyField === "pane" ? "" : "pane", tab_id: emptyField === "root-tab" ? "" : "tab", workspace_id: emptyField === "root-workspace" ? "" : "workspace" },
+					tab: { tab_id: emptyField === "tab" ? "" : "tab", workspace_id: emptyField === "workspace" ? "" : "workspace" },
+				} }));
+				return commandResult("", 1, "startup failed");
+			},
+		});
+		const result = await runtime.delegate({ role: "worker", task: "must not be delivered" });
+		assert.equal(result.ok, false);
+		if (!result.ok) assert.equal(result.error.code, "manual_recovery_required");
+		assert.equal(calls.length, 1, "malformed creation identity must be rejected before startup");
+		assert.deepEqual(calls[0]?.slice(0, 2), ["tab", "create"]);
+		const entry = manager.getBranch().at(-1);
+		assert.ok(entry?.type === "custom");
+		const representation: unknown = JSON.parse(JSON.stringify(entry.data));
+		assert.ok(Value.Check(delegateRuntimeStateSchema, representation));
+		const state = requireSuccess(parseDelegateRuntimeState(representation));
+		assert.equal(state.startupResource, undefined);
+		assert.match(state.unsafeWriter ?? "", /^tab creation succeeded but its root pane identity was malformed;/);
+		const restored = new DelegateRuntime({ ...fixture.options, initialState: state });
+		assert.equal((await restored.cleanupOwned()).ok, false);
+		requireSuccess(restored.acknowledgeStartupRecovery(requireSuccess(restored.getStartupRecovery())));
+		assert.deepEqual(restored.getState(), { ownerSessionId: "parent-session", workers: [] });
+		assert.deepEqual((await fixture.state()).calls, [], "reconstruction and acknowledgment must not touch resources");
+	});
+}
+
 test("new unpinned startup failures retain diagnostic provenance across parsing and acknowledgment", async () => {
 	const fixture = await makeFixture("startup-blocked");
 	assert.equal((await fixture.runtime.delegate({ role: "worker", task: "not delivered" })).ok, false);
