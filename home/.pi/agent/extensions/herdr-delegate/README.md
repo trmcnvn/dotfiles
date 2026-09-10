@@ -50,7 +50,7 @@ Scout and Reviewer permit only `read` and `bash`. Their read-only policy forbids
 
 ## Unpinned startup recovery
 
-Automatic cleanup still runs after each settled parent run, but identical failures notify only once. A changed failure notifies again; successful cleanup or acknowledged recovery clears the notice. Notices are scoped to the current parent session and restored on reload, separately from safety authority. Manual `/delegate-cleanup` always reports its outcome. Notification failures are retried; notice-persistence failure retains in-memory deduplication but can repeat a warning after restart. Notification bookkeeping never clears a safety lock.
+Automatic cleanup still runs after each settled parent run, but identical failures notify only once. A changed failure notifies again; successful cleanup or acknowledged recovery clears the notice. Notice deduplication is in memory only, scoped to each loaded session instance; reload or resume may remind once. Manual `/delegate-cleanup` always reports its outcome. Notification failures are retried. Notification bookkeeping writes no session entries and never clears a safety lock; cleanup and safety-state persistence remain independent. This avoids adding notification-related ancestry failures, but does not fix Pi's pre-existing session append failure semantics.
 
 If an old startup record has no pinned worker, physically closing the failed startup pane does not prove that a moved or renamed agent is absent. For this case only:
 
