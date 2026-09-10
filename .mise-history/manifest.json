@@ -866,6 +866,12 @@
       "variants": []
     },
     {
+      "path": "home/.pi/agent/extensions/jj-guard.ts",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.pi/agent/extensions/kubectl-guard.ts",
       "autosave": true,
       "encrypt": false,

@@ -179,6 +179,7 @@ builtin = "history-watch"
 "~/.pi/agent/extensions/herdr-delegate/reporter.test.ts" = { mode = "track" }
 "~/.pi/agent/extensions/herdr-delegate/run-tests.sh" = { mode = "track" }
 "~/.pi/agent/extensions/herdr-delegate/run-typecheck.sh" = { mode = "track" }
+"~/.pi/agent/extensions/jj-guard.ts" = { mode = "track" }
 "~/.pi/agent/extensions/kubectl-guard.ts" = { mode = "track" }
 "~/.pi/agent/extensions/pi-skill-toggle/package.json" = { mode = "track" }
 "~/.pi/agent/extensions/pi-skill-toggle/src/apply/planner.test.ts" = { mode = "track" }
