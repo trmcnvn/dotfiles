@@ -800,6 +800,18 @@
       "variants": []
     },
     {
+      "path": "home/.pi/agent/extensions/herdr-delegate/activity.test.ts",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.pi/agent/extensions/herdr-delegate/activity.ts",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.pi/agent/extensions/herdr-delegate/delegation.test.ts",
       "autosave": true,
       "encrypt": false,
