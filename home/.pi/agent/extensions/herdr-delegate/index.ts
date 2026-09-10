@@ -313,7 +313,7 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 	});
 	pi.registerTool({
 		name: "delegate", label: "Delegate",
-		description: `Delegate one blocking, sequential task to a visible Pi worker in a background Herdr tab. Roles: ${roleCatalog}. Start with role + task; worker + task reuses an implementation writer. Scout and Reviewer are always fresh. To replace a writer, pass replace: true, worker, role: worker, and a complete parent handoff in task; old owned pane must close before launch.`,
+		description: `Delegate one blocking, sequential task to a visible Pi worker in a temporary sibling Herdr pane in the parent's tab. Roles: ${roleCatalog}. Start with role + task; worker + task reuses an implementation writer. Scout and Reviewer are always fresh. To replace a writer, pass replace: true, worker, role: worker, and a complete parent handoff in task; old owned pane must close before launch.`,
 		promptSnippet: "Delegate scoped implementation, research, or independent review in Herdr",
 		promptGuidelines: ["Use delegate for scoped work, scout for material uncertainty, and independent reviewer for consequential changes; tiny clear reversible tasks can be direct. Give outcome, boundaries, acceptance evidence, and escalation conditions, not an implementation recipe. One writer per workflow; prefer that worker for fixes. Worker finished is execution evidence, not parent acceptance."],
 		parameters: Type.Object({ task: Type.String(), role: Type.Optional(StringEnum(["worker", "scout", "reviewer"] as const)), worker: Type.Optional(Type.String()), replace: Type.Optional(Type.Boolean()), timeoutMs: Type.Optional(Type.Integer({ minimum: 5_000, maximum: 3_600_000 })) }),
