@@ -29,6 +29,9 @@ test("real Pi entrypoints guard cleanup and classify unavailable role models", a
 	const previousChild = process.env.PI_HERDR_DELEGATE_CHILD;
 	const previousResultRoot = process.env.PI_HERDR_DELEGATE_RESULT_ROOT;
 	const previousWorker = process.env.PI_HERDR_DELEGATE_WORKER;
+	const previousHerdr = process.env.HERDR_ENV;
+	const previousPane = process.env.HERDR_PANE_ID;
+	const previousWorkspace = process.env.HERDR_WORKSPACE_ID;
 	process.env.PI_CODING_AGENT_DIR = root;
 	delete process.env.PI_HERDR_DELEGATE_CHILD;
 	delete process.env.PI_HERDR_DELEGATE_RESULT_ROOT;
@@ -95,9 +98,12 @@ test("real Pi entrypoints guard cleanup and classify unavailable role models", a
 		else process.env.PI_HERDR_DELEGATE_RESULT_ROOT = previousResultRoot;
 		if (previousWorker === undefined) delete process.env.PI_HERDR_DELEGATE_WORKER;
 		else process.env.PI_HERDR_DELEGATE_WORKER = previousWorker;
-		delete process.env.HERDR_ENV;
-		delete process.env.HERDR_PANE_ID;
-		delete process.env.HERDR_WORKSPACE_ID;
+		if (previousHerdr === undefined) delete process.env.HERDR_ENV;
+		else process.env.HERDR_ENV = previousHerdr;
+		if (previousPane === undefined) delete process.env.HERDR_PANE_ID;
+		else process.env.HERDR_PANE_ID = previousPane;
+		if (previousWorkspace === undefined) delete process.env.HERDR_WORKSPACE_ID;
+		else process.env.HERDR_WORKSPACE_ID = previousWorkspace;
 		await rm(root, { recursive: true, force: true });
 	}
 });
