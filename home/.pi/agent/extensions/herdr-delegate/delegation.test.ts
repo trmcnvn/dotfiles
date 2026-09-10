@@ -1269,13 +1269,11 @@ test("Scout captures output even when cleanup fails and blocks subsequent work",
 test("writer admission excludes a second Worker", async () => {
 	const fixture = await makeFixture();
 	const retained = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
-	for (const role of ["worker"] as const) {
-		const result = await fixture.runtime.delegate({ role, task: "another writer" });
-		assert.equal(result.ok, false);
-		if (!result.ok) {
-			assert.equal(result.error.code, "writer_exists");
-			assert.equal(result.error.worker, retained.worker);
-		}
+	const result = await fixture.runtime.delegate({ role: "worker", task: "another writer" });
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "writer_exists");
+		assert.equal(result.error.worker, retained.worker);
 	}
 	assert.equal((await fixture.state()).calls.filter((call) => call[1] === "start").length, 1);
 });
