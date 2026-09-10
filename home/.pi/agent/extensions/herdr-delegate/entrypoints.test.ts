@@ -45,6 +45,121 @@ const ownedWorkerState = {
 	}],
 };
 
+test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and survives same-session reload", async () => {
+	const root = await mkdtemp(join(tmpdir(), "delegate-sdk-recovery-"));
+	const environment = new Map(["PI_CODING_AGENT_DIR", "PI_HERDR_DELEGATE_CHILD", "HERDR_ENV", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID"].map((key) => [key, process.env[key]]));
+	let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
+	try {
+		process.env.PI_CODING_AGENT_DIR = root;
+		delete process.env.PI_HERDR_DELEGATE_CHILD;
+		process.env.HERDR_ENV = "1";
+		process.env.HERDR_PANE_ID = "parent-pane";
+		process.env.HERDR_WORKSPACE_ID = "workspace";
+		const failure = "agent startup failed after creating pane=missing-pane, tab=missing-tab, workspace=workspace (timeout); native session identity was not pinned";
+		const manager = SessionManager.inMemory(root);
+		const locked = { ownerSessionId: manager.getSessionId(), workers: [], unsafeWriter: failure };
+		manager.appendCustomEntry("herdr-delegate-state", locked);
+		const settingsManager = SettingsManager.inMemory({ packages: [] });
+		const loader = new DefaultResourceLoader({ cwd: root, agentDir: root, settingsManager, noExtensions: true, additionalExtensionPaths: [join(import.meta.dirname, "index.ts")], noThemes: true, noPromptTemplates: true, noSkills: true });
+		await loader.reload();
+		assert.deepEqual(loader.getExtensions().errors, []);
+		const created = await createAgentSession({ cwd: root, agentDir: root, modelRuntime: await ModelRuntime.create({ allowModelNetwork: false }), resourceLoader: loader, settingsManager, sessionManager: manager });
+		session = created.session;
+		const notices: string[] = [];
+		const confirmations: string[] = [];
+		const errors: string[] = [];
+		let confirm = false;
+		let failNotify = false;
+		let beforeConfirm: (() => Promise<void>) | undefined;
+		await session.bindExtensions({ mode: "tui", onError: (error) => { errors.push(error.error); }, uiContext: {
+			...session.extensionRunner.getUIContext(),
+			notify: (message) => { if (failNotify) throw new Error("notification unavailable"); notices.push(message); },
+			confirm: async (_title, message) => { confirmations.push(message); await beforeConfirm?.(); return confirm; },
+		} });
+		const cleanup = async (args = "") => {
+			const command = created.session.extensionRunner.getRegisteredCommands().find((candidate) => candidate.name === "delegate-cleanup");
+			assert.ok(command);
+			await command.handler(args, created.session.extensionRunner.createCommandContext());
+		};
+		const settled = () => created.session.extensionRunner.emit({ type: "agent_settled" });
+		const automaticNotices = () => notices.filter((message) => message.startsWith("Automatic delegation cleanup failed:"));
+		await settled();
+		await settled();
+		assert.equal(automaticNotices().length, 1);
+		await cleanup();
+		await cleanup();
+		assert.equal(notices.filter((message) => message.startsWith("manual_recovery_required:")).length, 2, "manual reports remain useful");
+		await session.reload();
+		assert.equal(session.sessionId, manager.getSessionId());
+		await settled();
+		assert.equal(automaticNotices().length, 1, "same-session reload restores deduplication");
+		await cleanup("force");
+		assert.equal(confirmations.length, 0);
+		await cleanup("acknowledge-startup");
+		assert.equal(confirmations.length, 1);
+		assert.match(confirmations[0] ?? "", /missing-pane/);
+		assert.match(confirmations[0] ?? "", /personally verified.*moved or renamed/);
+		assert.match(notices.at(-1) ?? "", /cancelled; safety lock retained/);
+		await cleanup();
+		assert.match(notices.at(-1) ?? "", /manual_recovery_required/);
+		confirm = true;
+		await cleanup("acknowledge-startup");
+		assert.match(notices.at(-1) ?? "", /cleared by your explicit attestation/);
+		await session.reload();
+		await cleanup();
+		assert.equal(notices.at(-1), "Owned delegation workers cleaned up.");
+		assert.equal(confirmations.length, 2);
+
+		manager.appendCustomEntry("herdr-delegate-state", locked);
+		await session.reload();
+		failNotify = true;
+		await settled();
+		assert.ok(errors.some((error) => error.includes("notification unavailable")));
+		failNotify = false;
+		await settled();
+		await settled();
+		assert.equal(automaticNotices().length, 2, "a later recurrence is visible, and failed notification is retried");
+		manager.appendCustomEntry("herdr-delegate-state", { ...locked, unsafeWriter: `${failure}; changed failure` });
+		await session.reload();
+		await settled();
+		assert.equal(automaticNotices().length, 3, "changed failure is reported");
+
+		beforeConfirm = () => created.session.reload();
+		await cleanup("acknowledge-startup");
+		beforeConfirm = undefined;
+		await cleanup();
+		assert.match(notices.at(-1) ?? "", /manual_recovery_required/, "confirmation from an invalidated instance cannot clear the new runtime");
+		const beforeRefusals = confirmations.length;
+		for (const authority of [
+			{ ...locked, ownerSessionId: "foreign-parent" },
+			{ ...locked, pending: null },
+			{ ...ownedWorkerState, ownerSessionId: manager.getSessionId(), unsafeWriter: failure, unsafeWriterWorker: "worker" },
+			{ ...ownedWorkerState, ownerSessionId: manager.getSessionId(), pending: { taskId: "delivered", worker: "worker", resultPath: "/tmp/result", startedAt: 1 } },
+		]) {
+			manager.appendCustomEntry("herdr-delegate-state", authority);
+			await session.reload();
+			await cleanup("acknowledge-startup");
+			assert.equal(confirmations.length, beforeRefusals);
+			assert.match(notices.at(-1) ?? "", /foreign_authority|state_corrupt|startup_recovery_unavailable/);
+		}
+		manager.appendCustomEntry("herdr-delegate-state", { ...locked, ownerSessionId: "foreign-parent" });
+		await session.reload();
+		await settled();
+		await settled();
+		assert.match(automaticNotices().at(-1) ?? "", /foreign_authority/);
+		const foreignCount = automaticNotices().length;
+		await session.reload();
+		await settled();
+		assert.equal(automaticNotices().length, foreignCount);
+	} finally {
+		session?.dispose();
+		for (const [key, value] of environment) {
+			if (value === undefined) delete process.env[key]; else process.env[key] = value;
+		}
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 test("real SDK tool validation covers canonical roles, builder alias, replacement, and invalid inputs", async () => {
 	const root = await mkdtemp(join(tmpdir(), "delegate-sdk-roles-"));
 	const environment = new Map(["PI_CODING_AGENT_DIR", "PI_HERDR_DELEGATE_CHILD", "HERDR_ENV", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID", "PATH"].map((key) => [key, process.env[key]]));
