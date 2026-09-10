@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
+import { getSupportedThinkingLevels, validateToolCall } from "@earendil-works/pi-ai";
+import type { DelegateInput } from "./delegation.ts";
 import {
 	createAgentSession,
 	DefaultResourceLoader,
@@ -17,7 +18,7 @@ import {
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 const roleSource = (
-	role: "builder" | "reviewer",
+	role: "builder" | "worker" | "scout" | "reviewer",
 	model: string,
 	thinking: (typeof THINKING_LEVELS)[number],
 ): string => `---
@@ -25,7 +26,7 @@ name: ${role}
 description: ${role} fixture
 model: ${model}
 thinking: ${thinking}
-tools: ${role === "builder" ? "read, bash, edit, write" : "read, bash"}
+tools: ${role === "builder" || role === "worker" ? "read, bash, edit, write" : "read, bash"}
 ---
 
 Perform the ${role} task without delegation.
@@ -43,6 +44,82 @@ const ownedWorkerState = {
 		promptPath: "/tmp/role.md",
 	}],
 };
+
+test("real SDK tool validation covers canonical roles, builder alias, replacement, and invalid inputs", async () => {
+	const root = await mkdtemp(join(tmpdir(), "delegate-sdk-roles-"));
+	const environment = new Map(["PI_CODING_AGENT_DIR", "PI_HERDR_DELEGATE_CHILD", "HERDR_ENV", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID", "PATH"].map((key) => [key, process.env[key]]));
+	let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
+	try {
+		process.env.PI_CODING_AGENT_DIR = root;
+		delete process.env.PI_HERDR_DELEGATE_CHILD;
+		process.env.HERDR_ENV = "1";
+		process.env.HERDR_PANE_ID = "parent-pane";
+		process.env.HERDR_WORKSPACE_ID = "workspace";
+		const bin = join(root, "bin");
+		await mkdir(bin);
+		await mkdir(join(root, "agents"));
+		const statePath = join(root, "fake-state.json");
+		await writeFile(statePath, JSON.stringify({ calls: [], scenario: "success" }));
+		await writeFile(join(bin, "herdr"), `#!/bin/sh\nexec "${process.execPath}" "${join(import.meta.dirname, "fake-herdr.mjs")}" "${statePath}" "$@"\n`, { mode: 0o755 });
+		process.env.PATH = `${bin}:${process.env.PATH ?? ""}`;
+		const modelRuntime = await ModelRuntime.create({ allowModelNetwork: false });
+		const model = modelRuntime.getModels().find((candidate) => candidate.provider === "anthropic");
+		assert.ok(model);
+		await modelRuntime.setRuntimeApiKey(model.provider, "fixture-not-a-real-key");
+		for (const role of ["worker", "scout", "reviewer"] as const) {
+			await writeFile(join(root, "agents", `${role}.md`), roleSource(role, `${model.provider}/${model.id}`, "off"));
+		}
+		const settingsManager = SettingsManager.inMemory({ packages: [] });
+		const loader = new DefaultResourceLoader({
+			cwd: root, agentDir: root, settingsManager, noExtensions: true,
+			additionalExtensionPaths: [join(import.meta.dirname, "index.ts")], noThemes: true, noPromptTemplates: true, noSkills: true,
+		});
+		await loader.reload();
+		assert.deepEqual(loader.getExtensions().errors, []);
+		const created = await createAgentSession({
+			cwd: root, agentDir: root, modelRuntime, model, resourceLoader: loader, settingsManager,
+			sessionManager: SessionManager.inMemory(root), tools: ["read", "bash", "edit", "write", "delegate"],
+		});
+		session = created.session;
+		await session.bindExtensions({ mode: "print" });
+		const tool = session.agent.state.tools.find((candidate) => candidate.name === "delegate");
+		assert.ok(tool);
+		assert.match(tool.description, /worker — worker fixture.*scout — scout fixture.*reviewer — reviewer fixture/);
+		assert.doesNotMatch(tool.description, /builder —/);
+		const invoke = async (input: DelegateInput) => {
+			validateToolCall([tool], { type: "toolCall", id: "call", name: "delegate", arguments: { ...input } });
+			return tool.execute("call", input, new AbortController().signal);
+		};
+		for (const role of ["scout", "reviewer"] as const) {
+			const result = await invoke({ role, task: "Inspect only." });
+			assert.match(JSON.stringify(result.content), new RegExp(`Worker finished \\(${role}\\)`));
+			assert.match(JSON.stringify(result.content), /matching owned pane closed/);
+		}
+		const first = await invoke({ role: "builder", task: "New builder alias uses Worker configuration without builder.md." });
+		const text = first.content.find((part) => part.type === "text");
+		assert.ok(text && text.type === "text");
+		assert.match(text.text, /Worker finished \(worker\)/);
+		const handle = /Worker: ([^\n]+)/.exec(text.text)?.[1];
+		assert.ok(handle);
+		await invoke({ worker: handle, task: "Inspect existing changes and fix only the identified issue." });
+		const replacement = await invoke({ replace: true, worker: handle, role: "worker", task: "Parent handoff: inspect existing changes; preserve scope; finish checks." });
+		assert.match(JSON.stringify(replacement.content), /Replaced worker:/);
+		await assert.rejects(invoke({ role: "worker", task: "second writer" }), /writer_exists/);
+		await assert.rejects(invoke({ replace: true, role: "scout", task: "invalid" }), /request_invalid/);
+		await assert.rejects(invoke({ replace: true, role: "builder", worker: handle, task: "invalid" }), /request_invalid/);
+		for (const arguments_ of [{ role: "unknown", task: "bad" }, { role: "scout", task: "bad", replace: "yes" }, { role: "worker", task: "bad", timeoutMs: 1 }]) {
+			assert.throws(() => validateToolCall([tool], { type: "toolCall", id: "bad", name: "delegate", arguments: arguments_ }));
+		}
+		await session.extensionRunner.emit({ type: "agent_settled" });
+	} finally {
+		session?.dispose();
+		for (const [key, value] of environment) {
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+		}
+		await rm(root, { recursive: true, force: true });
+	}
+});
 
 test("real Pi entrypoints preserve guards, restoration locks, and thinking classification", async () => {
 	const root = await mkdtemp(join(tmpdir(), "delegate-entrypoints-"));
