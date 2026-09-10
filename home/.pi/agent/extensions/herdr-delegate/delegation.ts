@@ -284,7 +284,16 @@ export function parseDelegateRuntimeState(value: object): DelegationResult<Deleg
 		if (!raw.id || (raw.role !== "builder" && raw.role !== "reviewer") || !raw.agentName || !raw.paneId ||
 			!raw.session || !raw.roleFingerprint || !raw.promptPath || (raw.tabId !== undefined && !raw.tabId) ||
 			(raw.workspaceId !== undefined && !raw.workspaceId)) return err("state_invalid", "worker fields invalid");
-		workers.push(raw);
+		const parsedWorker: {
+			id: string; role: DelegateRole; agentName: string; paneId: string; tabId?: string;
+			workspaceId?: string; session: string; roleFingerprint: string; promptPath: string;
+		} = {
+			id: raw.id, role: raw.role, agentName: raw.agentName, paneId: raw.paneId,
+			session: raw.session, roleFingerprint: raw.roleFingerprint, promptPath: raw.promptPath,
+		};
+		if (raw.tabId !== undefined) parsedWorker.tabId = raw.tabId;
+		if (raw.workspaceId !== undefined) parsedWorker.workspaceId = raw.workspaceId;
+		workers.push(parsedWorker);
 	}
 	if (Object.hasOwn(value, "pending") && !Value.Check(pendingTaskSchema, value.pending)) {
 		return err("state_invalid", "pending must be a task object when present");
