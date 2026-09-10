@@ -213,8 +213,14 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 	pi.on("session_start", (_event, ctx) => {
 		cleanupNotice = null;
 		for (const entry of ctx.sessionManager.getBranch()) {
-			if (entry.type !== "custom" || entry.customType !== CLEANUP_NOTICE_ENTRY) continue;
-			cleanupNotice = Value.Check(cleanupNoticeSchema, entry.data) && entry.data.ownerSessionId === ctx.sessionManager.getSessionId() ? entry.data.error : null;
+			if (entry.type !== "custom") continue;
+			if (entry.customType === CLEANUP_NOTICE_ENTRY) {
+				cleanupNotice = Value.Check(cleanupNoticeSchema, entry.data) && entry.data.ownerSessionId === ctx.sessionManager.getSessionId() ? entry.data.error : null;
+			} else if (entry.customType === STATE_ENTRY && Value.Check(delegateRuntimeStateSchema, entry.data)) {
+				const state = parseDelegateRuntimeState(entry.data);
+				// A recovered authority snapshot invalidates older notices even if notice publication failed.
+				if (state.ok && state.value.ownerSessionId === ctx.sessionManager.getSessionId() && state.value.workers.length === 0 && !state.value.unsafeWriter && !state.value.pending && !state.value.persistenceError) cleanupNotice = null;
+			}
 		}
 		let restoredState: DelegateRuntimeState | undefined;
 		let initialStateError: string | undefined;
