@@ -7,6 +7,7 @@ import { getSupportedThinkingLevels, StringEnum } from "@earendil-works/pi-ai";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { formatSkillsForPrompt, getAgentDir, type BeforeAgentStartEvent, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { Value } from "typebox/value";
 
 import {
 	DelegateRuntime,
@@ -35,6 +36,28 @@ type ActiveTask = {
 	readonly startedAt: number;
 };
 
+const activeTaskSchema = Type.Object({
+	version: Type.Literal(1),
+	taskId: Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$" }),
+	worker: Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$" }),
+	startedAt: Type.Number(),
+});
+
+type ChildResultArtifact = {
+	readonly version: 1;
+	readonly taskId: string;
+	readonly worker: string;
+	readonly status: "completed" | "failed" | "incomplete";
+	readonly output: string;
+	error?: string;
+	stopReason?: string;
+	readonly session: string;
+	readonly provider: string;
+	readonly model: string;
+	readonly thinking: string;
+	readonly finishedAt: number;
+};
+
 function assistantText(message: AssistantMessage): string {
 	return message.content
 		.filter(
@@ -52,7 +75,7 @@ function latestAssistant(ctx: ExtensionContext, startedAt: number): AssistantMes
 	}
 	return undefined;
 }
-async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
+async function writeJsonAtomic(path: string, value: ChildResultArtifact): Promise<void> {
 	await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 	const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
 	await writeFile(temporary, `${JSON.stringify(value)}\n`, { encoding: "utf8", mode: 0o600 });
@@ -68,20 +91,10 @@ function removeOrchestrationCatalog(event: BeforeAgentStartEvent): string {
 function parseEnvelope(encoded: string, expectedWorker: string): ActiveTask | undefined {
 	try {
 		const value: unknown = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
-		if (value === null || typeof value !== "object" || Array.isArray(value)) return undefined;
-		// SAFETY: the runtime object check establishes a serialized string-keyed boundary.
-		const record = value as Record<string, unknown>;
-		if (
-			record.version !== 1 ||
-			typeof record.taskId !== "string" ||
-			!SAFE_ID.test(record.taskId) ||
-			record.worker !== expectedWorker ||
-			!SAFE_ID.test(expectedWorker) ||
-			typeof record.startedAt !== "number"
-		) {
+		if (!Value.Check(activeTaskSchema, value) || value.worker !== expectedWorker || !SAFE_ID.test(expectedWorker)) {
 			return undefined;
 		}
-		return { taskId: record.taskId, worker: expectedWorker, startedAt: record.startedAt };
+		return { taskId: value.taskId, worker: expectedWorker, startedAt: value.startedAt };
 	} catch {
 		return undefined;
 	}
@@ -116,16 +129,18 @@ export function registerChildReporter(pi: ExtensionAPI, resultRoot: string, work
 		const defaultError = !assistant ? "Task settled without a new assistant response."
 			: status === "incomplete" ? `Assistant response was not final (${stopReason ?? "unknown"}).` : undefined;
 		try {
-			await writeJsonAtomic(join(resultRoot, worker, `${task.taskId}.json`), {
+			const artifact: ChildResultArtifact = {
 				version: 1, taskId: task.taskId, worker, status,
 				output: assistant ? assistantText(assistant) : "",
-				error: shutdownError ?? assistant?.errorMessage ?? defaultError,
-				stopReason,
 				session: ctx.sessionManager.getSessionFile() ?? ctx.sessionManager.getSessionId(),
 				provider: assistant?.provider ?? ctx.model?.provider ?? "",
 				model: assistant?.model ?? ctx.model?.id ?? "",
 				thinking: pi.getThinkingLevel(), finishedAt: Date.now(),
-			});
+			};
+			const error = shutdownError ?? assistant?.errorMessage ?? defaultError;
+			if (error !== undefined) artifact.error = error;
+			if (stopReason !== undefined) artifact.stopReason = stopReason;
+			await writeJsonAtomic(join(resultRoot, worker, `${task.taskId}.json`), artifact);
 		} catch (cause) { console.error(`[herdr-delegate] Result write failed: ${cause instanceof Error ? cause.message : String(cause)}`); }
 	};
 	pi.on("agent_settled", async (_event, ctx) => report(ctx));
@@ -180,7 +195,9 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 		let initialStateError: string | undefined;
 		for (const entry of ctx.sessionManager.getBranch()) {
 			if (entry.type !== "custom" || entry.customType !== STATE_ENTRY) continue;
-			const parsed = parseDelegateRuntimeState(entry.data);
+			const parsed = Value.Check(Type.Object({}, { additionalProperties: true }), entry.data)
+				? parseDelegateRuntimeState(entry.data)
+				: { ok: false, error: new DelegationError("state_invalid", "persisted state must be an object") } as const;
 			if (parsed.ok) { restoredState = parsed.value; initialStateError = undefined; }
 			else { restoredState = undefined; initialStateError = `corrupt persisted delegation authority: ${parsed.error.message}`; }
 		}
@@ -210,15 +227,20 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 				};
 			}
 		};
-		runtime = new DelegateRuntime({
+		const runtimeOptions: ConstructorParameters<typeof DelegateRuntime>[0] = {
 			runHerdr: async (args, options) => {
-				const result = await pi.exec("herdr", [...args], { ...(options?.signal ? { signal: options.signal } : {}), ...(options?.timeoutMs ? { timeout: options.timeoutMs } : {}) });
+				const execOptions: { signal?: AbortSignal; timeout?: number } = {};
+				if (options?.signal !== undefined) execOptions.signal = options.signal;
+				if (options?.timeoutMs !== undefined) execOptions.timeout = options.timeoutMs;
+				const result = await pi.exec("herdr", [...args], execOptions);
 				return { code: result.code, stdout: result.stdout, stderr: result.stderr, killed: result.killed };
 			},
 			validateRole, callerWorkspaceId: process.env.HERDR_WORKSPACE_ID ?? "", parentSessionId: ctx.sessionManager.getSessionId(), cwd: ctx.cwd,
-			resultRoot, reporterPath, rolePaths, ...(restoredState ? { initialState: restoredState } : {}),
-			...(initialStateError ? { initialStateError } : {}), onStateChange: (state) => pi.appendEntry(STATE_ENTRY, state),
-		});
+			resultRoot, reporterPath, rolePaths, onStateChange: (state) => pi.appendEntry(STATE_ENTRY, state),
+		};
+		if (restoredState !== undefined) runtimeOptions.initialState = restoredState;
+		if (initialStateError !== undefined) runtimeOptions.initialStateError = initialStateError;
+		runtime = new DelegateRuntime(runtimeOptions);
 	});
 	pi.on("session_shutdown", async (event) => {
 		if (!isInsideHerdr() || !runtime || event.reason === "reload") return;
