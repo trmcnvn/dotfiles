@@ -106,6 +106,78 @@ function requireSuccess<T>(result: { readonly ok: true; readonly value: T } | { 
 	return result.value;
 }
 
+async function makeLegacyFixture() {
+	const fixture = await makeFixture();
+	const worker = {
+		id: "legacy", role: "builder", agentName: "delegate-builder-original", paneId: "legacy-pane",
+		tabId: "legacy-tab", workspaceId: "workspace", session: join(fixture.root, "original-personal-session.jsonl"),
+		roleFingerprint: "original-builder-fingerprint", promptPath: "/old/role-prompt.md",
+	} as const;
+	await writeFile(join(fixture.root, "state.json"), JSON.stringify({ calls: [], scenario: "success", panes: {
+		[worker.paneId]: { id: worker.paneId, agentName: worker.agentName, tabId: worker.tabId, workspaceId: worker.workspaceId, session: worker.session, status: "idle" },
+	} }));
+	const initialState = requireSuccess(parseDelegateRuntimeState({ ownerSessionId: "parent-session", workers: [worker] }));
+	assert.deepEqual(initialState.workers, [worker]);
+	return { ...fixture, worker, initialState };
+}
+
+test("retired Builder follow-up preserves legacy authority without configuration, publication, or Herdr calls", async () => {
+	const fixture = await makeLegacyFixture();
+	const publications: DelegateRuntimeState[] = [];
+	const runtime = new DelegateRuntime({ ...fixture.options, initialState: fixture.initialState, onStateChange: (state) => { publications.push(state); } });
+	assert.deepEqual(runtime.getState(), fixture.initialState);
+	const result = await runtime.delegate({ worker: fixture.worker.id, task: "must not deliver" });
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "role_retired");
+		assert.equal(result.error.worker, fixture.worker.id);
+		assert.match(result.error.message, /explicitly replace.*role: worker/);
+	}
+	assert.deepEqual(runtime.getState(), fixture.initialState);
+	assert.deepEqual(publications, []);
+	assert.deepEqual((await fixture.state()).calls, []);
+	const second = await runtime.delegate({ role: "worker", task: "second writer" });
+	assert.equal(second.ok, false);
+	if (!second.ok) assert.equal(second.error.code, "writer_exists");
+	assert.deepEqual((await fixture.state()).calls, []);
+});
+
+for (const operation of ["cleanup", "replacement"] as const) {
+	for (const identity of ["owned", "replaced"] as const) {
+		test(`legacy Builder ${operation} requires exact ${identity} identity and preserves old result artifacts`, async () => {
+			const fixture = await makeLegacyFixture();
+			const resultPath = join(fixture.options.resultRoot, fixture.worker.id, "old-task.json");
+			await mkdir(join(fixture.options.resultRoot, fixture.worker.id), { recursive: true });
+			const artifact = JSON.stringify({ version: 1, taskId: "old-task", worker: fixture.worker.id, status: "completed", output: "old authoritative output", session: fixture.worker.session, provider: "old-provider", model: "old-model", thinking: "low", finishedAt: 1 });
+			await writeFile(resultPath, artifact);
+			const runtime = new DelegateRuntime({ ...fixture.options, initialState: fixture.initialState, runHerdr: async (args) => {
+				if (identity === "replaced" && args[0] === "agent" && args[1] === "get") return commandResult(JSON.stringify({ result: { agent: {
+					name: fixture.worker.agentName, pane_id: fixture.worker.paneId, agent_session: { value: "different-session" },
+				} } }));
+				return fixture.processRun(args);
+			} });
+			const result = operation === "cleanup" ? await runtime.cleanupOwned()
+				: await runtime.delegate({ replace: true, worker: fixture.worker.id, role: "worker", task: "Inspect existing files and old result evidence before continuing." });
+			assert.equal(result.ok, identity === "owned");
+			assert.equal(await readFile(resultPath, "utf8"), artifact);
+			const calls = (await fixture.state()).calls;
+			if (identity === "replaced") {
+				assert.deepEqual(runtime.getState().workers, fixture.initialState.workers);
+				assert.equal(calls.some((call) => call[1] === "close" || call[1] === "start" || call[1] === "prompt"), false);
+			} else {
+				assert.ok(calls.some((call) => call[0] === "agent" && call[1] === "get" && call[2] === fixture.worker.agentName));
+				assert.ok(calls.some((call) => call[1] === "close" && call[2] === fixture.worker.paneId));
+				assert.equal(runtime.getState().workers.some((worker) => worker.id === fixture.worker.id), false);
+				if (operation === "replacement") {
+					const start = calls.findIndex((call) => call[1] === "start");
+					assert.ok(start > calls.findIndex((call) => call[1] === "close"));
+					assert.match(calls[start]?.[2] ?? "", /^delegate-worker-/);
+				}
+			}
+		});
+	}
+}
+
 const legacyStartupFailure = "agent startup failed after creating pane=old-pane, tab=old-tab, workspace=workspace (timeout); native session identity was not pinned, so inspect and close that pane manually if appropriate";
 
 test("startup acknowledgment preserves the lock on failed publication and permits deliberate retry and reload", async () => {
@@ -1184,7 +1256,7 @@ test("Scout captures output even when cleanup fails and blocks subsequent work",
 	assert.equal((await fixture.runtime.delegate({ role: "worker", task: "must not start" })).ok, false);
 });
 
-test("writer admission excludes both canonical and legacy second writers", async () => {
+test("writer admission excludes a second Worker", async () => {
 	const fixture = await makeFixture();
 	const retained = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
 	for (const role of ["worker"] as const) {
@@ -1320,13 +1392,15 @@ test("aborting replacement after confirmed closure never launches the next write
 	assert.equal((await fixture.state()).calls.filter((call) => call[1] === "start").length, 1);
 });
 
-test("Worker drift is explicit while legacy workers retain their original configuration", async () => {
+test("Worker drift requires explicit replacement and preserves the old fingerprint", async () => {
 	const fixture = await makeFixture();
 	const old = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "legacy" }));
 	const original = fixture.runtime.getState().workers[0];
 	const source = await readFile(fixture.rolePaths.worker, "utf8");
 	await writeFile(fixture.rolePaths.worker, source.replace("thinking: medium", "thinking: high"));
-	requireSuccess(await fixture.runtime.delegate({ worker: old.worker, task: "legacy fix" }));
+	const oldFollowup = await fixture.runtime.delegate({ worker: old.worker, task: "fix" });
+	assert.equal(oldFollowup.ok, false);
+	if (!oldFollowup.ok) assert.equal(oldFollowup.error.code, "role_changed");
 	assert.deepEqual(fixture.runtime.getState().workers[0], original);
 	const next = requireSuccess(await fixture.runtime.delegate({ replace: true, worker: old.worker, role: "worker", task: "Inspect legacy changes before continuing." }));
 	await writeFile(fixture.rolePaths.worker, source);
