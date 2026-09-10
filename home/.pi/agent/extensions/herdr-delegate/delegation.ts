@@ -200,7 +200,10 @@ type RuntimeOptions = {
 
 const DEFAULT_TIMEOUT_MS = 20 * 60_000;
 const RESULT_WAIT_MS = 5_000;
-const THINKING_LEVELS = new Set<Thinking>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const thinkingSchema = Type.Union([
+	Type.Literal("off"), Type.Literal("minimal"), Type.Literal("low"), Type.Literal("medium"),
+	Type.Literal("high"), Type.Literal("xhigh"), Type.Literal("max"),
+]);
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 function ok<T>(value: T): DelegationResult<T> {
@@ -240,11 +243,14 @@ export async function loadRoleConfig(path: string, role: DelegateRole): Promise<
 		return err("role_unreadable", `${role}: ${cause instanceof Error ? cause.message : String(cause)}`, cause);
 	}
 	try {
-		const { frontmatter, body } = parseFrontmatter<RoleFrontmatter>(source);
+		const parsed = parseFrontmatter<RoleFrontmatter>(source);
+		if (!Value.Check(roleFrontmatterSchema, parsed.frontmatter)) {
+			return err("role_invalid", `${role}: require name, description, provider/model, thinking, tools, and body`);
+		}
+		const { frontmatter, body } = parsed;
 		const tools = parseTools(frontmatter.tools);
-		if (frontmatter.name !== role || typeof frontmatter.description !== "string" ||
-			typeof frontmatter.model !== "string" || typeof frontmatter.thinking !== "string" ||
-			!THINKING_LEVELS.has(frontmatter.thinking as Thinking) || !tools || !body.trim()) {
+		if (frontmatter.name !== role || !frontmatter.description || !frontmatter.model ||
+			!Value.Check(thinkingSchema, frontmatter.thinking) || !tools || !body.trim()) {
 			return err("role_invalid", `${role}: require name, description, provider/model, thinking, tools, and body`);
 		}
 		if (tools.some((tool) => tool === "delegate" || tool === "read_agent_activity")) return err("role_unsafe", `${role}: parent-only delegation tools are forbidden`);
@@ -254,9 +260,7 @@ export async function loadRoleConfig(path: string, role: DelegateRole): Promise<
 		const provider = frontmatter.model.slice(0, separator).trim();
 		const model = frontmatter.model.slice(separator + 1).trim();
 		if (!provider || !model) return err("role_invalid", `${role}: model must be provider/id`);
-		// SAFETY: THINKING_LEVELS membership established the closed union.
-		const thinking = frontmatter.thinking as Thinking;
-		return ok({ name: role, description: frontmatter.description, provider, model, thinking, tools, systemPrompt: body.trim() });
+		return ok({ name: role, description: frontmatter.description, provider, model, thinking: frontmatter.thinking, tools, systemPrompt: body.trim() });
 	} catch (cause) {
 		return err("role_invalid", `${role}: malformed frontmatter`, cause);
 	}
@@ -271,79 +275,49 @@ export function roleFingerprint(role: RoleConfig): string {
 }
 
 /** Parses persisted authority without treating malformed optional safety fields as absent. */
-export function parseDelegateRuntimeState(value: unknown): DelegationResult<DelegateRuntimeState> {
-	const record = asRecord(value);
-	const ownerSessionId = stringField(record, "ownerSessionId");
-	const rawWorkers = record?.workers;
-	if (!record || !ownerSessionId || !Array.isArray(rawWorkers)) {
+export function parseDelegateRuntimeState(value: object): DelegationResult<DelegateRuntimeState> {
+	if (!Value.Check(delegateRuntimeStateSchema, value) || !value.ownerSessionId) {
 		return err("state_invalid", "ownerSessionId or workers missing");
 	}
 	const workers: PersistedWorker[] = [];
-	for (const raw of rawWorkers) {
-		const id = stringField(raw, "id");
-		const role = stringField(raw, "role");
-		const agentName = stringField(raw, "agentName");
-		const paneId = stringField(raw, "paneId");
-		const tabIdPresent = Object.hasOwn(asRecord(raw) ?? {}, "tabId");
-		const workspaceIdPresent = Object.hasOwn(asRecord(raw) ?? {}, "workspaceId");
-		const tabId = stringField(raw, "tabId");
-		const workspaceId = stringField(raw, "workspaceId");
-		const session = stringField(raw, "session");
-		const roleFingerprintValue = stringField(raw, "roleFingerprint");
-		const promptPath = stringField(raw, "promptPath");
-		if (!id || (role !== "builder" && role !== "reviewer") || !agentName || !paneId || !session || !roleFingerprintValue || !promptPath ||
-			(tabIdPresent && !tabId) || (workspaceIdPresent && !workspaceId)) return err("state_invalid", "worker fields invalid");
-		workers.push({ id, role, agentName, paneId, ...(tabId ? { tabId } : {}), ...(workspaceId ? { workspaceId } : {}), session, roleFingerprint: roleFingerprintValue, promptPath });
+	for (const raw of value.workers) {
+		if (!raw.id || (raw.role !== "builder" && raw.role !== "reviewer") || !raw.agentName || !raw.paneId ||
+			!raw.session || !raw.roleFingerprint || !raw.promptPath || (raw.tabId !== undefined && !raw.tabId) ||
+			(raw.workspaceId !== undefined && !raw.workspaceId)) return err("state_invalid", "worker fields invalid");
+		workers.push(raw);
 	}
-	const pendingPresent = Object.hasOwn(record, "pending");
-	const rawPending = objectField(record, "pending");
-	if (pendingPresent && !rawPending) {
+	if (Object.hasOwn(value, "pending") && !Value.Check(pendingTaskSchema, value.pending)) {
 		return err("state_invalid", "pending must be a task object when present");
 	}
-	let pending: PendingTask | undefined;
-	if (rawPending) {
-		const taskId = stringField(rawPending, "taskId");
-		const worker = stringField(rawPending, "worker");
-		const resultPath = stringField(rawPending, "resultPath");
-		const startedAt = numberField(rawPending, "startedAt");
-		if (!taskId || !worker || !resultPath || startedAt === undefined) return err("state_invalid", "pending fields invalid");
-		pending = { taskId, worker, resultPath, startedAt };
-	}
-	const unsafeWriterPresent = Object.hasOwn(record, "unsafeWriter");
-	const unsafeWriter = stringField(record, "unsafeWriter");
-	const unsafeWriterWorkerPresent = Object.hasOwn(record, "unsafeWriterWorker");
-	const unsafeWriterWorker = stringField(record, "unsafeWriterWorker");
-	if (unsafeWriterPresent && !unsafeWriter) return err("state_invalid", "unsafeWriter must be a non-empty string when present");
-	if (unsafeWriterWorkerPresent && (!unsafeWriter || !unsafeWriterWorker || !workers.some((worker) => worker.id === unsafeWriterWorker))) {
+	const pending = Value.Check(pendingTaskSchema, value.pending) ? value.pending : undefined;
+	const unsafeWriter = Value.Check(Type.String({ minLength: 1 }), value.unsafeWriter) ? value.unsafeWriter : undefined;
+	const unsafeWriterWorker = Value.Check(Type.String({ minLength: 1 }), value.unsafeWriterWorker) ? value.unsafeWriterWorker : undefined;
+	if (Object.hasOwn(value, "unsafeWriter") && !unsafeWriter) return err("state_invalid", "unsafeWriter must be a non-empty string when present");
+	if (Object.hasOwn(value, "unsafeWriterWorker") &&
+		(!unsafeWriter || !unsafeWriterWorker || !workers.some((worker) => worker.id === unsafeWriterWorker))) {
 		return err("state_invalid", "unsafeWriterWorker must identify an owned worker when present");
 	}
-	return ok({
-		ownerSessionId,
-		workers,
-		...(pending ? { pending } : {}),
-		...(unsafeWriter ? { unsafeWriter } : {}),
-		...(unsafeWriterWorker ? { unsafeWriterWorker } : {}),
-	});
+	const state: {
+		ownerSessionId: string; workers: readonly PersistedWorker[]; pending?: PendingTask;
+		unsafeWriter?: string; unsafeWriterWorker?: string;
+	} = { ownerSessionId: value.ownerSessionId, workers };
+	if (pending) state.pending = pending;
+	if (unsafeWriter) state.unsafeWriter = unsafeWriter;
+	if (unsafeWriterWorker) state.unsafeWriterWorker = unsafeWriterWorker;
+	return ok(state);
 }
 
-function parseChildResult(value: unknown, pending: PendingTask, worker: PersistedWorker): DelegationResult<ChildResult> {
-	const status = stringField(value, "status");
-	const taskId = stringField(value, "taskId");
-	const resultWorker = stringField(value, "worker");
-	const output = stringField(value, "output");
-	const session = stringField(value, "session");
-	const provider = stringField(value, "provider");
-	const model = stringField(value, "model");
-	const thinking = stringField(value, "thinking");
-	const finishedAt = numberField(value, "finishedAt");
-	if (numberField(value, "version") !== 1 || taskId !== pending.taskId || resultWorker !== worker.id ||
-		(status !== "completed" && status !== "failed" && status !== "incomplete") || output === undefined ||
-		session !== worker.session || !provider || !model || !thinking || finishedAt === undefined || finishedAt < pending.startedAt) {
+function parseChildResult(value: object, pending: PendingTask, worker: PersistedWorker): DelegationResult<ChildResult> {
+	if (!Value.Check(childResultSchema, value) || value.version !== 1 || value.taskId !== pending.taskId ||
+		value.worker !== worker.id || (value.status !== "completed" && value.status !== "failed" && value.status !== "incomplete") ||
+		value.session !== worker.session || !value.provider || !value.model || !value.thinking || value.finishedAt < pending.startedAt) {
 		return err("result_invalid", "task, native session, or terminal fields did not match");
 	}
-	const error = stringField(value, "error");
-	const stopReason = stringField(value, "stopReason");
-	return ok({ taskId, worker: worker.id, status, output, ...(error ? { error } : {}), ...(stopReason ? { stopReason } : {}), session, provider, model, thinking, finishedAt });
+	return ok({
+		taskId: value.taskId, worker: worker.id, status: value.status, output: value.output,
+		error: value.error, stopReason: value.stopReason, session: value.session, provider: value.provider,
+		model: value.model, thinking: value.thinking, finishedAt: value.finishedAt,
+	});
 }
 
 function encodeTask(pending: PendingTask, task: string): string {
