@@ -424,6 +424,55 @@ test("cleanup publishes each confirmed worker deletion before continuing", async
 	assert.deepEqual(runtime.getState().workers.map((worker) => worker.id), ["two"]);
 });
 
+test("partial cleanup persists reloadable authority after closing the unresolved worker", async () => {
+	const fixture = await makeFixture();
+	const workers = ["one", "two"].map((id) => ({
+		id,
+		role: "builder" as const,
+		agentName: `delegate-builder-${id}`,
+		paneId: `pane-${id}`,
+		session: `/tmp/${id}.jsonl`,
+		roleFingerprint: "fingerprint",
+		promptPath: `/tmp/${id}.md`,
+	}));
+	let persisted: unknown;
+	const identity = (worker: (typeof workers)[number]) => commandResult(JSON.stringify({ result: { agent: {
+		name: worker.agentName, pane_id: worker.paneId, agent_status: "idle", agent_session: { value: worker.session },
+	} } }));
+	const runtime = new DelegateRuntime({
+		runHerdr: async (args) => {
+			if (args[0] === "agent" && args[1] === "get") return identity(workers.find((worker) => worker.agentName === args[2]) ?? workers[0]);
+			if (args[0] === "pane" && args[1] === "close" && args[2] === "pane-two") return commandResult("", 1, "close failed");
+			return commandResult("{}");
+		},
+		validateRole: async () => ({ ok: true, value: undefined }), callerWorkspaceId: "workspace",
+		parentSessionId: "parent-session", cwd: fixture.root, resultRoot: join(fixture.root, "referential-cleanup"),
+		reporterPath: "/extension/index.ts", rolePaths: fixture.rolePaths,
+		initialState: {
+			ownerSessionId: "parent-session", workers,
+			pending: { taskId: "task-one", worker: "one", resultPath: "/tmp/result.json", startedAt: 1 },
+			unsafeWriter: "worker one may still be writing", unsafeWriterWorker: "one",
+		},
+		onStateChange: (state) => { persisted = state; },
+	});
+	const partial = await runtime.cleanupOwned();
+	assert.equal(partial.ok, false);
+	const parsed = parseDelegateRuntimeState(persisted);
+	const restoredState = requireSuccess(parsed);
+	assert.deepEqual(restoredState.workers.map((worker) => worker.id), ["two"]);
+	assert.equal(restoredState.pending, undefined);
+	assert.equal(restoredState.unsafeWriter, undefined);
+	assert.equal(restoredState.unsafeWriterWorker, undefined);
+	const restored = new DelegateRuntime({
+		runHerdr: async (args) => args[0] === "agent" ? identity(workers[1]) : commandResult("{}"),
+		validateRole: async () => ({ ok: true, value: undefined }), callerWorkspaceId: "workspace",
+		parentSessionId: "parent-session", cwd: fixture.root, resultRoot: join(fixture.root, "restored-cleanup"),
+		reporterPath: "/extension/index.ts", rolePaths: fixture.rolePaths, initialState: restoredState,
+	});
+	requireSuccess(await restored.cleanupOwned());
+	assert.deepEqual(restored.getState().workers, []);
+});
+
 test("persisted unsafe-writer state survives runtime reconstruction and prevents Herdr calls", async () => {
 	const fixture = await makeFixture();
 	const runtime = new DelegateRuntime({
