@@ -56,7 +56,8 @@ test("real Pi entrypoints guard cleanup and classify unavailable role models", a
 	});
 	await session.bindExtensions({ mode: "print" });
 	try {
-		const cleanup = session.extensionRunner.getCommand("delegate-cleanup");
+		const cleanup = session.extensionRunner.getRegisteredCommands()
+			.find((command) => command.name === "delegate-cleanup");
 		assert.ok(cleanup);
 		delete process.env.HERDR_ENV;
 		delete process.env.HERDR_PANE_ID;
