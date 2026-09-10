@@ -259,7 +259,7 @@ test("startup acknowledgment rejects accepted queued delegation even before it r
 	assert.deepEqual((await fixture.state()).calls, []);
 });
 
-for (const emptyField of ["pane", "root-tab", "root-workspace", "tab", "workspace"] as const) {
+for (const emptyField of ["pane", "tab", "workspace"] as const) {
 	test(`empty creation ${emptyField} identity remains a reconstructable malformed-startup lock`, async () => {
 		const fixture = await makeFixture();
 		const manager = SessionManager.inMemory(fixture.root);
@@ -268,30 +268,31 @@ for (const emptyField of ["pane", "root-tab", "root-workspace", "tab", "workspac
 			onStateChange: (state) => { manager.appendCustomEntry("herdr-delegate-state", state); },
 			runHerdr: async (args) => {
 				calls.push([...args]);
-				if (args[0] === "tab" && args[1] === "create") return commandResult(JSON.stringify({ result: {
-					root_pane: { pane_id: emptyField === "pane" ? "" : "pane", tab_id: emptyField === "root-tab" || emptyField === "tab" ? "" : "tab", workspace_id: emptyField === "root-workspace" ? "" : "workspace" },
-					tab: { tab_id: emptyField === "tab" ? "" : "tab", workspace_id: emptyField === "workspace" ? "" : "workspace" },
+				if (args[0] === "pane" && args[1] === "split") return commandResult(JSON.stringify({ result: {
+					pane: { pane_id: emptyField === "pane" ? "" : "pane", tab_id: emptyField === "tab" ? "" : "caller-tab", workspace_id: emptyField === "workspace" ? "" : "workspace" },
 				} }));
-				return commandResult("", 1, "startup failed");
+				return fixture.processRun(args);
+
 			},
 		});
 		const result = await runtime.delegate({ role: "worker", task: "must not be delivered" });
 		assert.equal(result.ok, false);
 		if (!result.ok) assert.equal(result.error.code, "manual_recovery_required");
-		assert.equal(calls.length, 1, "malformed creation identity must be rejected before startup");
-		assert.deepEqual(calls[0]?.slice(0, 2), ["tab", "create"]);
+		assert.equal(calls.length, 3, "malformed creation identity must be rejected before startup");
+		assert.deepEqual(calls[2]?.slice(0, 2), ["pane", "split"]);
 		const entry = manager.getBranch().at(-1);
 		assert.ok(entry?.type === "custom");
 		const representation: unknown = JSON.parse(JSON.stringify(entry.data));
 		assert.ok(Value.Check(delegateRuntimeStateSchema, representation));
 		const state = requireSuccess(parseDelegateRuntimeState(representation));
 		assert.equal(state.startupResource, undefined);
-		assert.match(state.unsafeWriter ?? "", /^tab creation succeeded but its root pane identity was malformed;/);
+		assert.match(state.unsafeWriter ?? "", /^pane split succeeded but its identity was malformed;/);
+		const callsBefore = (await fixture.state()).calls;
 		const restored = new DelegateRuntime({ ...fixture.options, initialState: state });
 		assert.equal((await restored.cleanupOwned()).ok, false);
 		requireSuccess(restored.acknowledgeStartupRecovery(requireSuccess(restored.getStartupRecovery())));
 		assert.deepEqual(restored.getState(), { ownerSessionId: "parent-session", workers: [] });
-		assert.deepEqual((await fixture.state()).calls, [], "reconstruction and acknowledgment must not touch resources");
+		assert.deepEqual((await fixture.state()).calls, callsBefore, "reconstruction and acknowledgment must not touch resources");
 	});
 }
 
@@ -332,10 +333,11 @@ test("completes a correlated task and launches the editable role model and think
 	assert.equal(promptPath.includes("\n"), false);
 	assert.equal(await readFile(promptPath, "utf8"), "Do the worker task without delegation.\n");
 	assert.equal(start.some((argument) => argument.includes("Do the worker task")), false);
-	assert.ok(calls.every((call) => call[0] === "agent" || call[0] === "pane" || call[0] === "tab"));
-	const create = calls.find((call) => call[0] === "tab" && call[1] === "create");
+	assert.ok(calls.every((call) => call[0] === "agent" || call[0] === "pane"));
+	const create = calls.find((call) => call[0] === "pane" && call[1] === "split");
 	assert.ok(create);
-	assert.deepEqual(create.slice(0, 8), ["tab", "create", "--workspace", "workspace", "--cwd", fixture.root, "--label", "delegate worker"]);
+	assert.deepEqual(create.slice(0, 7), ["pane", "split", "caller-pane", "--direction", "right", "--cwd", fixture.root]);
+	assert.deepEqual(fixture.runtime.getState().workers.map((worker) => worker.tabId), ["caller-tab"]);
 	assert.ok(create.includes("--no-focus"));
 });
 
@@ -370,7 +372,7 @@ test("reuses only the successful worker and correlates a fresh follow-up task", 
 	assert.notEqual(first.taskId, second.taskId);
 	assert.equal(second.worker, first.worker);
 	assert.deepEqual(second.cleanup, { status: "retained", reason: "worker_followups" });
-	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "tab" && call[1] === "create").length, 1);
+	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "pane" && call[1] === "split").length, 1);
 });
 
 test("closes a fresh reviewer immediately after preserving its correlated result", async () => {
@@ -436,7 +438,7 @@ test("an ambiguous blocked startup pane remains locked with exact manual recover
 	assert.equal(result.ok, false);
 	if (!result.ok) {
 		assert.equal(result.error.code, "manual_recovery_required");
-		assert.match(result.error.message, /pane=worker-pane, tab=worker-tab, workspace=workspace/);
+		assert.match(result.error.message, /pane=worker-pane, tab=caller-tab, workspace=workspace/);
 	}
 	const cleanup = await fixture.runtime.cleanupOwned();
 	assert.equal(cleanup.ok, false);
