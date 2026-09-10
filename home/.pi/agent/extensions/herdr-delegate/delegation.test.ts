@@ -730,6 +730,79 @@ for (const checkpoint of ["worker", "pending", "terminal", "closure"] as const) 
 	});
 }
 
+test("cleanup aggregates failures and still closes later verified workers", async () => {
+	const fixture = await makeFixture();
+	requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "first" }));
+	const worker = fixture.runtime.getState().workers[0];
+	assert.ok(worker);
+	const failures = ["first-missing", "second-missing"].map((id) => ({ ...worker, id, agentName: id }));
+	const runtime = new DelegateRuntime({
+		...fixture.options,
+		initialState: { ownerSessionId: "parent-session", workers: [...failures, worker] },
+		runHerdr: async (args) => failures.some((failed) => failed.agentName === args[2])
+			? commandResult("", 1, `timeout for ${args[2]}`)
+			: fixture.processRun(args),
+	});
+	const result = await runtime.cleanupOwned();
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.match(result.error.message, /first-missing/);
+		assert.match(result.error.message, /second-missing/);
+	}
+	assert.deepEqual(runtime.getState().workers, failures);
+	assert.ok(runtime.getState().unsafeWriter);
+	assert.equal((await runtime.delegate({ role: "builder", task: "must not run" })).ok, false);
+});
+
+test("drain waits for accepted delegation and leaves its idle builder retained", async () => {
+	const fixture = await makeFixture();
+	let release = (): void => undefined;
+	let started = (): void => undefined;
+	const gate = new Promise<void>((resolve) => { release = resolve; });
+	const entered = new Promise<void>((resolve) => { started = resolve; });
+	let snapshot: DelegateRuntimeState | undefined;
+	const runtime = new DelegateRuntime({
+		...fixture.options,
+		validateRole: async () => { started(); await gate; return { ok: true, value: undefined }; },
+		onStateChange: (state) => { snapshot = state; },
+	});
+	const delegated = runtime.delegate({ role: "builder", task: "first" });
+	await entered;
+	let drained = false;
+	const draining = runtime.drain().then((result) => { drained = true; return result; });
+	await Promise.resolve();
+	assert.equal(drained, false);
+	const rejected = await runtime.delegate({ role: "reviewer", task: "must not start" });
+	assert.equal(rejected.ok, false);
+	if (!rejected.ok) assert.equal(rejected.error.code, "runtime_closed");
+	release();
+	const built = requireSuccess(await delegated);
+	requireSuccess(await draining);
+	assert.equal(snapshot?.workers[0]?.id, built.worker);
+	assert.equal(snapshot?.pending, undefined);
+	assert.equal((await fixture.state()).calls.some((call) => call[1] === "close"), false);
+});
+
+test("failed child output and artifact remain available when terminal publication fails", async () => {
+	const fixture = await makeFixture("failed");
+	let publications = 0;
+	const runtime = new DelegateRuntime({
+		...fixture.options,
+		onStateChange: () => { if (++publications >= 3) throw new Error("disk unavailable"); },
+	});
+	const result = await runtime.delegate({ role: "builder", task: "failed task" });
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "task_failed");
+		assert.match(result.error.message, /state_persist_failed/);
+		assert.match(result.error.message, /Result artifact: .*\.json/);
+		assert.match(result.error.message, /done:failed task/);
+		assert.match(result.error.message, /matching owned pane closed/);
+	}
+	assert.deepEqual(runtime.getState().workers, []);
+	assert.ok(runtime.getState().unsafeWriter);
+});
+
 test("persistence failure does not discard output when reviewer closure also fails", async () => {
 	const fixture = await makeFixture("cleanup-fails");
 	const runtime = new DelegateRuntime({
