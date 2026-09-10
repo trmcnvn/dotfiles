@@ -781,10 +781,6 @@ export class DelegateRuntime {
 			const pane = await this.#run(["pane", "get", worker.paneId], { timeoutMs: 5_000 });
 			if (!pane.ok || !hasCliError(pane.value, ["pane_not_found"])) return owned;
 		} else {
-			if (worker.tabId !== undefined || worker.workspaceId !== undefined) {
-				const located = await this.#locatePane(worker);
-				if (!located.ok) return located;
-			}
 			const closed = await this.#run(["pane", "close", worker.paneId], { timeoutMs: 5_000 });
 			if (!closed.ok || closed.value.killed || closed.value.code !== 0) {
 				return err("cleanup_failed", closed.ok ? cliFailure(closed.value) : closed.error.message, undefined, worker.id);
@@ -821,6 +817,10 @@ export class DelegateRuntime {
 		if (!parsed.ok) return parsed;
 		const agent = parsed.value.result.agent;
 		if (agent.name !== worker.agentName || agent.pane_id !== worker.paneId || agent.agent_session?.value !== worker.session) return err("worker_replaced", worker.agentName);
+		if (worker.tabId !== undefined || worker.workspaceId !== undefined) {
+			const located = await this.#locatePane(worker);
+			if (!located.ok) return located;
+		}
 		return ok(agent);
 	}
 	async #run(args: readonly string[], options?: { readonly signal?: AbortSignal; readonly timeoutMs?: number }): Promise<DelegationResult<CommandResult>> {
