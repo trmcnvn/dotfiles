@@ -11,6 +11,10 @@ import {
 	SessionManager,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
+import { Value } from "typebox/value";
+
+const reporterResultSchema = Type.Object({ status: Type.String() });
 
 const usage = {
 	input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0,
@@ -54,7 +58,8 @@ test("real Pi input and settled events report only stop as completed", async () 
 				timestamp: Date.now(), usage,
 			});
 			await session.extensionRunner.emit({ type: "agent_settled" });
-			const result = JSON.parse(await readFile(join(root, worker, `${taskId}.json`), "utf8")) as { status: string };
+			const result: unknown = JSON.parse(await readFile(join(root, worker, `${taskId}.json`), "utf8"));
+			assert.ok(Value.Check(reporterResultSchema, result));
 			assert.equal(result.status, expected);
 		}
 		const unsafeEnvelope = Buffer.from(JSON.stringify({ version: 1, taskId: "../escape", worker, startedAt: Date.now() })).toString("base64url");
