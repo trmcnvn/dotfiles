@@ -34,30 +34,75 @@ const activityCursorSchema = Type.Object({
 });
 type ActivityCursor = Static<typeof activityCursorSchema>;
 
-const textContentSchema = Type.Object({ type: Type.Literal("text"), text: Type.String() });
-const toolCallContentSchema = Type.Object({
-	type: Type.Literal("toolCall"),
-	name: Type.String(),
-	id: Type.Optional(Type.String()),
+const stringSchema = Type.String();
+const booleanSchema = Type.Boolean();
+const nullableStringSchema = Type.Union([Type.String(), Type.Null()]);
+const unknownArraySchema = Type.Array(Type.Unknown());
+const contentPartRepresentationSchema = Type.Object({
+	type: Type.Optional(Type.Unknown()),
+	text: Type.Optional(Type.Unknown()),
+	name: Type.Optional(Type.Unknown()),
+	id: Type.Optional(Type.Unknown()),
 	arguments: Type.Optional(Type.Unknown()),
 });
-const messageSchema = Type.Object({
-	role: Type.Optional(Type.String()),
-	content: Type.Optional(Type.Union([Type.String(), Type.Array(Type.Unknown())])),
-	errorMessage: Type.Optional(Type.String()),
-	toolName: Type.Optional(Type.String()),
-	toolCallId: Type.Optional(Type.String()),
-	isError: Type.Optional(Type.Boolean()),
+const messageRepresentationSchema = Type.Object({
+	role: Type.Optional(Type.Unknown()),
+	content: Type.Optional(Type.Unknown()),
+	errorMessage: Type.Optional(Type.Unknown()),
+	toolName: Type.Optional(Type.Unknown()),
+	toolCallId: Type.Optional(Type.Unknown()),
+	isError: Type.Optional(Type.Unknown()),
 });
-const sessionEntrySchema = Type.Object({
-	type: Type.Optional(Type.String()),
-	id: Type.Optional(Type.String()),
-	parentId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-	message: Type.Optional(messageSchema),
-	summary: Type.Optional(Type.String()),
-	fromId: Type.Optional(Type.String()),
+const sessionEntryRepresentationSchema = Type.Object({
+	type: Type.Optional(Type.Unknown()),
+	id: Type.Optional(Type.Unknown()),
+	parentId: Type.Optional(Type.Unknown()),
+	message: Type.Optional(Type.Unknown()),
+	summary: Type.Optional(Type.Unknown()),
+	fromId: Type.Optional(Type.Unknown()),
 });
-type SessionEntry = Static<typeof sessionEntrySchema>;
+
+type ActivityContentPart =
+	| { readonly kind: "text"; readonly text: string }
+	| { readonly kind: "toolCall"; readonly name: string; readonly id?: string; readonly argumentsText: string };
+
+type ActivityMessage = {
+	readonly role?: string;
+	readonly textContent?: string;
+	readonly parts?: readonly ActivityContentPart[];
+	readonly errorMessage?: string;
+	readonly toolName?: string;
+	readonly toolCallId?: string;
+	readonly isError?: boolean;
+};
+
+type ActivityMessageDraft = {
+	role?: string;
+	textContent?: string;
+	parts?: readonly ActivityContentPart[];
+	errorMessage?: string;
+	toolName?: string;
+	toolCallId?: string;
+	isError?: boolean;
+};
+
+type SessionEntry = {
+	readonly type?: string;
+	readonly id?: string;
+	readonly parentId?: string | null;
+	readonly message?: ActivityMessage;
+	readonly summary?: string;
+	readonly fromId?: string;
+};
+
+type SessionEntryDraft = {
+	type?: string;
+	id?: string;
+	parentId?: string | null;
+	message?: ActivityMessage;
+	summary?: string;
+	fromId?: string;
+};
 
 const sessionHeaderSchema = Type.Object({
 	type: Type.Literal("session"),
@@ -159,14 +204,50 @@ function truncate(value: string, bytes = EVENT_BYTES): string {
 	return result + suffix;
 }
 
-function contentText(content: Static<typeof messageSchema>["content"]): string {
-	if (Value.Check(Type.String(), content)) return content;
-	if (!Value.Check(Type.Array(Type.Unknown()), content)) return "";
-	const rendered: string[] = [];
-	for (const part of content) {
-		if (Value.Check(textContentSchema, part)) rendered.push(part.text);
+function parseActivityMessage(value: Static<typeof messageRepresentationSchema>): ActivityMessage {
+	const message: ActivityMessageDraft = {};
+	if (Value.Check(stringSchema, value.role)) message.role = value.role;
+	if (Value.Check(stringSchema, value.content)) message.textContent = value.content;
+	if (Value.Check(stringSchema, value.errorMessage)) message.errorMessage = value.errorMessage;
+	if (Value.Check(stringSchema, value.toolName)) message.toolName = value.toolName;
+	if (Value.Check(stringSchema, value.toolCallId)) message.toolCallId = value.toolCallId;
+	if (Value.Check(booleanSchema, value.isError)) message.isError = value.isError;
+	if (Value.Check(unknownArraySchema, value.content)) {
+		const parts: ActivityContentPart[] = [];
+		for (const rawPart of value.content) {
+			if (!Value.Check(contentPartRepresentationSchema, rawPart)) continue;
+			if (rawPart.type === "text" && Value.Check(stringSchema, rawPart.text)) {
+				parts.push({ kind: "text", text: rawPart.text });
+			}
+			if (rawPart.type === "toolCall" && Value.Check(stringSchema, rawPart.name)) {
+				const part: { kind: "toolCall"; name: string; id?: string; argumentsText: string } = {
+					kind: "toolCall",
+					name: rawPart.name,
+					argumentsText: JSON.stringify(rawPart.arguments ?? {}) ?? "{}",
+				};
+				if (Value.Check(stringSchema, rawPart.id)) part.id = rawPart.id;
+				parts.push(part);
+			}
+		}
+		message.parts = parts;
 	}
-	return rendered.join("\n");
+	return message;
+}
+
+function parseSessionEntry(value: Static<typeof sessionEntryRepresentationSchema>): SessionEntry {
+	const entry: SessionEntryDraft = {};
+	if (Value.Check(stringSchema, value.type)) entry.type = value.type;
+	if (Value.Check(stringSchema, value.id)) entry.id = value.id;
+	if (Value.Check(nullableStringSchema, value.parentId)) entry.parentId = value.parentId;
+	if (Value.Check(messageRepresentationSchema, value.message)) entry.message = parseActivityMessage(value.message);
+	if (Value.Check(stringSchema, value.summary)) entry.summary = value.summary;
+	if (Value.Check(stringSchema, value.fromId)) entry.fromId = value.fromId;
+	return entry;
+}
+
+function contentText(message: ActivityMessage): string {
+	if (message.textContent !== undefined) return message.textContent;
+	return message.parts?.flatMap((part) => part.kind === "text" ? [part.text] : []).join("\n") ?? "";
 }
 
 function renderEntry(entry: SessionEntry, lineNumber: number): string | undefined {
@@ -178,13 +259,11 @@ function renderEntry(entry: SessionEntry, lineNumber: number): string | undefine
 		const message = entry.message;
 		if (message?.role === "assistant") {
 			const rendered: string[] = [];
-			if (Value.Check(Type.Array(Type.Unknown()), message.content)) {
-				for (const part of message.content) {
-					if (Value.Check(textContentSchema, part) && part.text) rendered.push(`assistant: ${truncate(part.text)}`);
-					if (Value.Check(toolCallContentSchema, part)) {
-						const callId = part.id ? ` ${part.id}` : "";
-						rendered.push(`tool call${callId} ${part.name}: ${truncate(JSON.stringify(part.arguments ?? {}))}`);
-					}
+			for (const part of message.parts ?? []) {
+				if (part.kind === "text" && part.text) rendered.push(`assistant: ${truncate(part.text)}`);
+				if (part.kind === "toolCall") {
+					const callId = part.id ? ` ${part.id}` : "";
+					rendered.push(`tool call${callId} ${part.name}: ${truncate(part.argumentsText)}`);
 				}
 			}
 			if (message.errorMessage) rendered.push(`assistant error: ${truncate(message.errorMessage)}`);
@@ -194,7 +273,7 @@ function renderEntry(entry: SessionEntry, lineNumber: number): string | undefine
 			const name = message.toolName ?? "unknown";
 			const callId = message.toolCallId ? ` ${message.toolCallId}` : "";
 			const marker = message.isError === true ? " error" : "";
-			return truncate(`[${id} ${type}/toolResult parent=${parent}] ${name}${callId}${marker}: ${truncate(contentText(message.content) || "(no text output)")}`);
+			return truncate(`[${id} ${type}/toolResult parent=${parent}] ${name}${callId}${marker}: ${truncate(contentText(message) || "(no text output)")}`);
 		}
 		return undefined;
 	}
@@ -298,8 +377,8 @@ export async function readSessionActivity(
 			let rendered: string | undefined;
 			try {
 				const entry: unknown = JSON.parse(line);
-				rendered = Value.Check(sessionEntrySchema, entry)
-					? renderEntry(entry, lineNumber)
+				rendered = Value.Check(sessionEntryRepresentationSchema, entry)
+					? renderEntry(parseSessionEntry(entry), lineNumber)
 					: `[line ${lineNumber} malformed] expected object`;
 			} catch {
 				rendered = `[line ${lineNumber} malformed] invalid JSON record`;
