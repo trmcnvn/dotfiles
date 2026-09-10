@@ -21,12 +21,14 @@ Use the blocking `delegate` tool for a minimal sequential build-and-review workf
 4. Call `delegate` with `role: "reviewer"` and provide the original requirements plus paths/diff scope for the actual changes. Every review uses a fresh Astra worker. Do not ask the reviewer to run write-producing checks.
 5. Adjudicate findings against the requirements and repository evidence. Do not apply an unconditional fix pass.
 6. For necessary fixes only, call `delegate` with the successful builder's opaque `worker` id and a precise fix request. Never send fixes to a new writer.
-7. Verify with the smallest relevant checks and summarize changed paths, review outcome, checks, and limitations.
+7. Verify with the smallest relevant checks and summarize changed paths, review outcome, checks, and limitations. When the parent task settles after all review, fixes, and verification, automatic owned-worker cleanup closes the retained builder.
 
 Use one review/fix cycle by default. Stop or ask the user on blockers, contradictory findings, repeated failure, or a decision that materially changes scope. Never create infinite review loops.
 
 ## Safety and ownership
 
-Delegations are sequential. A timeout, cancellation, killed transport, or stalled prompt may already have been delivered; never resubmit it. If the tool reports unresolved ownership, stop all further delegation. Once a worker is pinned, the error includes its opaque handle; use `read_agent_activity` if JSONL activity helps diagnosis, then use `/delegate-cleanup` only when deliberate closure of the pinned worker pane is appropriate. Cleanup never closes a whole tab containing user-added panes. Otherwise escalate.
+Delegations are sequential. A timeout, cancellation, killed transport, or stalled prompt may already have been delivered; never resubmit it. The extension confirms native session identity, stops/closes only that owned pane, and reports the cleanup outcome. If identity or cleanup remains unresolved, the error includes the opaque worker handle and retains the delegation lock: stop all further delegation, use `read_agent_activity` if JSONL activity helps diagnosis, then use `/delegate-cleanup` only as deliberate recovery. Never treat `/delegate-cleanup` as a normal workflow step. Cleanup never closes a whole tab containing user-added panes.
 
-Workers remain visible and inspectable in their Herdr panes. Do not close arbitrary panes. The reviewer has a read-only operating policy, but because it has bash for inspection that policy is not a security sandbox.
+A reviewer is always fresh and its pane closes after its correlated result is captured. A successful builder remains available for review fixes during the same parent task, then closes automatically only at Pi's `agent_settled` boundary, after retries, compaction retries, and queued continuations are exhausted. Completed output and its result artifact remain authoritative even if pane cleanup fails.
+
+Workers remain visible while active. Do not close arbitrary panes. The reviewer has a read-only operating policy, but because it has bash for inspection that policy is not a security sandbox.
