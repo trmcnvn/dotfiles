@@ -112,6 +112,7 @@ export type DelegateRuntimeState = {
 	readonly workers: readonly PersistedWorker[];
 	readonly pending?: PendingTask;
 	readonly unsafeWriter?: string;
+	readonly unsafeWriterWorker?: string;
 };
 
 type ChildResult = {
@@ -270,14 +271,18 @@ export function parseDelegateRuntimeState(value: unknown): DelegationResult<Dele
 	}
 	const unsafeWriterPresent = Object.hasOwn(record, "unsafeWriter");
 	const unsafeWriter = stringField(record, "unsafeWriter");
-	if (unsafeWriterPresent && !unsafeWriter) {
-		return err("state_invalid", "unsafeWriter must be a non-empty string when present");
+	const unsafeWriterWorkerPresent = Object.hasOwn(record, "unsafeWriterWorker");
+	const unsafeWriterWorker = stringField(record, "unsafeWriterWorker");
+	if (unsafeWriterPresent && !unsafeWriter) return err("state_invalid", "unsafeWriter must be a non-empty string when present");
+	if (unsafeWriterWorkerPresent && (!unsafeWriterWorker || !workers.some((worker) => worker.id === unsafeWriterWorker))) {
+		return err("state_invalid", "unsafeWriterWorker must identify an owned worker when present");
 	}
 	return ok({
 		ownerSessionId,
 		workers,
 		...(pending ? { pending } : {}),
 		...(unsafeWriter ? { unsafeWriter } : {}),
+		...(unsafeWriterWorker ? { unsafeWriterWorker } : {}),
 	});
 }
 
@@ -343,6 +348,7 @@ export class DelegateRuntime {
 	#cleanupInProgress = false;
 	#pending: PendingTask | undefined;
 	#unsafeWriter: string | undefined;
+	#unsafeWriterWorker: string | undefined;
 
 	/** Creates a runtime from current or persisted parent-session authority. */
 	constructor(options: RuntimeOptions) {
@@ -353,12 +359,13 @@ export class DelegateRuntime {
 		this.#pending = options.initialState?.pending;
 		this.#unsafeWriter = options.initialStateError ?? options.initialState?.unsafeWriter ??
 			(options.initialState?.pending ? `pending task ${options.initialState.pending.taskId} requires owned-worker cleanup` : undefined);
+		this.#unsafeWriterWorker = options.initialState?.unsafeWriterWorker ?? options.initialState?.pending?.worker;
 	}
 
 	/** Returns the authority snapshot persisted by the Pi extension. */
 	getState(): DelegateRuntimeState {
 		const ownerSessionId = this.#foreignAuthority ? this.#options.initialState?.ownerSessionId ?? this.#options.parentSessionId : this.#options.parentSessionId;
-		return { ownerSessionId, workers: [...this.#workers.values()], ...(this.#pending ? { pending: this.#pending } : {}), ...(this.#unsafeWriter ? { unsafeWriter: this.#unsafeWriter } : {}) };
+		return { ownerSessionId, workers: [...this.#workers.values()], ...(this.#pending ? { pending: this.#pending } : {}), ...(this.#unsafeWriter ? { unsafeWriter: this.#unsafeWriter } : {}), ...(this.#unsafeWriterWorker ? { unsafeWriterWorker: this.#unsafeWriterWorker } : {}) };
 	}
 
 	/** Runs one serialized task and prevents pre-aborted requests from mutating resources. */
@@ -423,6 +430,7 @@ export class DelegateRuntime {
 			}
 			this.#pending = undefined;
 			this.#unsafeWriter = undefined;
+			this.#unsafeWriterWorker = undefined;
 			this.#publish();
 			return ok(undefined);
 		} finally {
@@ -433,7 +441,7 @@ export class DelegateRuntime {
 	async #delegate(input: DelegateInput, signal?: AbortSignal): Promise<DelegationResult<DelegateResult>> {
 		if (this.#foreignAuthority) return err("foreign_authority", "copied session state cannot adopt another parent session's workers");
 		if (this.#unsafeWriter || this.#pending) {
-			const worker = this.#pending?.worker;
+			const worker = this.#pending?.worker ?? this.#unsafeWriterWorker;
 			return err("worker_unresolved", `${this.#unsafeWriter ?? `pending task ${this.#pending?.taskId}`} Use read_agent_activity before /delegate-cleanup if diagnosis is needed.`, undefined, worker);
 		}
 		const task = input.task.trim();
@@ -459,8 +467,8 @@ export class DelegateRuntime {
 			if (!owned.ok) return owned;
 			const status = stringField(owned.value, "agent_status");
 			if (status !== "idle" && status !== "done") {
-				this.#lock(`${worker.agentName} is ${status ?? "unknown"} before prompt`);
-				return err("worker_unresolved", this.#unsafeWriter ?? "worker not idle");
+				this.#lock(`${worker.agentName} is ${status ?? "unknown"} before prompt`, worker.id);
+				return err("worker_unresolved", this.#unsafeWriter ?? "worker not idle", undefined, worker.id);
 			}
 		} else {
 			const started = await this.#start(role, signal);
@@ -564,13 +572,14 @@ export class DelegateRuntime {
 		}
 		const owned = await this.#owned(worker);
 		if (owned.ok) await this.#run(["agent", "send-keys", worker.agentName, "esc"], { timeoutMs: 5_000 });
-		this.#lock(`${worker.agentName} task ${pending.taskId} has uncertain delivery (${reason}); prompt was not resubmitted`);
+		this.#lock(`${worker.agentName} task ${pending.taskId} has uncertain delivery (${reason}); prompt was not resubmitted`, worker.id);
 		return err("worker_unresolved", `${this.#unsafeWriter}. Use read_agent_activity for diagnosis, then run /delegate-cleanup to close the pinned session.`, undefined, worker.id);
 	}
 
 	#finishTerminal(worker: PersistedWorker, role: RoleConfig, pending: PendingTask, child: ChildResult): DelegationResult<DelegateResult> {
 		this.#pending = undefined;
 		this.#unsafeWriter = undefined;
+		this.#unsafeWriterWorker = undefined;
 		this.#publish();
 		if (child.provider !== role.provider || child.model !== role.model || child.thinking !== role.thinking) {
 			return err("model_mismatch", `${child.provider}/${child.model} (${child.thinking})`);
@@ -611,8 +620,9 @@ export class DelegateRuntime {
 			return err("herdr_command_failed", args.slice(0, 3).join(" "), cause);
 		}
 	}
-	#lock(message: string): void {
+	#lock(message: string, worker?: string): void {
 		this.#unsafeWriter = message;
+		this.#unsafeWriterWorker = worker;
 		this.#publish();
 	}
 	#publish(): void {
