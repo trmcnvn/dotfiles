@@ -572,6 +572,9 @@ test("cleanup reserves the runtime against delegation and another cleanup", asyn
 	await started;
 	const delegated = await runtime.delegate({ role: "reviewer", task: "must not start" });
 	const secondCleanup = await runtime.cleanupOwned();
+	const acknowledgment = runtime.acknowledgeStartupRecovery(legacyStartupFailure);
+	assert.equal(acknowledgment.ok, false);
+	if (!acknowledgment.ok) assert.equal(acknowledgment.error.code, "cleanup_busy");
 	assert.equal(delegated.ok, false);
 	if (!delegated.ok) assert.equal(delegated.error.code, "cleanup_busy");
 	assert.equal(secondCleanup.ok, false);
