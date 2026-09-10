@@ -107,6 +107,96 @@ function requireSuccess<T>(result: { readonly ok: true; readonly value: T } | { 
 	return result.value;
 }
 
+const legacyStartupFailure = "agent startup failed after creating pane=old-pane, tab=old-tab, workspace=workspace (timeout); native session identity was not pinned, so inspect and close that pane manually if appropriate";
+
+test("startup acknowledgment preserves the lock on failed publication and permits deliberate retry and reload", async () => {
+	const fixture = await makeFixture();
+	const initialState = { ownerSessionId: "parent-session", workers: [], unsafeWriter: legacyStartupFailure };
+	let failPublication = true;
+	let published: DelegateRuntimeState = initialState;
+	const runtime = new DelegateRuntime({ ...fixture.options, initialState, onStateChange: (state) => {
+		if (failPublication) throw new Error("disk unavailable");
+		published = state;
+	} });
+	const record = requireSuccess(runtime.getStartupRecovery());
+	assert.match(record, /Legacy record/);
+	assert.equal(runtime.acknowledgeStartupRecovery("different record").ok, false);
+	assert.equal(runtime.acknowledgeStartupRecovery(record).ok, false);
+	assert.equal(runtime.getState().unsafeWriter, legacyStartupFailure);
+	assert.ok(runtime.getState().persistenceError);
+	assert.deepEqual(published, initialState);
+	assert.equal((await runtime.delegate({ role: "worker", task: "must stay locked" })).ok, false);
+	failPublication = false;
+	requireSuccess(runtime.acknowledgeStartupRecovery(record));
+	assert.deepEqual(published, { ownerSessionId: "parent-session", workers: [] });
+	assert.equal(runtime.getStartupRecovery().ok, false);
+	assert.equal(runtime.acknowledgeStartupRecovery(record).ok, false);
+	assert.deepEqual((await fixture.state()).calls, []);
+	const reloaded = new DelegateRuntime({ ...fixture.options, initialState: published });
+	requireSuccess(await reloaded.delegate({ role: "scout", task: "new deliberate task" }));
+});
+
+test("startup acknowledgment refuses foreign, corrupt, pinned, pending, and unrelated authority", async () => {
+	const fixture = await makeFixture();
+	const worker = { id: "owned", role: "worker", agentName: "owned-agent", paneId: "owned-pane", session: "/tmp/owned.jsonl", roleFingerprint: "fingerprint", promptPath: "/tmp/prompt.md" } as const;
+	const startup = { ownerSessionId: "parent-session", workers: [], unsafeWriter: legacyStartupFailure };
+	const states: DelegateRuntimeState[] = [
+		{ ...startup, ownerSessionId: "foreign" },
+		{ ...startup, unsafeWriter: "unrelated safety failure" },
+		{ ...startup, workers: [worker] },
+		{ ...startup, workers: [worker], unsafeWriterWorker: worker.id },
+		{ ...startup, workers: [worker], pending: { worker: worker.id, taskId: "task", resultPath: "/tmp/result", startedAt: 1 } },
+	];
+	for (const initialState of states) {
+		const runtime = new DelegateRuntime({ ...fixture.options, initialState });
+		const before = runtime.getState();
+		assert.equal(runtime.getStartupRecovery().ok, false);
+		assert.equal(runtime.acknowledgeStartupRecovery(legacyStartupFailure).ok, false);
+		assert.deepEqual(runtime.getState(), before);
+	}
+	const corrupt = new DelegateRuntime({ ...fixture.options, initialState: startup, initialStateError: "corrupt authority" });
+	assert.equal(corrupt.getStartupRecovery().ok, false);
+	assert.equal(corrupt.acknowledgeStartupRecovery(legacyStartupFailure).ok, false);
+	const closed = new DelegateRuntime({ ...fixture.options, initialState: startup });
+	const record = requireSuccess(closed.getStartupRecovery());
+	await closed.drain();
+	assert.equal(closed.acknowledgeStartupRecovery(record).ok, false);
+	assert.deepEqual((await fixture.state()).calls, []);
+});
+
+test("startup acknowledgment rejects accepted queued delegation even before it reaches the safety lock", async () => {
+	const fixture = await makeFixture();
+	const runtime = new DelegateRuntime({ ...fixture.options, initialState: { ownerSessionId: "parent-session", workers: [], unsafeWriter: legacyStartupFailure } });
+	const record = requireSuccess(runtime.getStartupRecovery());
+	const first = runtime.delegate({ role: "worker", task: "blocked" });
+	const queued = runtime.delegate({ role: "worker", task: "also blocked" });
+	assert.equal(runtime.getStartupRecovery().ok, false);
+	assert.equal(runtime.acknowledgeStartupRecovery(record).ok, false);
+	await Promise.all([first, queued]);
+	requireSuccess(runtime.acknowledgeStartupRecovery(record));
+	assert.deepEqual((await fixture.state()).calls, []);
+});
+
+test("new unpinned startup failures retain diagnostic provenance across parsing and acknowledgment", async () => {
+	const fixture = await makeFixture("startup-blocked");
+	assert.equal((await fixture.runtime.delegate({ role: "worker", task: "not delivered" })).ok, false);
+	const state = fixture.runtime.getState();
+	assert.ok(state.startupResource);
+	assert.equal(state.startupResource.agentName, "delegate-worker-id1");
+	const parsed = requireSuccess(parseDelegateRuntimeState(state));
+	assert.deepEqual(parsed.startupResource, state.startupResource);
+	const restored = new DelegateRuntime({ ...fixture.options, initialState: parsed });
+	const record = requireSuccess(restored.getStartupRecovery());
+	assert.match(record, /Startup provenance \(not native ownership\)/);
+	assert.equal((await restored.cleanupOwned()).ok, false);
+	const callsBefore = (await fixture.state()).calls;
+	requireSuccess(restored.acknowledgeStartupRecovery(record));
+	assert.deepEqual((await fixture.state()).calls, callsBefore);
+	assert.deepEqual(restored.getState(), { ownerSessionId: "parent-session", workers: [] });
+	assert.equal(parseDelegateRuntimeState({ ...state, unsafeWriterWorker: "owned" }).ok, false);
+	assert.equal(parseDelegateRuntimeState({ ownerSessionId: "parent-session", workers: [], startupResource: state.startupResource }).ok, false);
+});
+
 test("completes a correlated task and launches the editable role model and thinking exactly", async () => {
 	const fixture = await makeFixture("success", { model: "other-provider/new-sol", thinking: "high" });
 	const result = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "implement it" }));
