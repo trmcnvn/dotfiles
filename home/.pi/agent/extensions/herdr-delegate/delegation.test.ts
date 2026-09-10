@@ -195,6 +195,16 @@ test("a child-reported failure is returned as a typed task failure", async () =>
 	if (!result.ok) assert.equal(result.error.code, "task_failed");
 });
 
+test("empty child error metadata preserves the task-failed status fallback", async () => {
+	const fixture = await makeFixture("failed-empty");
+	const result = await fixture.runtime.delegate({ role: "builder", task: "task" });
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "task_failed");
+		assert.equal(result.error.message, "task_failed: failed");
+	}
+});
+
 test("an unsettled timed-out writer locks all later delegation", async () => {
 	const fixture = await makeFixture("timeout-stuck");
 	const first = await fixture.runtime.delegate({ role: "builder", task: "task", timeoutMs: 5_000 });
