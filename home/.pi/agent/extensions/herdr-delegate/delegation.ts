@@ -313,11 +313,17 @@ function parseChildResult(value: object, pending: PendingTask, worker: Persisted
 		value.session !== worker.session || !value.provider || !value.model || !value.thinking || value.finishedAt < pending.startedAt) {
 		return err("result_invalid", "task, native session, or terminal fields did not match");
 	}
-	return ok({
+	const child: {
+		taskId: string; worker: string; status: ChildResult["status"]; output: string; error?: string;
+		stopReason?: string; session: string; provider: string; model: string; thinking: string; finishedAt: number;
+	} = {
 		taskId: value.taskId, worker: worker.id, status: value.status, output: value.output,
-		error: value.error, stopReason: value.stopReason, session: value.session, provider: value.provider,
-		model: value.model, thinking: value.thinking, finishedAt: value.finishedAt,
-	});
+		session: value.session, provider: value.provider, model: value.model, thinking: value.thinking,
+		finishedAt: value.finishedAt,
+	};
+	if (value.error !== undefined) child.error = value.error;
+	if (value.stopReason !== undefined) child.stopReason = value.stopReason;
+	return ok(child);
 }
 
 function encodeTask(pending: PendingTask, task: string): string {
@@ -383,7 +389,14 @@ export class DelegateRuntime {
 	/** Returns the authority snapshot persisted by the Pi extension. */
 	getState(): DelegateRuntimeState {
 		const ownerSessionId = this.#foreignAuthority ? this.#options.initialState?.ownerSessionId ?? this.#options.parentSessionId : this.#options.parentSessionId;
-		return { ownerSessionId, workers: [...this.#workers.values()], ...(this.#pending ? { pending: this.#pending } : {}), ...(this.#unsafeWriter ? { unsafeWriter: this.#unsafeWriter } : {}), ...(this.#unsafeWriterWorker ? { unsafeWriterWorker: this.#unsafeWriterWorker } : {}) };
+		const state: {
+			ownerSessionId: string; workers: readonly PersistedWorker[]; pending?: PendingTask;
+			unsafeWriter?: string; unsafeWriterWorker?: string;
+		} = { ownerSessionId, workers: [...this.#workers.values()] };
+		if (this.#pending) state.pending = this.#pending;
+		if (this.#unsafeWriter) state.unsafeWriter = this.#unsafeWriter;
+		if (this.#unsafeWriterWorker) state.unsafeWriterWorker = this.#unsafeWriterWorker;
+		return state;
 	}
 
 	/** Runs one serialized task and prevents pre-aborted requests from mutating resources. */
@@ -488,7 +501,7 @@ export class DelegateRuntime {
 			worker = existing;
 			const owned = await this.#owned(worker);
 			if (!owned.ok) return owned;
-			const status = stringField(owned.value, "agent_status");
+			const status = owned.value.agent_status;
 			if (status !== "idle" && status !== "done") {
 				this.#lock(`${worker.agentName} is ${status ?? "unknown"} before prompt`, worker.id);
 				return err("worker_unresolved", this.#unsafeWriter ?? "worker not idle", undefined, worker.id);
@@ -509,14 +522,13 @@ export class DelegateRuntime {
 		}
 		this.#pending = pending;
 		this.#publish();
-		const prompted = await this.#run(["agent", "prompt", worker.paneId, encodeTask(pending, task), "--wait", "--timeout", String(timeoutMs)], {
-			...(signal ? { signal } : {}), timeoutMs: timeoutMs + 5_000,
-		});
+		const promptOptions = signal === undefined ? { timeoutMs: timeoutMs + 5_000 } : { signal, timeoutMs: timeoutMs + 5_000 };
+		const prompted = await this.#run(["agent", "prompt", worker.paneId, encodeTask(pending, task), "--wait", "--timeout", String(timeoutMs)], promptOptions);
 		if (!prompted.ok || prompted.value.killed || prompted.value.code !== 0) return this.#uncertain(worker, role, pending, prompted.ok ? cliFailure(prompted.value) : prompted.error.message);
-		const promptJson = parseJson(prompted.value.stdout, "agent prompt");
+		const promptJson = parseJson(prompted.value.stdout, "agent prompt", agentResponseSchema);
 		if (!promptJson.ok) return this.#uncertain(worker, role, pending, promptJson.error.message);
-		const promptAgent = objectField(objectField(promptJson.value, "result"), "agent");
-		if (stringField(promptAgent, "name") !== worker.agentName || stringField(objectField(promptAgent, "agent_session"), "value") !== worker.session || stringField(promptAgent, "agent_status") === "blocked") {
+		const promptAgent = promptJson.value.result.agent;
+		if (promptAgent.name !== worker.agentName || promptAgent.agent_session?.value !== worker.session || promptAgent.agent_status === "blocked") {
 			return this.#uncertain(worker, role, pending, "prompt returned blocked or mismatched owner");
 		}
 		const raw = await readResult(pending.resultPath, Date.now() + RESULT_WAIT_MS);
@@ -538,46 +550,49 @@ export class DelegateRuntime {
 		} catch (cause) {
 			return err("role_prompt_write_failed", promptPath, cause);
 		}
+		const createOptions = signal === undefined ? { timeoutMs: 10_000 } : { signal, timeoutMs: 10_000 };
 		const created = await this.#run(["tab", "create", "--workspace", this.#options.callerWorkspaceId, "--cwd", this.#options.cwd,
 			"--label", `delegate ${role.name}`, "--env", "PI_HERDR_DELEGATE_CHILD=1", "--env", `PI_HERDR_DELEGATE_RESULT_ROOT=${this.#options.resultRoot}`,
-			"--env", `PI_HERDR_DELEGATE_WORKER=${workerId}`, "--no-focus"], { ...(signal ? { signal } : {}), timeoutMs: 10_000 });
+			"--env", `PI_HERDR_DELEGATE_WORKER=${workerId}`, "--no-focus"], createOptions);
 		if (!created.ok || created.value.killed || created.value.code !== 0) {
 			await rm(workerDir, { recursive: true, force: true });
 			return err("tab_create_failed", created.ok ? cliFailure(created.value) : created.error.message);
 		}
-		const createdJson = parseJson(created.value.stdout, "tab create");
+		const createdJson = parseJson(created.value.stdout, "tab create", tabCreatedResponseSchema);
 		if (!createdJson.ok) return createdJson;
-		const createdResult = objectField(createdJson.value, "result");
-		const pane = objectField(createdResult, "root_pane");
-		const tab = objectField(createdResult, "tab");
-		const paneId = stringField(pane, "pane_id");
-		const tabId = stringField(tab, "tab_id");
-		const workspaceId = stringField(tab, "workspace_id");
-		if (!paneId || !tabId || workspaceId !== this.#options.callerWorkspaceId || stringField(pane, "tab_id") !== tabId || stringField(pane, "workspace_id") !== workspaceId) {
+		const pane = createdJson.value.result.root_pane;
+		const tab = createdJson.value.result.tab;
+		const paneId = pane.pane_id;
+		const tabId = tab.tab_id;
+		const workspaceId = tab.workspace_id;
+		if (workspaceId !== this.#options.callerWorkspaceId || pane.tab_id !== tabId || pane.workspace_id !== workspaceId) {
 			return err("invalid_herdr_response", "created tab identity is missing or mismatched");
 		}
 		const startArgs = ["agent", "start", agentName, "--kind", "pi", "--pane", paneId, "--timeout", "60000", "--",
 			"--model", `${role.provider}/${role.model}`, "--thinking", role.thinking, "--tools", role.tools.join(","), "--name", `delegate ${role.name}`,
 			"--append-system-prompt", promptPath, "--extension", this.#options.reporterPath] as const;
-		let start = await this.#run(startArgs, { ...(signal ? { signal } : {}), timeoutMs: 65_000 });
+		const startOptions = signal === undefined ? { timeoutMs: 65_000 } : { signal, timeoutMs: 65_000 };
+		let start = await this.#run(startArgs, startOptions);
 		if (start.ok && !start.value.killed && start.value.code !== 0 && cliFailure(start.value).startsWith("agent_pane_busy:")) {
 			const current = await this.#run(["pane", "get", paneId], { timeoutMs: 5_000 });
-			const currentJson = current.ok && !current.value.killed && current.value.code === 0 ? parseJson(current.value.stdout, "pane get") : undefined;
-			const currentPane = currentJson?.ok ? objectField(objectField(currentJson.value, "result"), "pane") : undefined;
+			const currentJson = current.ok && !current.value.killed && current.value.code === 0
+				? parseJson(current.value.stdout, "pane get", paneResponseSchema)
+				: undefined;
+			const currentPane = currentJson?.ok ? currentJson.value.result.pane : undefined;
 			const paneHasNoAgent = currentPane !== undefined && (currentPane.agent === undefined || currentPane.agent === null);
-			if (stringField(currentPane, "pane_id") === paneId && stringField(currentPane, "tab_id") === tabId && stringField(currentPane, "workspace_id") === workspaceId && paneHasNoAgent) {
-				start = await this.#run(startArgs, { ...(signal ? { signal } : {}), timeoutMs: 65_000 });
+			if (currentPane?.pane_id === paneId && currentPane.tab_id === tabId && currentPane.workspace_id === workspaceId && paneHasNoAgent) {
+				start = await this.#run(startArgs, startOptions);
 			}
 		}
 		if (!start.ok || start.value.killed || start.value.code !== 0) return err("agent_start_failed", `${start.ok ? cliFailure(start.value) : start.error.message}; pane=${paneId}; inspect and close manually if appropriate`);
-		const startJson = parseJson(start.value.stdout, "agent start");
+		const startJson = parseJson(start.value.stdout, "agent start", agentResponseSchema);
 		if (!startJson.ok) {
 			this.#lock(`started ${agentName} in ${paneId} but launch identity was malformed`);
 			return err("worker_unresolved", this.#unsafeWriter ?? paneId);
 		}
-		const agent = objectField(objectField(startJson.value, "result"), "agent");
-		const session = stringField(objectField(agent, "agent_session"), "value");
-		if (stringField(agent, "name") !== agentName || stringField(agent, "pane_id") !== paneId || !session) {
+		const agent = startJson.value.result.agent;
+		const session = agent.agent_session?.value;
+		if (agent.name !== agentName || agent.pane_id !== paneId || !session) {
 			this.#lock(`started ${agentName} in ${paneId} without a native session identity; inspect and close manually`);
 			return err("worker_unresolved", this.#unsafeWriter ?? paneId);
 		}
@@ -627,14 +642,14 @@ export class DelegateRuntime {
 		});
 	}
 
-	async #owned(worker: PersistedWorker): Promise<DelegationResult<Record<string, unknown>>> {
+	async #owned(worker: PersistedWorker): Promise<DelegationResult<AgentIdentity>> {
 		const current = await this.#run(["agent", "get", worker.agentName], { timeoutMs: 5_000 });
 		if (!current.ok || current.value.killed || current.value.code !== 0) return err("worker_unavailable", current.ok ? cliFailure(current.value) : current.error.message);
-		const parsed = parseJson(current.value.stdout, "agent get");
+		const parsed = parseJson(current.value.stdout, "agent get", agentResponseSchema);
 		if (!parsed.ok) return parsed;
-		const agent = objectField(objectField(parsed.value, "result"), "agent");
-		if (stringField(agent, "name") !== worker.agentName || stringField(agent, "pane_id") !== worker.paneId || stringField(objectField(agent, "agent_session"), "value") !== worker.session) return err("worker_replaced", worker.agentName);
-		return ok(agent ?? {});
+		const agent = parsed.value.result.agent;
+		if (agent.name !== worker.agentName || agent.pane_id !== worker.paneId || agent.agent_session?.value !== worker.session) return err("worker_replaced", worker.agentName);
+		return ok(agent);
 	}
 	async #run(args: readonly string[], options?: { readonly signal?: AbortSignal; readonly timeoutMs?: number }): Promise<DelegationResult<CommandResult>> {
 		try {
