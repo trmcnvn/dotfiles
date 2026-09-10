@@ -58,7 +58,7 @@ async function makeFixture(scenario = "success", roleOverrides: Partial<Record<"
 	const runtime = new DelegateRuntime({
 		runHerdr: processRun,
 		validateRole: async () => ({ ok: true, value: undefined }),
-		callerPaneId: "caller",
+		callerWorkspaceId: "workspace",
 		parentSessionId: "parent-session",
 		cwd: root,
 		resultRoot: join(root, "results"),
@@ -104,7 +104,7 @@ test("reuses only the successful builder and correlates a fresh follow-up task",
 	const second = requireSuccess(await fixture.runtime.delegate({ worker: first.worker, task: "fix" }));
 	assert.notEqual(first.taskId, second.taskId);
 	assert.equal(second.worker, first.worker);
-	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "pane" && call[1] === "split").length, 1);
+	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "tab" && call[1] === "create").length, 1);
 });
 
 test("a stale task result leaves a recoverable unresolved-writer lock", async () => {
@@ -167,7 +167,7 @@ test("a rejected prompt call also triggers owned-worker cancellation", async () 
 	};
 	const runtime = new DelegateRuntime({
 		runHerdr: rejectingRun, validateRole: async () => ({ ok: true, value: undefined }),
-		callerPaneId: "caller", parentSessionId: "parent-session", cwd: fixture.root,
+		callerWorkspaceId: "workspace", parentSessionId: "parent-session", cwd: fixture.root,
 		resultRoot: join(fixture.root, "abort-results"), reporterPath: "/extension/index.ts",
 		rolePaths: fixture.rolePaths, id: (() => { let id = 0; return () => `abort-${++id}`; })(),
 	});
@@ -225,7 +225,7 @@ test("reload reconstruction preserves an in-flight pending task lock", async () 
 	assert.ok(persisted.pending);
 	const callCount = (await fixture.state()).calls.length;
 	const restored = new DelegateRuntime({
-		runHerdr: fixture.processRun, validateRole: async () => ({ ok: true, value: undefined }), callerPaneId: "caller",
+		runHerdr: fixture.processRun, validateRole: async () => ({ ok: true, value: undefined }), callerWorkspaceId: "workspace",
 		parentSessionId: "parent-session", cwd: fixture.root, resultRoot: join(fixture.root, "reload-results"),
 		reporterPath: "/extension/index.ts", rolePaths: fixture.rolePaths, initialState: persisted,
 	});
@@ -252,7 +252,7 @@ test("corrupt persisted authority cannot be cleared by empty cleanup", async () 
 	const runtime = new DelegateRuntime({
 		runHerdr: fixture.processRun,
 		validateRole: async () => ({ ok: true, value: undefined }),
-		callerPaneId: "caller",
+		callerWorkspaceId: "workspace",
 		parentSessionId: "parent-session",
 		cwd: fixture.root,
 		resultRoot: join(fixture.root, "corrupt-results"),
@@ -279,7 +279,7 @@ test("cleanup refuses while a delegation call is active", async () => {
 			await validationGate;
 			return { ok: true, value: undefined };
 		},
-		callerPaneId: "caller",
+		callerWorkspaceId: "workspace",
 		parentSessionId: "parent-session",
 		cwd: fixture.root,
 		resultRoot: join(fixture.root, "busy-results"),
@@ -318,7 +318,7 @@ test("cleanup reserves the runtime against delegation and another cleanup", asyn
 			return commandResult("{}");
 		},
 		validateRole: async () => ({ ok: true, value: undefined }),
-		callerPaneId: "caller",
+		callerWorkspaceId: "workspace",
 		parentSessionId: "parent-session",
 		cwd: fixture.root,
 		resultRoot: join(fixture.root, "cleanup-race-results"),
@@ -380,7 +380,7 @@ test("cleanup publishes each confirmed worker deletion before continuing", async
 			return commandResult("{}");
 		},
 		validateRole: async () => ({ ok: true, value: undefined }),
-		callerPaneId: "caller",
+		callerWorkspaceId: "workspace",
 		parentSessionId: "parent-session",
 		cwd: fixture.root,
 		resultRoot: join(fixture.root, "partial-cleanup-results"),
@@ -400,7 +400,7 @@ test("persisted unsafe-writer state survives runtime reconstruction and prevents
 	const fixture = await makeFixture();
 	const runtime = new DelegateRuntime({
 		runHerdr: fixture.processRun, validateRole: async () => ({ ok: true, value: undefined }),
-		callerPaneId: "caller", parentSessionId: "parent-session", cwd: fixture.root,
+		callerWorkspaceId: "workspace", parentSessionId: "parent-session", cwd: fixture.root,
 		resultRoot: join(fixture.root, "restored-results"), reporterPath: "/extension/index.ts",
 		rolePaths: fixture.rolePaths,
 		initialState: { ownerSessionId: "parent-session", workers: [], unsafeWriter: "writer may still be active" },
@@ -428,7 +428,7 @@ test("killed prompt transport remains unresolved even when exit code is zero", a
 		? { code: 0, stdout: "", stderr: "", killed: true }
 		: fixture.processRun(args, options);
 	const runtime = new DelegateRuntime({
-		runHerdr: run, validateRole: async () => ({ ok: true, value: undefined }), callerPaneId: "caller",
+		runHerdr: run, validateRole: async () => ({ ok: true, value: undefined }), callerWorkspaceId: "workspace",
 		parentSessionId: "parent-session", cwd: fixture.root, resultRoot: join(fixture.root, "killed-results"),
 		reporterPath: "/extension/index.ts", rolePaths: fixture.rolePaths,
 	});
@@ -443,7 +443,7 @@ test("a forked parent session neither adopts nor cleans copied worker authority"
 	const copied = fixture.runtime.getState();
 	const callCount = (await fixture.state()).calls.length;
 	const fork = new DelegateRuntime({
-		runHerdr: fixture.processRun, validateRole: async () => ({ ok: true, value: undefined }), callerPaneId: "caller",
+		runHerdr: fixture.processRun, validateRole: async () => ({ ok: true, value: undefined }), callerWorkspaceId: "workspace",
 		parentSessionId: "fork-session", cwd: fixture.root, resultRoot: join(fixture.root, "fork-results"),
 		reporterPath: "/extension/index.ts", rolePaths: fixture.rolePaths, initialState: copied,
 	});
