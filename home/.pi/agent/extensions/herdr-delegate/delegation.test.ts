@@ -188,7 +188,7 @@ for (const emptyField of ["pane", "root-tab", "root-workspace", "tab", "workspac
 			runHerdr: async (args) => {
 				calls.push([...args]);
 				if (args[0] === "tab" && args[1] === "create") return commandResult(JSON.stringify({ result: {
-					root_pane: { pane_id: emptyField === "pane" ? "" : "pane", tab_id: emptyField === "root-tab" ? "" : "tab", workspace_id: emptyField === "root-workspace" ? "" : "workspace" },
+					root_pane: { pane_id: emptyField === "pane" ? "" : "pane", tab_id: emptyField === "root-tab" || emptyField === "tab" ? "" : "tab", workspace_id: emptyField === "root-workspace" ? "" : "workspace" },
 					tab: { tab_id: emptyField === "tab" ? "" : "tab", workspace_id: emptyField === "workspace" ? "" : "workspace" },
 				} }));
 				return commandResult("", 1, "startup failed");
