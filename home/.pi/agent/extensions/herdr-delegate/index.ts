@@ -248,6 +248,13 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 		if (initialStateError !== undefined) runtimeOptions.initialStateError = initialStateError;
 		runtime = new DelegateRuntime(runtimeOptions);
 	});
+	pi.on("agent_settled", async (_event, ctx) => {
+		if (!isInsideHerdr() || !runtime || !ctx.isIdle() || ctx.hasPendingMessages()) return;
+		const result = await runtime.cleanupOwned();
+		if (!result.ok && result.error.code !== "cleanup_busy") {
+			ctx.ui.notify(`Automatic delegation cleanup failed: ${result.error.message}`, "error");
+		}
+	});
 	pi.on("session_shutdown", async (event) => {
 		if (!isInsideHerdr() || !runtime || event.reason === "reload") return;
 		await runtime.cleanupOwned();
@@ -280,7 +287,10 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 			const delegated = await runtime.delegate(params, signal);
 			if (!delegated.ok) throw delegated.error;
 			const result = delegated.value;
-			return { content: [{ type: "text", text: [`${result.role} completed task ${result.taskId}.`, `Worker: ${result.worker}`, `Agent: ${result.agentName}`, `Pane: ${result.paneId}`, `Session: ${result.session}`, `Model: ${result.model} (${result.thinking})`, `Result artifact: ${result.resultPath}`, "", result.output].join("\n") }], details: result };
+			const cleanup = result.cleanup.status === "closed" ? "matching owned pane closed"
+				: result.cleanup.status === "retained" ? "builder retained until the parent task settles"
+				: `failed (${result.cleanup.error}); recovery lock retained`;
+			return { content: [{ type: "text", text: [`${result.role} completed task ${result.taskId}.`, `Worker: ${result.worker}`, `Agent: ${result.agentName}`, `Pane: ${result.paneId}`, `Session: ${result.session}`, `Model: ${result.model} (${result.thinking})`, `Result artifact: ${result.resultPath}`, `Cleanup: ${cleanup}`, "", result.output].join("\n") }], details: result };
 		},
 	});
 	pi.registerTool({
