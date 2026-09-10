@@ -148,26 +148,6 @@ export function registerChildReporter(pi: ExtensionAPI, resultRoot: string, work
 	pi.on("session_shutdown", async (_event, ctx) => report(ctx, "Worker session shut down before the task settled."));
 }
 
-type CleanupNotifier = Pick<ExtensionContext["ui"], "notify">;
-
-/** Applies cleanup command guards and reports the public command outcome. */
-export async function runDelegateCleanup(
-	runtime: DelegateRuntime | undefined,
-	insideHerdr: boolean,
-	notifier: CleanupNotifier,
-): Promise<void> {
-	if (!insideHerdr) {
-		notifier.notify("Delegation cleanup requires HERDR_ENV=1; no panes were touched.", "error");
-		return;
-	}
-	if (!runtime) {
-		notifier.notify("Delegation runtime is unavailable.", "error");
-		return;
-	}
-	const result = await runtime.cleanupOwned();
-	notifier.notify(result.ok ? "Owned delegation workers cleaned up." : result.error.message, result.ok ? "info" : "error");
-}
-
 async function withValidationDeadline<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
 	if (signal?.aborted) throw new DelegationError("cancelled", "validation aborted before starting");
 	return new Promise<T>((resolve, reject) => {
@@ -274,7 +254,18 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 	});
 	pi.registerCommand("delegate-cleanup", {
 		description: "Close only delegation workers pinned to this Pi session",
-		handler: async (_args, ctx) => runDelegateCleanup(runtime, isInsideHerdr(), ctx.ui),
+		handler: async (_args, ctx) => {
+			if (!isInsideHerdr()) {
+				ctx.ui.notify("Delegation cleanup requires HERDR_ENV=1; no panes were touched.", "error");
+				return;
+			}
+			if (!runtime) {
+				ctx.ui.notify("Delegation runtime is unavailable.", "error");
+				return;
+			}
+			const result = await runtime.cleanupOwned();
+			ctx.ui.notify(result.ok ? "Owned delegation workers cleaned up." : result.error.message, result.ok ? "info" : "error");
+		},
 	});
 	pi.registerTool({
 		name: "delegate", label: "Delegate",
