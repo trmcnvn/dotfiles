@@ -173,7 +173,6 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 
 	const agentDir = getAgentDir();
 	const rolePaths = {
-		builder: join(agentDir, "agents", "builder.md"), // Legacy persisted fingerprints only; never a catalog default.
 		worker: join(agentDir, "agents", "worker.md"),
 		scout: join(agentDir, "agents", "scout.md"),
 		reviewer: join(agentDir, "agents", "reviewer.md"),
@@ -314,15 +313,15 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 	});
 	pi.registerTool({
 		name: "delegate", label: "Delegate",
-		description: `Delegate one blocking, sequential task to a visible Pi worker in a background Herdr tab. Roles: ${roleCatalog}. Start with role + task; worker + task reuses an implementation writer. Scout and Reviewer are always fresh. To replace a writer, pass replace: true, worker, role: worker, and a complete parent handoff in task; old owned pane must close before launch. builder is a compatibility alias for new worker tasks.`,
+		description: `Delegate one blocking, sequential task to a visible Pi worker in a background Herdr tab. Roles: ${roleCatalog}. Start with role + task; worker + task reuses an implementation writer. Scout and Reviewer are always fresh. To replace a writer, pass replace: true, worker, role: worker, and a complete parent handoff in task; old owned pane must close before launch.`,
 		promptSnippet: "Delegate scoped implementation, research, or independent review in Herdr",
 		promptGuidelines: ["Use delegate for scoped work, scout for material uncertainty, and independent reviewer for consequential changes; tiny clear reversible tasks can be direct. Give outcome, boundaries, acceptance evidence, and escalation conditions, not an implementation recipe. One writer per workflow; prefer that worker for fixes. Worker finished is execution evidence, not parent acceptance."],
-		parameters: Type.Object({ task: Type.String(), role: Type.Optional(StringEnum(["worker", "scout", "reviewer", "builder"] as const)), worker: Type.Optional(Type.String()), replace: Type.Optional(Type.Boolean()), timeoutMs: Type.Optional(Type.Integer({ minimum: 5_000, maximum: 3_600_000 })) }),
+		parameters: Type.Object({ task: Type.String(), role: Type.Optional(StringEnum(["worker", "scout", "reviewer"] as const)), worker: Type.Optional(Type.String()), replace: Type.Optional(Type.Boolean()), timeoutMs: Type.Optional(Type.Integer({ minimum: 5_000, maximum: 3_600_000 })) }),
 		async execute(_id, params, signal, onUpdate) {
 			if (!isInsideHerdr()) throw new Error("Delegation requires HERDR_ENV=1 and caller workspace identity.");
 			if (!runtime) throw new Error("Delegation runtime is not initialized.");
 			onUpdate?.({ content: [{ type: "text", text: params.replace ? "Replacing owned worker after preserving handoff…" : params.worker ? "Sending worker follow-up…" : `Starting ${params.role ?? "worker"}…` }], details: undefined });
-			const delegated = await runtime.delegate(params.role === "builder" && !params.replace ? { ...params, role: "worker" } : params, signal);
+			const delegated = await runtime.delegate(params, signal);
 			if (!delegated.ok) throw delegated.error;
 			const result = delegated.value;
 			const cleanup = result.cleanup.status === "closed" ? "matching owned pane closed"
