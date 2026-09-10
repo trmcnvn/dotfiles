@@ -250,8 +250,8 @@ const paneResponseSchema = Type.Object({
 });
 const tabCreatedResponseSchema = Type.Object({
 	result: Type.Object({
-		root_pane: Type.Object({ pane_id: Type.String(), tab_id: Type.String(), workspace_id: Type.String() }),
-		tab: Type.Object({ tab_id: Type.String(), workspace_id: Type.String() }),
+		root_pane: Type.Object({ pane_id: Type.String({ minLength: 1 }), tab_id: Type.String({ minLength: 1 }), workspace_id: Type.String({ minLength: 1 }) }),
+		tab: Type.Object({ tab_id: Type.String({ minLength: 1 }), workspace_id: Type.String({ minLength: 1 }) }),
 	}),
 });
 const herdrFailureSchema = Type.Object({ error: Type.Object({ code: Type.String(), message: Type.String() }) });
