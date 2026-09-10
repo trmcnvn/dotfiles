@@ -4,88 +4,102 @@ import { dirname, join } from "node:path";
 const [statePath, ...args] = process.argv.slice(2);
 const state = JSON.parse(await readFile(statePath, "utf8"));
 state.calls.push(args);
+state.panes ??= {};
 const command = `${args[0]} ${args[1]}`;
 const response = (result) => process.stdout.write(`${JSON.stringify({ id: "fake", result })}\n`);
 const fail = (code, message) => {
 	process.stderr.write(`${JSON.stringify({ id: "fake", error: { code, message } })}\n`);
 	process.exitCode = 1;
 };
+const identity = (pane) => ({
+	name: state.scenario === "replaced" || state.scenario === "failed-replaced-on-cleanup" ? "other" : pane.agentName,
+	pane_id: pane.id, agent_status: pane.status,
+	agent_session: state.scenario === "missing" ? null : { value: pane.session },
+});
+const target = Object.values(state.panes).find((pane) => pane.id === args[2] || pane.agentName === args[2]);
 
 if (command === "tab create") {
+	const env = {};
 	for (let index = 0; index < args.length; index += 1) {
 		if (args[index] !== "--env") continue;
 		const [key, ...value] = args[index + 1].split("=");
-		state.env[key] = value.join("=");
+		env[key] = value.join("=");
 	}
-	state.workspaceId = args[args.indexOf("--workspace") + 1];
-	state.tabId = "worker-tab";
+	state.created = (state.created ?? 0) + 1;
+	const suffix = state.created === 1 ? "" : `-${state.created}`;
+	const pane = {
+		id: `worker-pane${suffix}`, tabId: `worker-tab${suffix}`,
+		workspaceId: args[args.indexOf("--workspace") + 1], env,
+	};
+	state.panes[pane.id] = pane;
 	response({
 		type: "tab_created",
-		workspace: { workspace_id: state.workspaceId },
-		tab: { tab_id: state.tabId, workspace_id: state.workspaceId },
-		root_pane: { pane_id: "worker-pane", tab_id: state.tabId, workspace_id: state.workspaceId, agent: null },
+		workspace: { workspace_id: pane.workspaceId },
+		tab: { tab_id: pane.tabId, workspace_id: pane.workspaceId },
+		root_pane: { pane_id: pane.id, tab_id: pane.tabId, workspace_id: pane.workspaceId, agent: null },
 	});
 } else if (command === "agent start") {
-	state.agentName = args[2];
+	const pane = state.panes[args[args.indexOf("--pane") + 1]];
 	state.startAttempts = (state.startAttempts ?? 0) + 1;
 	if (state.scenario === "busy-once" && state.startAttempts === 1) {
 		fail("agent_pane_busy", "shell is starting");
-		await writeFile(statePath, JSON.stringify(state));
-		process.exit();
+	} else if (state.scenario === "startup-shim-error") {
+		fail("timeout", "mise ERROR pi is not installed for node 26.8.2");
+	} else {
+		pane.agentName = args[2];
+		[pane.provider, pane.model] = args[args.indexOf("--model") + 1].split(/\/(.*)/s).slice(0, 2);
+		pane.thinking = args[args.indexOf("--thinking") + 1];
+		pane.session = join(dirname(statePath), `${pane.agentName}.jsonl`);
+		await writeFile(pane.session, `${JSON.stringify({ type: "session", version: 3, id: `session-${pane.agentName}`, timestamp: new Date().toISOString(), cwd: dirname(statePath) })}\n`);
+		pane.status = state.scenario === "startup-blocked" ? "blocked" : "idle";
+		if (state.scenario === "startup-blocked") fail("agent_not_ready", "startup blocked");
+		else response({ agent: { ...identity(pane), name: state.scenario === "replaced" ? "other" : pane.agentName } });
 	}
-	const configuredModel = args[args.indexOf("--model") + 1];
-	if (configuredModel?.includes("/")) [state.modelProvider, state.model] = configuredModel.split(/\/(.*)/s).slice(0, 2);
-	state.thinking = args[args.indexOf("--thinking") + 1] ?? state.thinking;
-	state.session = join(dirname(statePath), `${state.agentName}.jsonl`);
-	await writeFile(state.session, `${JSON.stringify({ type: "session", version: 3, id: `session-${state.agentName}`, timestamp: new Date().toISOString(), cwd: dirname(statePath) })}\n`);
-	state.status = state.scenario === "startup-blocked" ? "blocked" : "idle";
-	if (state.scenario === "startup-blocked") fail("agent_not_ready", "startup blocked");
-	else response({ agent: { name: state.scenario === "replaced" ? "other" : state.agentName, pane_id: "worker-pane", agent_status: "idle", agent_session: state.scenario === "missing" ? null : { value: state.session } } });
 } else if (command === "agent get") {
-	if (state.scenario === "missing") fail("agent_not_running", "missing");
-	else response({ agent: { name: state.scenario === "replaced" || state.scenario === "failed-replaced-on-cleanup" ? "other" : state.agentName, pane_id: "worker-pane", agent_status: state.status, agent_session: state.session ? { value: state.session } : null } });
+	if (!target?.agentName) fail("agent_not_found", "missing");
+	else if (state.scenario === "missing") fail("agent_not_running", "missing");
+	else response({ agent: identity(target) });
 } else if (command === "agent prompt") {
 	if (state.scenario === "timeout" || state.scenario === "stalled" || state.scenario === "timeout-stuck") {
-		state.status = "working";
+		target.status = "working";
 		fail(state.scenario === "stalled" ? "agent_prompt_stalled" : "timeout", "timed out");
 	} else {
 		const match = /^\[\[herdr-delegate:v1:([A-Za-z0-9_-]+)\]\]/.exec(args[3]);
 		const envelope = JSON.parse(Buffer.from(match[1], "base64url").toString("utf8"));
-		const resultPath = join(state.env.PI_HERDR_DELEGATE_RESULT_ROOT, envelope.worker, `${envelope.taskId}.json`);
-		state.status = state.scenario === "blocked" ? "blocked" : "idle";
+		const resultPath = join(target.env.PI_HERDR_DELEGATE_RESULT_ROOT, envelope.worker, `${envelope.taskId}.json`);
+		target.status = state.scenario === "blocked" ? "blocked" : "idle";
 		if (state.scenario !== "blocked" && state.scenario !== "malformed") {
 			await mkdir(dirname(resultPath), { recursive: true });
 			await writeFile(resultPath, JSON.stringify({
 				version: 1,
 				taskId: state.scenario === "stale" ? "stale-task" : envelope.taskId,
 				worker: envelope.worker,
-				status: state.scenario === "failed" || state.scenario === "failed-empty" || state.scenario === "failed-replaced-on-cleanup" ? "failed" : "completed",
+				status: ["failed", "failed-empty", "failed-replaced-on-cleanup"].includes(state.scenario) ? "failed" : "completed",
 				output: `done:${args[3].split("\n").slice(1).join("\n")}`,
 				error: state.scenario === "failed" || state.scenario === "failed-replaced-on-cleanup" ? "child failure" : state.scenario === "failed-empty" ? "" : undefined,
 				stopReason: state.scenario === "failed-empty" ? "" : undefined,
-				session: state.session,
-				provider: state.modelProvider,
-				model: state.model,
-				thinking: state.thinking,
+				session: target.session, provider: target.provider, model: target.model, thinking: target.thinking,
 				finishedAt: Date.now(),
 			}));
 		}
 		if (state.scenario === "malformed") response({});
-		else response({ agent: { name: state.agentName, pane_id: "worker-pane", agent_status: state.status, agent_session: { value: state.session } } });
+		else response({ agent: { ...identity(target), name: target.agentName } });
 	}
 } else if (command === "agent send-keys") {
-	if (state.scenario !== "timeout-stuck") state.status = "idle";
+	if (state.scenario !== "timeout-stuck") target.status = "idle";
 	response({});
 } else if (command === "agent wait") {
 	if (state.scenario === "timeout-stuck") fail("timeout", "still working");
-	else response({ agent: { name: state.agentName, pane_id: "worker-pane", agent_status: state.status } });
+	else response({ agent: identity(target) });
 } else if (command === "pane get") {
-	const pane = { pane_id: "worker-pane", tab_id: state.tabId, workspace_id: state.workspaceId };
-	if (state.scenario === "startup-blocked") pane.agent = "pi";
-	response({ pane });
+	if (!target) fail("pane_not_found", "missing");
+	else response({ pane: { pane_id: target.id, tab_id: target.tabId, workspace_id: target.workspaceId, agent: target.agentName ? "pi" : null } });
 } else if (command === "pane close") {
 	if (state.scenario === "cleanup-fails") fail("close_failed", "pane remained open");
-	else response({});
+	else {
+		delete state.panes[args[2]];
+		response({});
+	}
 } else {
 	fail("unsupported", command);
 }
