@@ -12,6 +12,7 @@ import { Value } from "typebox/value";
 
 import {
 	DelegateRuntime,
+	DelegationError,
 	delegateRuntimeStateSchema,
 	loadRoleConfig,
 	parseDelegateRuntimeState,
@@ -1173,6 +1174,88 @@ test("aborting replacement after confirmed closure never launches the next write
 	if (!result.ok) assert.match(result.error.message, /old writer closed.*handoff:/);
 	assert.deepEqual(runtime.getState().workers, []);
 	assert.equal((await fixture.state()).calls.filter((call) => call[1] === "start").length, 1);
+});
+
+test("Worker drift is explicit while legacy builders retain their original configuration", async () => {
+	const fixture = await makeFixture();
+	const old = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "legacy" }));
+	const original = fixture.runtime.getState().workers[0];
+	const source = await readFile(fixture.rolePaths.worker, "utf8");
+	await writeFile(fixture.rolePaths.worker, source.replace("thinking: medium", "thinking: high"));
+	requireSuccess(await fixture.runtime.delegate({ worker: old.worker, task: "legacy fix" }));
+	assert.deepEqual(fixture.runtime.getState().workers[0], original);
+	const next = requireSuccess(await fixture.runtime.delegate({ replace: true, worker: old.worker, role: "worker", task: "Inspect legacy changes before continuing." }));
+	await writeFile(fixture.rolePaths.worker, source);
+	const drift = await fixture.runtime.delegate({ worker: next.worker, task: "fix" });
+	assert.equal(drift.ok, false);
+	if (!drift.ok) assert.equal(drift.error.code, "role_changed");
+	assert.equal(fixture.runtime.getState().workers[0]?.id, next.worker);
+});
+
+test("replacement validation failure leaves the old writer and captured result untouched", async () => {
+	const fixture = await makeFixture();
+	const old = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
+	const count = (await fixture.state()).calls.length;
+	const runtime = new DelegateRuntime({
+		...fixture.options, initialState: fixture.runtime.getState(),
+		validateRole: async () => ({ ok: false, error: new DelegationError("model_unavailable", "selected model unavailable") }),
+	});
+	const result = await runtime.delegate({ replace: true, worker: old.worker, role: "worker", task: "Parent handoff" });
+	assert.equal(result.ok, false);
+	if (!result.ok) assert.equal(result.error.code, "model_unavailable");
+	assert.equal((await fixture.state()).calls.length, count);
+	assert.deepEqual(runtime.getState(), fixture.runtime.getState());
+	assert.equal((await readdir(join(fixture.options.resultRoot, old.worker))).some((file) => file.startsWith("replacement-")), false);
+});
+
+test("replacement can retire specifically absent old agent and pane without closing peers", async () => {
+	const fixture = await makeFixture();
+	const old = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
+	await fixture.processRun(["pane", "close", old.paneId]);
+	const next = requireSuccess(await fixture.runtime.delegate({ replace: true, worker: old.worker, role: "worker", task: "Parent inspected prior changes; continue from this handoff." }));
+	assert.notEqual(next.worker, old.worker);
+	assert.equal((await fixture.state()).calls.filter((call) => call[1] === "close").length, 1);
+});
+
+test("replacement startup failure keeps the durable handoff and conservative new startup lock", async () => {
+	const fixture = await makeFixture();
+	const old = requireSuccess(await fixture.runtime.delegate({ role: "worker", task: "first" }));
+	let attempts = 0;
+	const runtime = new DelegateRuntime({
+		...fixture.options, initialState: fixture.runtime.getState(),
+		runHerdr: async (args) => {
+			if (args[0] === "agent" && args[1] === "start") {
+				attempts += 1;
+				return commandResult("", 1, "mise shim failed");
+			}
+			return fixture.processRun(args);
+		},
+	});
+	const result = await runtime.delegate({ replace: true, worker: old.worker, role: "worker", task: "Parent handoff" });
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "manual_recovery_required");
+		assert.match(result.error.message, /Preserved handoff: .*replacement-.*\.md/);
+	}
+	assert.equal(attempts, 1);
+	assert.deepEqual(runtime.getState().workers, []);
+	assert.match(runtime.getState().unsafeWriter ?? "", /mise shim failed/);
+	assert.match(await readFile(old.resultPath, "utf8"), /done:first/);
+	assert.equal((await runtime.cleanupOwned()).ok, false);
+});
+
+test("failed auto-closed Worker requires a fresh parent handoff rather than old-handle reuse", async () => {
+	const fixture = await makeFixture("failed");
+	const failed = await fixture.runtime.delegate({ role: "worker", task: "first" });
+	assert.equal(failed.ok, false);
+	assert.deepEqual(fixture.runtime.getState().workers, []);
+	const stale = await fixture.runtime.delegate({ worker: "id-1", task: "retry" });
+	assert.equal(stale.ok, false);
+	if (!stale.ok) assert.equal(stale.error.code, "worker_unknown");
+	const next = await fixture.runtime.delegate({ role: "worker", task: "Parent handoff: inspect existing changes and checks before continuing." });
+	assert.equal(next.ok, false);
+	if (!next.ok) assert.equal(next.error.code, "task_failed");
+	assert.equal((await fixture.state()).calls.filter((call) => call[1] === "start").length, 2);
 });
 
 test("a deferred target-shell shim failure keeps conservative unpinned startup authority", async () => {
