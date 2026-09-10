@@ -301,6 +301,10 @@ if [ "$1 $2" = "pane close" ]; then
   if [ -n "$HERDR_TEST_CLOSE_GATE" ]; then
     while [ ! -f "$HERDR_TEST_CLOSE_GATE" ]; do sleep 0.01; done
   fi
+  if [ -n "$HERDR_TEST_CLOSE_FAILURE" ]; then
+    printf '%s\\n' '{"error":{"code":"close_failed","message":"fixture closure failure"}}' >&2
+    exit 1
+  fi
   printf '%s\\n' '{"result":{}}'
   exit 0
 fi
@@ -413,6 +417,37 @@ exit 99
 		);
 		assert.equal((await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length, 2);
 
+		// A delayed failed cleanup may finish after shutdown starts; only the new runtime should notify.
+		await session.extensionRunner.emit({ type: "session_shutdown", reason: "reload" });
+		sessionManager.appendCustomEntry("herdr-delegate-state", { ...ownedWorkerState, ownerSessionId: sessionManager.getSessionId() });
+		await session.reload();
+		await session.bindExtensions({ mode: "tui", uiContext: { ...session.extensionRunner.getUIContext(), notify: (message) => { notifications.push(message); } } });
+		const failureGate = join(root, "allow-failed-close");
+		process.env.HERDR_TEST_CLOSE_GATE = failureGate;
+		process.env.HERDR_TEST_CLOSE_FAILURE = "1";
+		const failedSettled = session.extensionRunner.emit({ type: "agent_settled" });
+		const failureDeadline = Date.now() + 3_000;
+		while ((await readFile(sentinel, "utf8")).split("pane close").length < 3) {
+			assert.ok(Date.now() < failureDeadline);
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
+		const failureReload = session.reload();
+		await writeFile(failureGate, "release");
+		await Promise.all([failedSettled, failureReload]);
+		assert.equal(notifications.filter((message) => message.startsWith("Automatic delegation cleanup failed:")).length, 0);
+		delete process.env.HERDR_TEST_CLOSE_GATE;
+		const callsBeforeRetry = (await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length;
+		await session.extensionRunner.emit({ type: "agent_settled" });
+		await session.extensionRunner.emit({ type: "agent_settled" });
+		assert.equal((await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length, callsBeforeRetry + 4, "deduplication must not suppress cleanup attempts");
+		assert.equal(notifications.filter((message) => message.startsWith("Automatic delegation cleanup failed:")).length, 1);
+		await session.reload();
+		await session.extensionRunner.emit({ type: "agent_settled" });
+		assert.equal(notifications.filter((message) => message.startsWith("Automatic delegation cleanup failed:")).length, 1);
+		delete process.env.HERDR_TEST_CLOSE_FAILURE;
+		await session.extensionRunner.emit({ type: "agent_settled" });
+		const callsAfterRecovery = (await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length;
+
 		const corruptManager = SessionManager.inMemory(root);
 		corruptManager.appendCustomEntry("herdr-delegate-state", {
 			...ownedWorkerState,
@@ -439,7 +474,7 @@ exit 99
 		corruptContext.ui.notify = (message) => { corruptNotifications.push(message); };
 		await corruptCleanup.handler("", corruptContext);
 		assert.match(corruptNotifications[0] ?? "", /state_corrupt/);
-		assert.equal((await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length, 2);
+		assert.equal((await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length, callsAfterRecovery);
 		assert.equal(corruptManager.getBranch().length, entriesBefore);
 	} finally {
 		corruptSession?.dispose();
@@ -462,6 +497,7 @@ exit 99
 		else process.env.PATH = previousPath;
 		delete process.env.HERDR_TEST_SENTINEL;
 		delete process.env.HERDR_TEST_CLOSE_GATE;
+		delete process.env.HERDR_TEST_CLOSE_FAILURE;
 		await rm(root, { recursive: true, force: true });
 	}
 });
