@@ -25,8 +25,14 @@ Perform the ${role} task without delegation.
 
 test("real Pi entrypoints guard cleanup and classify unavailable role models", async () => {
 	const root = await mkdtemp(join(tmpdir(), "delegate-entrypoints-"));
-	const previousAgentDir = process.env.PI_AGENT_DIR;
-	process.env.PI_AGENT_DIR = root;
+	const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+	const previousChild = process.env.PI_HERDR_DELEGATE_CHILD;
+	const previousResultRoot = process.env.PI_HERDR_DELEGATE_RESULT_ROOT;
+	const previousWorker = process.env.PI_HERDR_DELEGATE_WORKER;
+	process.env.PI_CODING_AGENT_DIR = root;
+	delete process.env.PI_HERDR_DELEGATE_CHILD;
+	delete process.env.PI_HERDR_DELEGATE_RESULT_ROOT;
+	delete process.env.PI_HERDR_DELEGATE_WORKER;
 	await mkdir(join(root, "agents"), { recursive: true });
 	await Promise.all([
 		writeFile(join(root, "agents", "builder.md"), roleSource("builder", "missing/provider")),
@@ -81,8 +87,14 @@ test("real Pi entrypoints guard cleanup and classify unavailable role models", a
 		);
 	} finally {
 		session.dispose();
-		if (previousAgentDir === undefined) delete process.env.PI_AGENT_DIR;
-		else process.env.PI_AGENT_DIR = previousAgentDir;
+		if (previousAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+		else process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+		if (previousChild === undefined) delete process.env.PI_HERDR_DELEGATE_CHILD;
+		else process.env.PI_HERDR_DELEGATE_CHILD = previousChild;
+		if (previousResultRoot === undefined) delete process.env.PI_HERDR_DELEGATE_RESULT_ROOT;
+		else process.env.PI_HERDR_DELEGATE_RESULT_ROOT = previousResultRoot;
+		if (previousWorker === undefined) delete process.env.PI_HERDR_DELEGATE_WORKER;
+		else process.env.PI_HERDR_DELEGATE_WORKER = previousWorker;
 		delete process.env.HERDR_ENV;
 		delete process.env.HERDR_PANE_ID;
 		delete process.env.HERDR_WORKSPACE_ID;
