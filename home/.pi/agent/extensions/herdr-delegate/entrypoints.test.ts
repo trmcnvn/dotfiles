@@ -186,7 +186,7 @@ exit 99
 		corruptContext.ui.notify = (message) => { corruptNotifications.push(message); };
 		await corruptCleanup.handler("", corruptContext);
 		assert.match(corruptNotifications[0] ?? "", /state_corrupt/);
-		assert.equal(existsSync(sentinel), false);
+		assert.equal((await readFile(sentinel, "utf8")).split("\n").filter(Boolean).length, 2);
 		assert.equal(corruptManager.getBranch().length, entriesBefore);
 	} finally {
 		corruptSession?.dispose();
