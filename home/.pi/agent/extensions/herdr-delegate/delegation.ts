@@ -656,6 +656,13 @@ export class DelegateRuntime {
 			worker = started.value;
 		}
 
+		const finished = await this.#runTask(worker, role, task, timeoutMs, signal);
+		if (!replacement) return finished;
+		return finished.ok ? ok({ ...finished.value, replacement })
+			: err(finished.error.code, `${finished.error.message}. Preserved handoff: ${replacement.handoffPath}`, finished.error, finished.error.worker);
+	}
+
+	async #runTask(worker: PersistedWorker, role: RoleConfig, task: string, timeoutMs: number, signal?: AbortSignal): Promise<DelegationResult<DelegateResult>> {
 		const taskId = this.#options.id?.() ?? randomUUID();
 		if (!SAFE_ID.test(taskId) || !SAFE_ID.test(worker.id)) return err("task_id_invalid", "generated task or worker id is unsafe");
 		const pending: PendingTask = { taskId, worker: worker.id, resultPath: join(this.#options.resultRoot, worker.id, `${taskId}.json`), startedAt: this.#options.now?.() ?? Date.now() };
@@ -678,8 +685,7 @@ export class DelegateRuntime {
 		}
 		const result = await readResult(pending.resultPath, Date.now() + RESULT_WAIT_MS, pending, worker);
 		if (!result.ok) return this.#uncertain(worker, role, pending, result.error.message);
-		const finished = await this.#finishTerminal(worker, role, pending, result.value);
-		return finished.ok && replacement ? ok({ ...finished.value, replacement }) : finished;
+		return this.#finishTerminal(worker, role, pending, result.value);
 	}
 
 	async #replace(previous: PersistedWorker, role: RoleConfig, task: string, signal?: AbortSignal): Promise<DelegationResult<string>> {
@@ -701,7 +707,7 @@ export class DelegateRuntime {
 			this.#lock(`replacement could not confirm old writer closure (${closed.error.message}); handoff: ${handoffPath}`, previous.id);
 			return err("worker_unresolved", this.#unsafeWriter ?? closed.error.message, closed.error, previous.id);
 		}
-		if (this.#persistenceError) return { ok: false, error: this.#persistenceError };
+		if (this.#persistenceError) return err("state_persist_failed", `${this.#persistenceError.message}. Old writer closed; replacement not launched; handoff: ${handoffPath}`, this.#persistenceError);
 		if (signal?.aborted) return err("cancelled", `old writer closed; replacement not launched; handoff: ${handoffPath}`);
 		return ok(handoffPath);
 	}
