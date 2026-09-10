@@ -821,6 +821,29 @@ test("persistence failure does not discard output when reviewer closure also fai
 	assert.equal(runtime.getState().workers.length, 1);
 });
 
+test("reloadable persistence locks recover without becoming unknown startup authority", async () => {
+	const fixture = await makeFixture();
+	let publications = 0;
+	const original = new DelegateRuntime({
+		...fixture.options,
+		onStateChange: () => { if (++publications >= 3) throw new Error("disk unavailable"); },
+	});
+	const result = requireSuccess(await original.delegate({ role: "reviewer", task: "review" }));
+	assert.equal(result.cleanup.status, "closed");
+	const snapshot = requireSuccess(parseDelegateRuntimeState(original.getState()));
+	assert.ok(snapshot.persistenceError);
+	assert.equal(snapshot.unsafeWriter, undefined);
+	const restored = new DelegateRuntime({ ...fixture.options, initialState: snapshot });
+	assert.equal((await restored.delegate({ role: "builder", task: "must not run" })).ok, false);
+	requireSuccess(await restored.cleanupOwned());
+	assert.equal(restored.getState().persistenceError, undefined);
+	requireSuccess(await restored.delegate({ role: "builder", task: "fresh task" }));
+	const copied = new DelegateRuntime({ ...fixture.options, parentSessionId: "fork", initialState: snapshot });
+	const rejected = await copied.cleanupOwned();
+	assert.equal(rejected.ok, false);
+	if (!rejected.ok) assert.equal(rejected.error.code, "foreign_authority");
+});
+
 test("foreign empty snapshots are inert while inherited locks remain foreign", async () => {
 	const fixture = await makeFixture();
 	const empty = new DelegateRuntime({
