@@ -571,7 +571,7 @@ export class DelegateRuntime {
 			for (const worker of [...this.#workers.values()]) {
 				const closed = await this.#closeOwned(worker);
 				if (!closed.ok) {
-					failures.push(closed.error.message);
+					failures.push(`Worker ${worker.id}: ${closed.error.message}`);
 					if (!unpinned) this.#lock(`cleanup could not safely close ${worker.agentName} (${closed.error.message})`, worker.id);
 				}
 			}
@@ -841,7 +841,7 @@ export class DelegateRuntime {
 		const parsed = parseJson(current.value.stdout, "agent get", agentResponseSchema);
 		if (!parsed.ok) return parsed;
 		const agent = parsed.value.result.agent;
-		if (agent.name !== worker.agentName || agent.pane_id !== worker.paneId || agent.agent_session?.value !== worker.session) return err("worker_replaced", worker.agentName);
+		if (agent.name !== worker.agentName || agent.pane_id !== worker.paneId || agent.agent_session?.value !== worker.session) return err("worker_replaced", worker.agentName, undefined, worker.id);
 		if (worker.tabId !== undefined || worker.workspaceId !== undefined) {
 			const located = await this.#locatePane(worker);
 			if (!located.ok) return located;
