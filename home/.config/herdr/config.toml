@@ -49,7 +49,7 @@ prompt_new_workspace_name = true
 prompt_new_tab_name = true
 
 [ui.toast]
-delivery = "herdr"
+delivery = "off"
 delay_seconds = 1
 
 [ui.toast.herdr]
