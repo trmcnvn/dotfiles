@@ -512,6 +512,9 @@ export class DelegateRuntime {
 				return err("state_corrupt", this.#unsafeWriter ?? "persisted delegation authority is corrupt");
 			}
 			if (this.#foreignAuthority) return err("foreign_authority", `workers belong to parent Pi session ${this.#options.initialState?.ownerSessionId ?? "unknown"}; this session must not control them`);
+			if (this.#unsafeWriter && !this.#unsafeWriterWorker) {
+				return err("manual_recovery_required", `${this.#unsafeWriter}. No pinned native session identity is available, so no pane was touched`);
+			}
 			for (const worker of [...this.#workers.values()]) {
 				const closed = await this.#closeOwned(worker);
 				if (!closed.ok) {
@@ -609,17 +612,26 @@ export class DelegateRuntime {
 			"--env", `PI_HERDR_DELEGATE_WORKER=${workerId}`, "--no-focus"], createOptions);
 		if (!created.ok || created.value.killed || created.value.code !== 0) {
 			await rm(workerDir, { recursive: true, force: true });
-			return err("tab_create_failed", created.ok ? cliFailure(created.value) : created.error.message);
+			const failure = created.ok ? cliFailure(created.value) : created.error.message;
+			if (!created.ok || created.value.killed) {
+				this.#lock(`tab creation outcome is uncertain (${failure}); inspect the caller workspace for a newly created 'delegate ${role.name}' tab`);
+				return err("manual_recovery_required", `${this.#unsafeWriter}. No automatic closure was attempted`);
+			}
+			return err("tab_create_failed", failure);
 		}
 		const createdJson = parseJson(created.value.stdout, "tab create", tabCreatedResponseSchema);
-		if (!createdJson.ok) return createdJson;
+		if (!createdJson.ok) {
+			this.#lock(`tab creation succeeded but its root pane identity was malformed; inspect the caller workspace for the new 'delegate ${role.name}' tab`);
+			return err("manual_recovery_required", `${this.#unsafeWriter}. No automatic closure was attempted`);
+		}
 		const pane = createdJson.value.result.root_pane;
 		const tab = createdJson.value.result.tab;
 		const paneId = pane.pane_id;
 		const tabId = tab.tab_id;
 		const workspaceId = tab.workspace_id;
 		if (workspaceId !== this.#options.callerWorkspaceId || pane.tab_id !== tabId || pane.workspace_id !== workspaceId) {
-			return err("invalid_herdr_response", "created tab identity is missing or mismatched");
+			this.#lock(`created tab identity mismatched caller authority (pane=${paneId}, tab=${tabId}, workspace=${workspaceId}); inspect it manually`);
+			return err("manual_recovery_required", `${this.#unsafeWriter}. No automatic closure was attempted`);
 		}
 		const startArgs = ["agent", "start", agentName, "--kind", "pi", "--pane", paneId, "--timeout", "60000", "--",
 			"--model", `${role.provider}/${role.model}`, "--thinking", role.thinking, "--tools", role.tools.join(","), "--name", `delegate ${role.name}`,
@@ -637,17 +649,21 @@ export class DelegateRuntime {
 				start = await this.#run(startArgs, startOptions);
 			}
 		}
-		if (!start.ok || start.value.killed || start.value.code !== 0) return err("agent_start_failed", `${start.ok ? cliFailure(start.value) : start.error.message}; pane=${paneId}; inspect and close manually if appropriate`);
+		if (!start.ok || start.value.killed || start.value.code !== 0) {
+			const failure = start.ok ? cliFailure(start.value) : start.error.message;
+			this.#lock(`agent startup failed after creating pane=${paneId}, tab=${tabId}, workspace=${workspaceId} (${failure}); native session identity was not pinned, so inspect and close that pane manually if appropriate`);
+			return err("manual_recovery_required", this.#unsafeWriter ?? failure);
+		}
 		const startJson = parseJson(start.value.stdout, "agent start", agentResponseSchema);
 		if (!startJson.ok) {
-			this.#lock(`started ${agentName} in ${paneId} but launch identity was malformed`);
-			return err("worker_unresolved", this.#unsafeWriter ?? paneId);
+			this.#lock(`started ${agentName} in pane=${paneId}, tab=${tabId}, workspace=${workspaceId}, but native session identity was malformed; inspect and close that pane manually`);
+			return err("manual_recovery_required", this.#unsafeWriter ?? paneId);
 		}
 		const agent = startJson.value.result.agent;
 		const session = agent.agent_session?.value;
 		if (agent.name !== agentName || agent.pane_id !== paneId || !session) {
-			this.#lock(`started ${agentName} in ${paneId} without a native session identity; inspect and close manually`);
-			return err("worker_unresolved", this.#unsafeWriter ?? paneId);
+			this.#lock(`started ${agentName} in pane=${paneId}, tab=${tabId}, workspace=${workspaceId} without a matching native session identity; inspect and close that pane manually`);
+			return err("manual_recovery_required", this.#unsafeWriter ?? paneId);
 		}
 		const worker: PersistedWorker = { id: workerId, role: role.name, agentName, paneId, tabId, workspaceId, session, roleFingerprint: roleFingerprint(role), promptPath };
 		this.#workers.set(worker.id, worker);
