@@ -109,5 +109,5 @@ kitty_graphics = true
 scrollback_limit_bytes = 52428800
 
 [theme]
-name = "dracula"
+name = "rose-pine"
 auto_switch = false
