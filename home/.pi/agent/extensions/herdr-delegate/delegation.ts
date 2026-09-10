@@ -182,6 +182,13 @@ const persistedWorkerSchema = Type.Object({
 const pendingTaskSchema = Type.Object({
 	taskId: Type.String(), worker: Type.String(), resultPath: Type.String(), startedAt: Type.Number(),
 });
+type PersistedStateRepresentation = {
+	readonly ownerSessionId: string;
+	readonly workers: readonly Static<typeof persistedWorkerSchema>[];
+	readonly pending?: Static<typeof pendingTaskSchema> | null;
+	readonly unsafeWriter?: string | number | null;
+	readonly unsafeWriterWorker?: string | number | null;
+};
 /** Serialized custom-entry contract checked before runtime-state reconstruction. */
 export const delegateRuntimeStateSchema = Type.Object({
 	ownerSessionId: Type.String(),
@@ -311,7 +318,7 @@ export function roleFingerprint(role: RoleConfig): string {
 
 /** Parses persisted authority without treating malformed optional safety fields as absent. */
 export function parseDelegateRuntimeState(
-	value: Static<typeof delegateRuntimeStateSchema>,
+	value: PersistedStateRepresentation,
 ): DelegationResult<DelegateRuntimeState> {
 	if (!value.ownerSessionId) {
 		return err("state_invalid", "ownerSessionId or workers missing");
