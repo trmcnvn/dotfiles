@@ -35,7 +35,7 @@ Explicit replacement is allowed when needed, including deliberate model/configur
 3. The runtime validates the currently selected Worker configuration, saves the handoff before retirement, and closes only the exact verified old owned pane (or confirms both agent and pane are absent) before starting the replacement. Ambiguous closure blocks replacement. No silent model fallback or fingerprint update is allowed.
 4. Preserve the old result artifacts and returned handoff path. If a failed worker was already closed, use a fresh Worker with the same parent-provided handoff in `task`; do not attempt to reuse a retired handle.
 
-Legacy persisted builders retain their original role, native identity, and fingerprint. Their frozen `builder.md` remains compatibility configuration for follow-ups only. New public `role: "builder"` calls are a compatibility alias for Worker; use `worker.md` for new defaults. If legacy configuration drifts, explicitly replace instead of silently adopting new settings.
+Builder is retired: only Worker, Scout, and Reviewer are callable roles. Legacy persisted builders retain their original role, native identity, and fingerprint for safe cleanup or explicit replacement with Worker. Legacy follow-ups return `role_retired` without changing ownership or delivering work; use the replacement handoff above or `/delegate-cleanup`. No legacy role file is required.
 
 ## Safety and lifecycle
 
