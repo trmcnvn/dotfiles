@@ -533,7 +533,8 @@ export class DelegateRuntime {
 			const current = await this.#run(["pane", "get", paneId], { timeoutMs: 5_000 });
 			const currentJson = current.ok && !current.value.killed && current.value.code === 0 ? parseJson(current.value.stdout, "pane get") : undefined;
 			const currentPane = currentJson?.ok ? objectField(objectField(currentJson.value, "result"), "pane") : undefined;
-			if (stringField(currentPane, "pane_id") === paneId && stringField(currentPane, "tab_id") === tabId && stringField(currentPane, "workspace_id") === workspaceId && currentPane?.agent === null) {
+			const paneHasNoAgent = currentPane !== undefined && (currentPane.agent === undefined || currentPane.agent === null);
+			if (stringField(currentPane, "pane_id") === paneId && stringField(currentPane, "tab_id") === tabId && stringField(currentPane, "workspace_id") === workspaceId && paneHasNoAgent) {
 				start = await this.#run(startArgs, { ...(signal ? { signal } : {}), timeoutMs: 65_000 });
 			}
 		}
