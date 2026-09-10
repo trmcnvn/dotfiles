@@ -7,6 +7,7 @@ import test from "node:test";
 import {
 	createAgentSession,
 	DefaultResourceLoader,
+	formatSkillsForPrompt,
 	ModelRuntime,
 	SessionManager,
 	SettingsManager,
@@ -43,6 +44,18 @@ test("real Pi input and settled events report only stop as completed", async () 
 	});
 	await session.bindExtensions({ mode: "print" });
 	try {
+		assert.equal(session.extensionRunner.getToolDefinition("delegate"), undefined);
+		assert.equal(session.extensionRunner.getToolDefinition("read_agent_activity"), undefined);
+		assert.equal((await session.extensionRunner.emitInput("/skill:orchestrate another worker", undefined, "interactive")).action, "handled");
+		const skills = ["orchestrate", "coding-standards"].map((name) => ({
+			name, description: `${name} fixture`, filePath: join(root, name, "SKILL.md"), baseDir: join(root, name), source: "custom",
+		}));
+		const prompt = await session.extensionRunner.emitBeforeAgentStart("task", undefined, formatSkillsForPrompt(skills, "read"), { cwd, selectedTools: ["read"], skills });
+		assert.ok(prompt?.systemPrompt);
+		assert.doesNotMatch(prompt.systemPrompt, /<name>orchestrate<\/name>/);
+		assert.match(prompt.systemPrompt, /<name>coding-standards<\/name>/);
+		assert.match(prompt.systemPrompt, /Do not delegate, launch other agents/);
+		assert.match(prompt.systemPrompt, /never blindly repeat an uncertain task/);
 		for (const [stopReason, expected] of [
 			["stop", "completed"], ["length", "incomplete"], ["toolUse", "incomplete"],
 			["error", "failed"], ["aborted", "failed"],
