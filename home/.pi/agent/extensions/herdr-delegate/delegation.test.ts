@@ -435,13 +435,17 @@ test("partial cleanup persists reloadable authority after closing the unresolved
 		roleFingerprint: "fingerprint",
 		promptPath: `/tmp/${id}.md`,
 	}));
+	const workerOne = workers[0];
+	const workerTwo = workers[1];
+	assert.ok(workerOne);
+	assert.ok(workerTwo);
 	let persisted: unknown;
 	const identity = (worker: (typeof workers)[number]) => commandResult(JSON.stringify({ result: { agent: {
 		name: worker.agentName, pane_id: worker.paneId, agent_status: "idle", agent_session: { value: worker.session },
 	} } }));
 	const runtime = new DelegateRuntime({
 		runHerdr: async (args) => {
-			if (args[0] === "agent" && args[1] === "get") return identity(workers.find((worker) => worker.agentName === args[2]) ?? workers[0]);
+			if (args[0] === "agent" && args[1] === "get") return identity(workers.find((worker) => worker.agentName === args[2]) ?? workerOne);
 			if (args[0] === "pane" && args[1] === "close" && args[2] === "pane-two") return commandResult("", 1, "close failed");
 			return commandResult("{}");
 		},
@@ -464,7 +468,7 @@ test("partial cleanup persists reloadable authority after closing the unresolved
 	assert.equal(restoredState.unsafeWriter, undefined);
 	assert.equal(restoredState.unsafeWriterWorker, undefined);
 	const restored = new DelegateRuntime({
-		runHerdr: async (args) => args[0] === "agent" ? identity(workers[1]) : commandResult("{}"),
+		runHerdr: async (args) => args[0] === "agent" ? identity(workerTwo) : commandResult("{}"),
 		validateRole: async () => ({ ok: true, value: undefined }), callerWorkspaceId: "workspace",
 		parentSessionId: "parent-session", cwd: fixture.root, resultRoot: join(fixture.root, "restored-cleanup"),
 		reporterPath: "/extension/index.ts", rolePaths: fixture.rolePaths, initialState: restoredState,
