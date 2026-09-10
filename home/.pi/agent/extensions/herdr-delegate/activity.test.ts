@@ -4,7 +4,17 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test, { afterEach } from "node:test";
 
+import { Type } from "typebox";
+import { Value } from "typebox/value";
+
 import { ACTIVITY_OUTPUT_BYTES, AgentActivityError, readSessionActivity } from "./activity.ts";
+
+ type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+const scanCursorSchema = Type.Object({ scanOffset: Type.Number() }, { additionalProperties: true });
+const mutableCursorSchema = Type.Object({
+	offset: Type.Number(),
+	scanOffset: Type.Number(),
+}, { additionalProperties: true });
 
 const roots = new Set<string>();
 afterEach(async () => {
@@ -20,7 +30,7 @@ async function sessionFile(id = "session-one"): Promise<string> {
 	return path;
 }
 
-function entry(id: string, message: unknown): string {
+function entry(id: string, message: JsonValue): string {
 	return `${JSON.stringify({ type: "message", id, parentId: null, timestamp: new Date().toISOString(), message })}\n`;
 }
 
@@ -180,7 +190,8 @@ test("rejects same-inode rewrite continuity failures for normal and oversized re
 	const oversizedPath = await sessionFile("session-oversized");
 	await appendFile(oversizedPath, entry("large", { role: "assistant", content: [{ type: "text", text: "x".repeat(100_000) }] }));
 	const scanning = await readSessionActivity("worker-large", oversizedPath);
-	const cursor = JSON.parse(Buffer.from(scanning.cursor, "base64url").toString("utf8")) as { scanOffset: number };
+	const cursor: unknown = JSON.parse(Buffer.from(scanning.cursor, "base64url").toString("utf8"));
+	assert.ok(Value.Check(scanCursorSchema, cursor));
 	const oversizedBytes = await readFile(oversizedPath);
 	oversizedBytes[cursor.scanOffset - 1] = "y".charCodeAt(0);
 	await writeFile(oversizedPath, oversizedBytes);
@@ -192,8 +203,9 @@ test("rejects cursor worker mismatch, file replacement, and truncation", async (
 	await appendFile(path, entry("assistant-1", { role: "assistant", content: [{ type: "text", text: "hello" }] }));
 	const first = await readSessionActivity("worker-one", path);
 	await assert.rejects(readSessionActivity("worker-two", path, first.cursor), (error) => error instanceof AgentActivityError && error.code === "activity_cursor_mismatch");
-	const decoded = JSON.parse(Buffer.from(first.cursor, "base64url").toString("utf8")) as Record<string, unknown>;
-	decoded.offset = Number(decoded.offset) - 1;
+	const decoded: unknown = JSON.parse(Buffer.from(first.cursor, "base64url").toString("utf8"));
+	assert.ok(Value.Check(mutableCursorSchema, decoded));
+	decoded.offset -= 1;
 	decoded.scanOffset = decoded.offset;
 	const middleCursor = Buffer.from(JSON.stringify(decoded)).toString("base64url");
 	await assert.rejects(readSessionActivity("worker-one", path, middleCursor), (error) => error instanceof AgentActivityError && error.code === "activity_cursor_mismatch");
