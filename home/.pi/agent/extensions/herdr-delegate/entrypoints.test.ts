@@ -18,7 +18,7 @@ import {
 const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
 const roleSource = (
-	role: "builder" | "worker" | "scout" | "reviewer",
+	role: "worker" | "scout" | "reviewer",
 	model: string,
 	thinking: (typeof THINKING_LEVELS)[number],
 ): string => `---
@@ -26,7 +26,7 @@ name: ${role}
 description: ${role} fixture
 model: ${model}
 thinking: ${thinking}
-tools: ${role === "builder" || role === "worker" ? "read, bash, edit, write" : "read, bash"}
+tools: ${role === "worker" ? "read, bash, edit, write" : "read, bash"}
 ---
 
 Perform the ${role} task without delegation.
@@ -227,7 +227,7 @@ test("real SDK startup recovery confirms explicitly, deduplicates cleanup, and s
 	}
 });
 
-test("real SDK tool validation covers canonical roles, builder alias, replacement, and invalid inputs", async () => {
+test("real SDK tool validation admits only current roles and rejects Builder without mutation", async () => {
 	const root = await mkdtemp(join(tmpdir(), "delegate-sdk-roles-"));
 	const environment = new Map(["PI_CODING_AGENT_DIR", "PI_HERDR_DELEGATE_CHILD", "HERDR_ENV", "HERDR_PANE_ID", "HERDR_WORKSPACE_ID", "PATH"].map((key) => [key, process.env[key]]));
 	let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
@@ -267,7 +267,12 @@ test("real SDK tool validation covers canonical roles, builder alias, replacemen
 		const tool = session.agent.state.tools.find((candidate) => candidate.name === "delegate");
 		assert.ok(tool);
 		assert.match(tool.description, /worker — worker fixture.*scout — scout fixture.*reviewer — reviewer fixture/);
-		assert.doesNotMatch(tool.description, /builder —/);
+		assert.doesNotMatch(tool.description, /builder/i);
+		const beforeRejected = await readFile(statePath, "utf8");
+		for (const arguments_ of [{ role: "builder", task: "retired" }, { replace: true, role: "builder", worker: "old", task: "retired" }]) {
+			assert.throws(() => validateToolCall([tool], { type: "toolCall", id: "retired", name: "delegate", arguments: arguments_ }));
+		}
+		assert.equal(await readFile(statePath, "utf8"), beforeRejected);
 		const invoke = async (input: DelegateInput) => {
 			validateToolCall([tool], { type: "toolCall", id: "call", name: "delegate", arguments: { ...input } });
 			return tool.execute("call", input, new AbortController().signal);
@@ -277,7 +282,7 @@ test("real SDK tool validation covers canonical roles, builder alias, replacemen
 			assert.match(JSON.stringify(result.content), new RegExp(`Worker finished \\(${role}\\)`));
 			assert.match(JSON.stringify(result.content), /matching owned pane closed/);
 		}
-		const first = await invoke({ role: "builder", task: "New builder alias uses Worker configuration without builder.md." });
+		const first = await invoke({ role: "worker", task: "Use current Worker configuration." });
 		const text = first.content.find((part) => part.type === "text");
 		assert.ok(text && text.type === "text");
 		assert.match(text.text, /Worker finished \(worker\)/);
@@ -288,7 +293,6 @@ test("real SDK tool validation covers canonical roles, builder alias, replacemen
 		assert.match(JSON.stringify(replacement.content), /Replaced worker:/);
 		await assert.rejects(invoke({ role: "worker", task: "second writer" }), /writer_exists/);
 		await assert.rejects(invoke({ replace: true, role: "scout", task: "invalid" }), /request_invalid/);
-		await assert.rejects(invoke({ replace: true, role: "builder", worker: handle, task: "invalid" }), /request_invalid/);
 		for (const arguments_ of [{ role: "unknown", task: "bad" }, { role: "scout", task: "bad", replace: "yes" }, { role: "worker", task: "bad", timeoutMs: 1 }]) {
 			assert.throws(() => validateToolCall([tool], { type: "toolCall", id: "bad", name: "delegate", arguments: arguments_ }));
 		}
@@ -303,7 +307,7 @@ test("real SDK tool validation covers canonical roles, builder alias, replacemen
 	}
 });
 
-test("real Pi entrypoints preserve guards, restoration locks, and thinking classification", async () => {
+test("real Pi entrypoints preserve legacy Builder authority, refuse follow-ups, and clean safely", async () => {
 	const root = await mkdtemp(join(tmpdir(), "delegate-entrypoints-"));
 	const bin = join(root, "bin");
 	const sentinel = join(root, "herdr-called");
@@ -352,7 +356,7 @@ exit 99
 	assert.ok(unsupportedThinking);
 	const modelName = `${model.provider}/${model.id}`;
 	await Promise.all([
-		writeFile(join(root, "agents", "builder.md"), roleSource("builder", modelName, "off")),
+		writeFile(join(root, "agents", "worker.md"), roleSource("worker", modelName, "off")),
 		writeFile(join(root, "agents", "reviewer.md"), roleSource("reviewer", modelName, unsupportedThinking)),
 	]);
 	const settingsManager = SettingsManager.inMemory({ packages: [] });
@@ -406,7 +410,13 @@ exit 99
 		process.env.HERDR_WORKSPACE_ID = "parent-workspace";
 		assert.equal(existsSync(sentinel), false);
 		await session.reload();
-		assert.equal(existsSync(sentinel), false, "reload alone must retain an idle builder");
+		assert.equal(existsSync(sentinel), false, "reload alone must retain legacy Builder ownership");
+		const legacyTool = session.extensionRunner.getToolDefinition("delegate");
+		assert.ok(legacyTool);
+		const beforeFollowup = sessionManager.getBranch();
+		await assert.rejects(legacyTool.execute("legacy", { worker: "worker", task: "must not deliver" }, new AbortController().signal, undefined, session.extensionRunner.createContext()), /role_retired/);
+		assert.deepEqual(sessionManager.getBranch(), beforeFollowup);
+		assert.equal(existsSync(sentinel), false, "retired follow-up must not call Herdr");
 		await session.extensionRunner.emit({ type: "agent_end", messages: [] });
 		assert.equal(existsSync(sentinel), false);
 		const gate = join(root, "allow-close");
