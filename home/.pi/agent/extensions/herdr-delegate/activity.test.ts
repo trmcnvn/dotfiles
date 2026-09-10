@@ -233,6 +233,12 @@ test("rejects cursor worker mismatch, file replacement, and truncation", async (
 	decoded.scanOffset = decoded.offset;
 	const middleCursor = Buffer.from(JSON.stringify(decoded)).toString("base64url");
 	await assert.rejects(readSessionActivity("worker-one", path, middleCursor), (error) => error instanceof AgentActivityError && error.code === "activity_cursor_mismatch");
+	decoded.offset = Number.MAX_SAFE_INTEGER + 1;
+	decoded.scanOffset = decoded.offset;
+	const unsafeIntegerCursor = Buffer.from(JSON.stringify(decoded)).toString("base64url");
+	await assert.rejects(readSessionActivity("worker-one", path, unsafeIntegerCursor), (error) =>
+		error instanceof AgentActivityError && error.code === "activity_cursor_mismatch",
+	);
 
 	const old = `${path}.old`;
 	await rename(path, old);
