@@ -637,6 +637,175 @@ test("concurrent first calls share one runtime queue", async () => {
 	assert.equal((await fixture.state()).calls.filter((call) => call[0] === "agent" && call[1] === "prompt").length, 2);
 });
 
+for (const failure of ["replaced", "unavailable", "moved"] as const) {
+	test(`builder follow-up ${failure} identity retains its handle and blocks later writers`, async () => {
+		const fixture = await makeFixture();
+		const built = requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "first" }));
+		const calls: readonly string[][] = [];
+		let lookups = 0;
+		const runtime = new DelegateRuntime({
+			...fixture.options, initialState: fixture.runtime.getState(),
+			runHerdr: async (args) => {
+				lookups += 1;
+				if (failure === "unavailable") return commandResult("", 1, "timeout");
+				if (failure === "replaced") return commandResult(JSON.stringify({ result: { agent: {
+					name: built.agentName, pane_id: built.paneId, agent_session: { value: "another-session" },
+				} } }));
+				if (args[0] === "pane") return commandResult(JSON.stringify({ result: { pane: {
+					pane_id: built.paneId, tab_id: "another-tab", workspace_id: "workspace",
+				} } }));
+				return fixture.processRun(args);
+			},
+		});
+		const result = await runtime.delegate({ worker: built.worker, task: "fix" });
+		assert.equal(result.ok, false);
+		if (!result.ok) {
+			assert.equal(result.error.code, "worker_unresolved");
+			assert.equal(result.error.worker, built.worker);
+		}
+		assert.equal(runtime.getState().unsafeWriterWorker, built.worker);
+		const before = lookups;
+		assert.equal((await runtime.delegate({ role: "builder", task: "another writer" })).ok, false);
+		assert.equal(lookups, before);
+		assert.deepEqual(calls, []);
+	});
+}
+
+test("cleanup continues after failure and preserves unrelated unpinned startup authority", async () => {
+	const fixture = await makeFixture();
+	requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "first" }));
+	const worker = fixture.runtime.getState().workers[0];
+	assert.ok(worker);
+	const failed = { ...worker, id: "failed", agentName: "failed-worker" };
+	const closed: string[] = [];
+	const runtime = new DelegateRuntime({
+		...fixture.options,
+		initialState: { ownerSessionId: "parent-session", workers: [failed, worker], unsafeWriter: "unknown startup pane" },
+		runHerdr: async (args) => {
+			if (args[2] === failed.agentName) return commandResult("", 1, "timeout");
+			if (args[0] === "pane" && args[1] === "close") closed.push(args[2] ?? "");
+			return fixture.processRun(args);
+		},
+	});
+	const result = await runtime.cleanupOwned();
+	assert.equal(result.ok, false);
+	if (!result.ok) {
+		assert.equal(result.error.code, "manual_recovery_required");
+		assert.match(result.error.message, /unknown startup pane.*timeout/);
+	}
+	assert.deepEqual(closed, [worker.paneId]);
+	assert.deepEqual(runtime.getState().workers, [failed]);
+	assert.equal(runtime.getState().unsafeWriter, "unknown startup pane");
+	assert.equal(runtime.getState().unsafeWriterWorker, undefined);
+	assert.equal((await runtime.delegate({ role: "builder", task: "must not run" })).ok, false);
+});
+
+for (const checkpoint of ["worker", "pending", "terminal", "closure"] as const) {
+	test(`publication failure at ${checkpoint} preserves safety and captured results`, async () => {
+		const fixture = await makeFixture();
+		let publications = 0;
+		const failAt = { worker: 1, pending: 2, terminal: 3, closure: 4 }[checkpoint];
+		const runtime = new DelegateRuntime({
+			...fixture.options,
+			onStateChange: () => {
+				publications += 1;
+				if (publications >= failAt) throw new Error("disk unavailable");
+			},
+		});
+		const result = await runtime.delegate({ role: "reviewer", task: "review" });
+		if (checkpoint === "worker" || checkpoint === "pending") {
+			assert.equal(result.ok, false);
+			if (!result.ok) assert.equal(result.error.code, "state_persist_failed");
+			assert.equal((await fixture.state()).calls.some((call) => call[1] === "prompt"), false);
+			assert.equal(runtime.getState().workers.length, 1);
+		} else {
+			const captured = requireSuccess(result);
+			assert.equal(captured.output, "done:review");
+			assert.deepEqual(captured.cleanup, { status: "closed" });
+			assert.match(captured.persistenceError ?? "", /state_persist_failed/);
+			assert.match(await readFile(captured.resultPath, "utf8"), /done:review/);
+			assert.deepEqual(runtime.getState().workers, []);
+		}
+		assert.match(runtime.getState().unsafeWriter ?? "", /state_persist_failed/);
+		assert.equal((await runtime.delegate({ role: "builder", task: "must not run" })).ok, false);
+		assert.equal((await runtime.cleanupOwned()).ok, false);
+	});
+}
+
+test("persistence failure does not discard output when reviewer closure also fails", async () => {
+	const fixture = await makeFixture("cleanup-fails");
+	const runtime = new DelegateRuntime({
+		...fixture.options,
+		onStateChange: (state) => {
+			if (state.unsafeWriter) throw new Error("disk unavailable");
+		},
+	});
+	const captured = requireSuccess(await runtime.delegate({ role: "reviewer", task: "review" }));
+	assert.equal(captured.output, "done:review");
+	assert.equal(captured.cleanup.status, "failed");
+	assert.match(captured.persistenceError ?? "", /state_persist_failed/);
+	assert.equal(runtime.getState().unsafeWriterWorker, captured.worker);
+	assert.equal(runtime.getState().workers.length, 1);
+});
+
+test("foreign empty snapshots are inert while inherited locks remain foreign", async () => {
+	const fixture = await makeFixture();
+	const empty = new DelegateRuntime({
+		...fixture.options, initialState: { ownerSessionId: "other-parent", workers: [] },
+	});
+	requireSuccess(await empty.cleanupOwned());
+	assert.equal(empty.getState().ownerSessionId, "parent-session");
+	requireSuccess(await empty.delegate({ role: "builder", task: "fresh task" }));
+	const locked = new DelegateRuntime({
+		...fixture.options, initialState: { ownerSessionId: "other-parent", workers: [], unsafeWriter: "unknown pane" },
+	});
+	const rejected = await locked.delegate({ role: "builder", task: "must not run" });
+	assert.equal(rejected.ok, false);
+	if (!rejected.ok) assert.equal(rejected.error.code, "foreign_authority");
+	assert.equal((await locked.cleanupOwned()).ok, false);
+});
+
+for (const evidence of ["absent", "name-absent", "agent-timeout", "agent-not-running", "pane-timeout", "pane-present", "pane-killed", "agent-replaced"] as const) {
+	test(`cleanup absence evidence ${evidence} only prunes a specifically missing agent and pane`, async () => {
+		const fixture = await makeFixture();
+		requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "first" }));
+		const worker = fixture.runtime.getState().workers[0];
+		assert.ok(worker);
+		const calls: string[][] = [];
+		const missing = (code: string) => commandResult("", 1, JSON.stringify({ error: { code, message: "missing" } }));
+		const runtime = new DelegateRuntime({
+			...fixture.options,
+			initialState: {
+				...fixture.runtime.getState(),
+				pending: { taskId: "old-task", worker: worker.id, resultPath: "/tmp/old-task.json", startedAt: 1 },
+				unsafeWriter: "old task unresolved", unsafeWriterWorker: worker.id,
+			},
+			runHerdr: async (args) => {
+				calls.push([...args]);
+				if (args[0] === "agent") {
+					if (evidence === "agent-timeout") return missing("timeout");
+					if (evidence === "agent-not-running") return missing("agent_not_running");
+					if (evidence === "agent-replaced") return commandResult(JSON.stringify({ result: { agent: {
+						name: worker.agentName, pane_id: worker.paneId, agent_session: { value: "replacement" },
+					} } }));
+					return missing(evidence === "name-absent" ? "agent_name_not_found" : "agent_not_found");
+				}
+				if (evidence === "pane-timeout") return missing("timeout");
+				if (evidence === "pane-present") return fixture.processRun(args);
+				if (evidence === "pane-killed") return { ...missing("pane_not_found"), killed: true };
+				return missing("pane_not_found");
+			},
+		});
+		const cleaned = await runtime.cleanupOwned();
+		const absent = evidence === "absent" || evidence === "name-absent";
+		assert.equal(cleaned.ok, absent);
+		assert.equal(runtime.getState().workers.length, absent ? 0 : 1);
+		assert.equal(runtime.getState().pending === undefined, absent);
+		assert.equal(runtime.getState().unsafeWriter === undefined, absent);
+		assert.equal(calls.some((call) => call[1] === "close" || call[1] === "send-keys"), false);
+	});
+}
+
 test("cleanup closes only a worker whose live identity and session still match", async () => {
 	const fixture = await makeFixture();
 	requireSuccess(await fixture.runtime.delegate({ role: "builder", task: "task" }));
