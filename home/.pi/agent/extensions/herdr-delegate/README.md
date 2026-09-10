@@ -48,6 +48,21 @@ Every closure first requires matching agent name, pane, native session, and any 
 
 Scout and Reviewer permit only `read` and `bash`. Their read-only policy forbids tests, builds, formatters, installers, and other write-producing commands, but this is not a security sandbox: shell access can technically write. Every child is instructed not to delegate, launch agents, or invoke orchestration.
 
+## Unpinned startup recovery
+
+Automatic cleanup still runs after each settled parent run, but identical failures notify only once. A changed failure notifies again; successful cleanup or acknowledged recovery clears the notice. Notices are scoped to the current parent session and restored on reload, separately from safety authority. Manual `/delegate-cleanup` always reports its outcome. Notification failures are retried; notice-persistence failure retains in-memory deduplication but can repeat a warning after restart. Notification bookkeeping never clears a safety lock.
+
+If an old startup record has no pinned worker, physically closing the failed startup pane does not prove that a moved or renamed agent is absent. For this case only:
+
+1. Finish active delegation/cleanup and let the parent become idle with no queued messages.
+2. In the **existing parent's Pi editor**, enter `/reload` and wait for it to finish. Global extension discovery loads this repair without `/new` or session-file edits.
+3. Enter `/delegate-cleanup acknowledge-startup`.
+4. Read the exact displayed startup record. Confirm **only after personally verifying that no worker from that startup remains**, including moved or renamed agents, and disposing of leftover startup resources as appropriate. Otherwise cancel; the lock remains.
+
+This is explicit human attestation, not automatic verification. The command closes no panes, sends no prompts, deletes no history, and clears only the displayed, unchanged startup lock after successful state publication. It refuses foreign or corrupt authority, pinned workers/unsafe writers, pending tasks, active or queued delegation, concurrent cleanup, headless confirmation, and parent activity that changes while confirming. A confirmation from before reload cannot affect the new runtime. Failed publication retains the in-memory lock and allows another deliberate confirmation after persistence is repaired. Ordinary `/delegate-cleanup` remains the recovery path for pinned authority; there is no general force reset.
+
+New failures after a validated tab creation retain structured worker handle, requested agent name, pane, tab, and workspace provenance for diagnosis. Those fields are not native-session ownership or deletion authority. Legacy diagnostic text is recognized only to limit acknowledgment to startup records, never parsed into deletion targets. Herdr 0.9.0 permits agent movement/renaming and the failed launch supplied no pinned native session, so absence of the original pane/tab/name alone cannot establish verified recovery. No automatic unpinned closure or absence-based unlock is attempted.
+
 ## Replacement and compatibility
 
 Prefer the same writer for fixes. For deliberate replacement, call `delegate({ replace: true, worker: oldHandle, role: "worker", task: parentHandoff })`. The task must contain the complete parent handoff: current changes, available result/check evidence, risks, remaining work, boundaries, and acceptance conditions. Inspect current files before continuing; never blind-redeliver uncertain work.
@@ -63,7 +78,7 @@ The v1 task envelope, child result artifact/status protocol, old persisted recor
 - Herdr 0.9.0 and its current Pi lifecycle integration are required (`HERDR_ENV=1`). There is no hidden-worker fallback.
 - State is scoped to the current Pi session branch. Do not manually rename, move, replace, or close owned workers while delegating. A fresh/reloaded instance acts only on authority restored for the same native parent session.
 - Three canonical global roles, one workflow writer, and sequential blocking tasks. No project role overrides, parallel mutation, recursive planning, token-budget enforcement, scheduler, metrics daemon, streaming token updates, or asynchronous orchestration.
-- The model/tool availability check uses the current parent Pi catalog, not the target shell's launch environment. Actual-target-shell preflight is deferred: Herdr 0.9.0 native `agent.start` exposes no environment-validation operation; `pane process-info` reports process identity, not shell command resolution/environment. No terminal probes or parent-only substitute were added. A mise Node/Pi shim mismatch can still time out at startup. Conservative unpinned-startup locks and manual inspection remain required; physical cleanup alone does not automatically clear an old lock.
+- The model/tool availability check uses the current parent Pi catalog, not the target shell's launch environment. Actual-target-shell preflight is deferred: Herdr 0.9.0 native `agent.start` exposes no environment-validation operation; `pane process-info` reports process identity, not shell command resolution/environment. No terminal probes or parent-only substitute were added. A mise Node/Pi shim mismatch can still time out at startup. Conservative unpinned-startup locks and manual inspection remain required; physical cleanup alone does not automatically clear an old lock. Use the explicit startup acknowledgment above after verification.
 
 ## Checks
 
