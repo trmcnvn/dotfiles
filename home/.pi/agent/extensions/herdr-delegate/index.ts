@@ -255,9 +255,17 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 			ctx.ui.notify(`Automatic delegation cleanup failed: ${result.error.message}`, "error");
 		}
 	});
-	pi.on("session_shutdown", async (event) => {
-		if (!isInsideHerdr() || !runtime || event.reason === "reload") return;
-		await runtime.cleanupOwned();
+	pi.on("session_shutdown", async (event, ctx) => {
+		const current = runtime;
+		runtime = undefined;
+		if (!isInsideHerdr() || !current) return;
+		// Pi is already idle while settled handlers run; shutdown must drain them before invalidation.
+		const drained = await current.drain();
+		if (!drained.ok) ctx.ui.notify(drained.error.message, "error");
+		if (event.reason !== "reload") {
+			const cleaned = await current.cleanupOwned();
+			if (!cleaned.ok) ctx.ui.notify(cleaned.error.message, "error");
+		}
 	});
 	pi.registerCommand("delegate-cleanup", {
 		description: "Close only delegation workers pinned to this Pi session",
@@ -290,7 +298,7 @@ export default async function herdrDelegateExtension(pi: ExtensionAPI): Promise<
 			const cleanup = result.cleanup.status === "closed" ? "matching owned pane closed"
 				: result.cleanup.status === "retained" ? "builder retained until the parent task settles"
 				: `failed (${result.cleanup.error}); recovery lock retained`;
-			return { content: [{ type: "text", text: [`${result.role} completed task ${result.taskId}.`, `Worker: ${result.worker}`, `Agent: ${result.agentName}`, `Pane: ${result.paneId}`, `Session: ${result.session}`, `Model: ${result.model} (${result.thinking})`, `Result artifact: ${result.resultPath}`, `Cleanup: ${cleanup}`, "", result.output].join("\n") }], details: result };
+			return { content: [{ type: "text", text: [`${result.role} completed task ${result.taskId}.`, `Worker: ${result.worker}`, `Agent: ${result.agentName}`, `Pane: ${result.paneId}`, `Session: ${result.session}`, `Model: ${result.model} (${result.thinking})`, `Result artifact: ${result.resultPath}`, `Cleanup: ${cleanup}`, result.persistenceError ?? "", "", result.output].join("\n") }], details: result };
 		},
 	});
 	pi.registerTool({
