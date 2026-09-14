@@ -224,12 +224,6 @@
       "variants": []
     },
     {
-      "path": "home/.agents/skills/orchestrate/SKILL.md",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
       "path": "home/.agents/skills/tailwind-best-practices/SKILL.md",
       "autosave": true,
       "encrypt": false,
@@ -795,72 +789,6 @@
     },
     {
       "path": "home/.pi/agent/extensions/herdr-agent-state.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/README.md",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/activity.test.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/activity.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/delegation.test.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/delegation.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/entrypoints.test.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/fake-herdr.mjs",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/index.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/reporter.test.ts",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/run-tests.sh",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.pi/agent/extensions/herdr-delegate/run-typecheck.sh",
       "autosave": true,
       "encrypt": false,
       "variants": []
