@@ -57,8 +57,11 @@ track-default-bookmark-on-clone = true
 
 [signing]
 backend = "ssh"
-key = "~/.ssh/id_ed25519.pub"
-behavior = "own"
+key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAsfV3U6IyA+NfVH04q6NFIGoozxtCCZRNsAVV2b7FqY"
+behavior = "drop"
+
+[signing.backends.ssh]
+program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
 
 [snapshot]
 max-new-file-size = "10MiB"
