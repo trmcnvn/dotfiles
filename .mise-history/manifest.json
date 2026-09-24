@@ -1007,6 +1007,7 @@
   "exclude": [],
   "recipients": [],
   "permissions": {
+    "home/.gitconfig": 384,
     "home/.pi/agent/extensions/whimsical.ts": 384,
     "home/.pi/agent/extensions/worker-configuration-guard.ts": 384
   }
