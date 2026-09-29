@@ -224,12 +224,6 @@
       "variants": []
     },
     {
-      "path": "home/.agents/skills/tailwind-best-practices/SKILL.md",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
       "path": "home/.bash_profile",
       "autosave": true,
       "encrypt": false,

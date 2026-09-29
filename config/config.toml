@@ -63,7 +63,6 @@ builtin = "history-watch"
 "~/.agents/skills/herdr/SKILL.md" = { mode = "track" }
 "~/.agents/skills/jj-submit/PULL_REQUEST.md" = { mode = "track" }
 "~/.agents/skills/jj-submit/SKILL.md" = { mode = "track" }
-"~/.agents/skills/tailwind-best-practices/SKILL.md" = { mode = "track" }
 "~/.bash_profile" = { mode = "track" }
 "~/.bashrc" = { mode = "track" }
 "~/.config/aerospace/aerospace.toml" = { mode = "track" }
