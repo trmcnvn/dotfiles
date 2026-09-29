@@ -88,3 +88,5 @@ if not ($jj_cache | path exists) {
     }
 }
 
+# fnox age identity for this computer.
+$env.FNOX_AGE_KEY_FILE = ($env.HOME | path join ".config" "fnox" "age.txt")
