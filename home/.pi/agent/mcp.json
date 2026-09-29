@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "executor": {
-      "url": "https://executor.trmcnvn.dev/mcp?elicitation_mode=native",
-      "exposure": "deferred"
+      "url": "https://executor.trmcnvn.dev/mcp?elicitation_mode=browser",
+      "exposure": "deferred",
+      "oauth": {
+        "scope": "openid"
+      }
     }
   }
 }
