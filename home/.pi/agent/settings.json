@@ -12,7 +12,6 @@
       "skills": []
     },
     "npm:pi-extmgr",
-    "git:github.com/dmmulroy/pi-mcp",
     "git:github.com/trmcnvn/pi-web-tools"
   ],
   "hideThinkingBlock": true,
