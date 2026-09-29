@@ -152,6 +152,12 @@
       "variants": []
     },
     {
+      "path": "home/.agents/skills/coding-standards/references/lint-and-policy.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.agents/skills/coding-standards/references/modules-services-and-adapters.md",
       "autosave": true,
       "encrypt": false,

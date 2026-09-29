@@ -51,6 +51,7 @@ builtin = "history-watch"
 "~/.agents/skills/coding-standards/references/effect.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/errors.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/imports-exports-and-files.md" = { mode = "track" }
+"~/.agents/skills/coding-standards/references/lint-and-policy.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/modules-services-and-adapters.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/parsing-and-schemas.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/persistence.md" = { mode = "track" }
