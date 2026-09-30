@@ -2,7 +2,9 @@
 #MISE description="Check tracked configuration and workstation integration"
 set -eu
 mise bootstrap dotfiles status --missing
+sh -n "$HOME/.config/shell/env.sh"
 bash -n "$HOME/.bashrc" "$HOME/.bash_profile"
+zsh -n "$HOME/.zprofile" "$HOME/.zshrc"
 nu --no-config-file -c "nu-check '$HOME/.config/nushell/config.nu'"
 herdr integration status
 printf '%s\n' 'Check package/defaults drift separately with mise bootstrap status.'
