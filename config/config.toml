@@ -134,6 +134,7 @@ builtin = "history-watch"
 "~/.config/nvim/nvim-pack-lock.json" = { mode = "track" }
 "~/.config/nvim/queries/ruby/highlights.scm" = { mode = "track" }
 "~/.config/ripgrep/config" = { mode = "track" }
+"~/.config/shell/env.sh" = { mode = "track" }
 "~/.config/zed/keymap.json" = { mode = "track" }
 "~/.config/zed/settings.json" = { mode = "track" }
 "~/.gitconfig" = { mode = "track" }
@@ -200,6 +201,8 @@ builtin = "history-watch"
 "~/.pi/agent/settings.json" = { mode = "track" }
 "~/.pi/agent/themes/rose-pine.json" = { mode = "track" }
 "~/.plannotator/config.json" = { mode = "track" }
+"~/.zprofile" = { mode = "track" }
+"~/.zshrc" = { mode = "track" }
 
 [bootstrap.packages]
 "brew:git" = "latest"

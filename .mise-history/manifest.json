@@ -602,6 +602,12 @@
       "variants": []
     },
     {
+      "path": "home/.config/shell/env.sh",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.config/zed/keymap.json",
       "autosave": true,
       "encrypt": false,
@@ -993,6 +999,18 @@
     },
     {
       "path": "home/.plannotator/config.json",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.zprofile",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.zshrc",
       "autosave": true,
       "encrypt": false,
       "variants": []
