@@ -212,18 +212,6 @@
       "variants": []
     },
     {
-      "path": "home/.agents/skills/jj-submit/PULL_REQUEST.md",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
-      "path": "home/.agents/skills/jj-submit/SKILL.md",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
       "path": "home/.bash_profile",
       "autosave": true,
       "encrypt": false,
