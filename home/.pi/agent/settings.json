@@ -30,7 +30,7 @@
   "retry": {
     "enabled": true
   },
-  "tuiMode": "regular",
+  "tuiMode": "fullscreen",
   "fullscreenScrollbar": "always",
   "markdown": {
     "mermaid": "streaming"
