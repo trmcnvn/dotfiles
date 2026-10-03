@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "executor": {
-      "url": "https://executor.trmcnvn.dev/mcp?elicitation_mode=browser",
+      "url": "https://v2.executor.sh/org/trmcnvn/mcp",
       "exposure": "deferred",
       "oauth": {
         "scope": "openid"
