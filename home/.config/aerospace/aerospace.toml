@@ -44,6 +44,7 @@ if = 'test %{app-bundle-id} = com.apple.finder'
 run = 'layout floating'
 
 [[on-window-detected]]
+if = 'true'
 run = 'layout --root accordion'
 
 [gaps]
