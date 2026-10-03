@@ -5,6 +5,11 @@ persistent-workspaces = []
 # Start AeroSpace at login
 start-at-login = true
 
+# Keep each workspace in the intended one-window-at-a-time layout.
+# The default below only affects newly created containers; repair live state too.
+after-startup-command = ['flatten-workspace-tree', 'layout --root accordion']
+on-focus-changed = ['flatten-workspace-tree', 'layout --root accordion']
+
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
@@ -37,6 +42,9 @@ automatically-unhide-macos-hidden-apps = true
 [[on-window-detected]]
 if = 'test %{app-bundle-id} = com.apple.finder'
 run = 'layout floating'
+
+[[on-window-detected]]
+run = 'layout --root accordion'
 
 [gaps]
 inner.horizontal = 10
