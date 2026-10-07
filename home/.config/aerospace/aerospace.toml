@@ -11,8 +11,8 @@ after-startup-command = ['flatten-workspace-tree', 'layout --root accordion']
 on-focus-changed = [
     'flatten-workspace-tree',
     'layout --root accordion',
-    # Minimize windows of every other app on the focused workspace
-    'exec-and-forget ~/.config/aerospace/minimize-others.sh',
+    # Hide every other app on the focused workspace (like "Hide Others")
+    'exec-and-forget ~/.config/aerospace/hide-others.sh',
 ]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
