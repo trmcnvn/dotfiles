@@ -230,6 +230,12 @@
       "variants": []
     },
     {
+      "path": "home/.config/aerospace/hide-others.sh",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.config/discord/settings.json",
       "autosave": true,
       "encrypt": false,

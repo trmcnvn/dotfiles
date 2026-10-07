@@ -64,6 +64,7 @@ builtin = "history-watch"
 "~/.bash_profile" = { mode = "track" }
 "~/.bashrc" = { mode = "track" }
 "~/.config/aerospace/aerospace.toml" = { mode = "track" }
+"~/.config/aerospace/hide-others.sh" = { mode = "track" }
 "~/.config/discord/settings.json" = { mode = "track" }
 "~/.config/ghostty/config" = { mode = "track" }
 "~/.config/ghostty/config.fonts" = { mode = "track" }
