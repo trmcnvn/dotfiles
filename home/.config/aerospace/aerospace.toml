@@ -8,7 +8,12 @@ start-at-login = true
 # Keep each workspace in the intended one-window-at-a-time layout.
 # The default below only affects newly created containers; repair live state too.
 after-startup-command = ['flatten-workspace-tree', 'layout --root accordion']
-on-focus-changed = ['flatten-workspace-tree', 'layout --root accordion']
+on-focus-changed = [
+    'flatten-workspace-tree',
+    'layout --root accordion',
+    # Minimize windows of every other app on the focused workspace
+    'exec-and-forget ~/.config/aerospace/minimize-others.sh',
+]
 
 # Normalizations. See: https://nikitabobko.github.io/AeroSpace/guide#normalization
 enable-normalization-flatten-containers = true
