@@ -332,12 +332,6 @@
       "variants": []
     },
     {
-      "path": "home/.config/nushell/scripts/pi.nu",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
       "path": "home/.config/nushell/scripts/prompt.nu",
       "autosave": true,
       "encrypt": false,

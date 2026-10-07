@@ -89,7 +89,6 @@ builtin = "history-watch"
 "~/.config/nushell/login.nu" = { mode = "track" }
 "~/.config/nushell/scripts/aliases.nu" = { mode = "track" }
 "~/.config/nushell/scripts/krc.nu" = { mode = "track" }
-"~/.config/nushell/scripts/pi.nu" = { mode = "track" }
 "~/.config/nushell/scripts/prompt.nu" = { mode = "track" }
 "~/.config/nushell/scripts/share.nu" = { mode = "track" }
 "~/.config/nushell/scripts/transcode.nu" = { mode = "track" }
