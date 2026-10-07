@@ -37,7 +37,7 @@ $env.NU_LIB_DIRS = [
     ($env.XDG_CONFIG_HOME | path join "nushell" "scripts")
 ]
 
-# Extra PATH entries — must be set before mise captures its baseline
+# Extra PATH entries (mise tool paths are inherited from Zsh)
 path add [
     { macos: "/opt/homebrew/bin" }
     ($env.HOME | path join ".local" "bin")
@@ -50,23 +50,6 @@ path add [
 # These MUST exist before config.nu is parsed (source is parse-time).
 let cache_dir = ($env.XDG_CACHE_HOME | path join "nushell")
 mkdir $cache_dir
-
-# Mise activation embeds the executable's absolute path. Refresh it on each
-# shell start so an upgrade, relocation, or uninstall cannot leave stale hooks.
-let mise_cache = ($cache_dir | path join "mise-init.nu")
-let mise_init = if (which mise | is-not-empty) {
-    try {
-        ^env -u MISE_SHELL -u __MISE_DIFF -u __MISE_SESSION mise activate nu
-    } catch {
-        ""
-    }
-} else {
-    ""
-}
-# Replace atomically: another shell may be sourcing this file concurrently.
-let mise_tmp = (mktemp --tmpdir-path $cache_dir mise-init.XXXXXX)
-$mise_init | save --force $mise_tmp
-mv --force $mise_tmp $mise_cache
 
 # zoxide
 let zoxide_cache = ($cache_dir | path join "zoxide-init.nu")
