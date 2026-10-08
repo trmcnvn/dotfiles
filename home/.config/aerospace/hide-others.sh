@@ -6,30 +6,13 @@
 
 aerospace=/opt/homebrew/bin/aerospace
 
-focused_window() {
-  "$aerospace" list-windows --focused --format '%{app-pid} %{window-layout}' 2>/dev/null
-}
+focused_pid=$("$aerospace" list-windows --focused --format '%{app-pid}' 2>/dev/null)
+[ -n "$focused_pid" ] || exit 0
 
-# Switching to a hidden app fires on-focus-changed before AeroSpace has put its
-# window back in the tree, so wait briefly for the real layout to show up.
-focused=$(focused_window)
-tries=0
-while [ "${focused#* }" = macos_native_window_of_hidden_app ] && [ $tries -lt 20 ]; do
-  sleep 0.025
-  focused=$(focused_window)
-  tries=$((tries + 1))
-done
-[ -n "$focused" ] || exit 0
-focused_pid=${focused%% *}
-
-# Only act on tiled windows; skip floating windows and ones AeroSpace doesn't
-# manage (native fullscreen, popups, etc.).
-case ${focused#* } in
-  h_tiles | v_tiles | h_accordion | v_accordion) ;;
-  *) exit 0 ;;
-esac
-
-pids=$("$aerospace" list-windows --workspace focused --format '%{app-pid}' |
+# Only hide apps with tiled windows; leave floating windows and ones AeroSpace
+# doesn't manage (native fullscreen, popups, etc.) alone.
+pids=$("$aerospace" list-windows --workspace focused --format '%{app-pid} %{window-layout}' |
+  awk '$2 ~ /^[hv]_(tiles|accordion)$/ { print $1 }' |
   grep -vx "$focused_pid" | sort -u | paste -sd, -)
 [ -n "$pids" ] || exit 0
 
