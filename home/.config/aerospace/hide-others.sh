@@ -6,7 +6,19 @@
 
 aerospace=/opt/homebrew/bin/aerospace
 
-focused=$("$aerospace" list-windows --focused --format '%{app-pid} %{window-layout}' 2>/dev/null)
+focused_window() {
+  "$aerospace" list-windows --focused --format '%{app-pid} %{window-layout}' 2>/dev/null
+}
+
+# Switching to a hidden app fires on-focus-changed before AeroSpace has put its
+# window back in the tree, so wait briefly for the real layout to show up.
+focused=$(focused_window)
+tries=0
+while [ "${focused#* }" = macos_native_window_of_hidden_app ] && [ $tries -lt 20 ]; do
+  sleep 0.025
+  focused=$(focused_window)
+  tries=$((tries + 1))
+done
 [ -n "$focused" ] || exit 0
 focused_pid=${focused%% *}
 
