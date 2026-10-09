@@ -245,6 +245,7 @@ builtin = "history-watch"
 "brew-cask:spotify" = "latest"
 
 [bootstrap.macos.defaults."NSGlobalDomain"]
+"AppleFontSmoothing" = 0
 "ApplePressAndHoldEnabled" = false
 "KeyRepeat" = 2
 "InitialKeyRepeat" = 15
