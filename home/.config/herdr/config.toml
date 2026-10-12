@@ -129,5 +129,5 @@ kitty_graphics = true
 scrollback_limit_bytes = 52428800
 
 [theme]
-name = "rose-pine"
+name = "terminal"
 auto_switch = false
