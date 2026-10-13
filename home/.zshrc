@@ -14,8 +14,9 @@ if command -v mise >/dev/null 2>&1; then
 fi
 
 # Allow an interactive `zsh` opened from Nu to stay in Zsh.
+# Zeron action terminals also stay in Zsh: Zeron types a POSIX `. "$ZERON_ACTION_SCRIPT"`.
 # config.nu already sources login.nu, so avoid sourcing it again with --login.
-if [[ ${DOTFILES_NU_FROM_ZSH:-0} != 1 ]] && command -v nu >/dev/null 2>&1; then
+if [[ ${DOTFILES_NU_FROM_ZSH:-0} != 1 && -z ${ZERON_ACTION_SCRIPT:-} ]] && command -v nu >/dev/null 2>&1; then
     export DOTFILES_NU_FROM_ZSH=1
     exec nu --interactive
     unset DOTFILES_NU_FROM_ZSH
