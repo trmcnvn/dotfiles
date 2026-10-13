@@ -34,6 +34,7 @@ builtin = "history-watch"
 
 # Only these exact files are captured. New files require explicit enrollment.
 [dotfiles]
+"~/.agents/AGENTS.md" = { mode = "track" }
 "~/.agents/skills/bro/SKILL.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/SKILL.md" = { mode = "track" }
 "~/.agents/skills/coding-standards/references/comments-and-jsdoc.md" = { mode = "track" }

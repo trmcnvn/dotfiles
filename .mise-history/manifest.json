@@ -50,6 +50,12 @@
       "variants": []
     },
     {
+      "path": "home/.agents/AGENTS.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.agents/skills/bro/SKILL.md",
       "autosave": true,
       "encrypt": false,
