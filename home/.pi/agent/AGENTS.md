@@ -18,6 +18,13 @@
 - Verify completed work with the smallest relevant check and state exactly what was not run
 - Do not add dependencies, change package managers, or alter generated or lock files unless required
 
+## Background Processes
+
+- Run long-lived or background processes (port-forwards, dev servers, watchers, long jobs) in a new `rex` session so the user can monitor them; do not use harness background tasks, `&`, or `nohup`
+- Start with `rex new <label> --keep-open -- <command>`; add related processes to the same session with `rex run -s <label> --split right --focus=false -- <command>`
+- Use descriptive labels; inspect with `rex ls` and `rex capture -s <label>`, and stop with `rex kill <label>` when finished
+- If `rex` is not on PATH, use `/Applications/Rex Beta.app/Contents/Helpers/Rex Server.app/Contents/MacOS/rex`
+
 ## Safety
 
 - Do not overwrite user changes without explicit permission
