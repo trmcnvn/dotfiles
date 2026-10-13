@@ -20,9 +20,11 @@
 
 ## Background Processes
 
-- Run long-lived or background processes (port-forwards, dev servers, watchers, long jobs) in a new `rex` session so the user can monitor them; do not use harness background tasks, `&`, or `nohup`
-- Start with `rex new <label> --keep-open -- <command>`; add related processes to the same session with `rex run -s <label> --split right --focus=false -- <command>`
-- Use descriptive labels; inspect with `rex ls` and `rex capture -s <label>`, and stop with `rex kill <label>` when finished
+- Run long-lived or background processes (port-forwards, dev servers, watchers, CI polls, long jobs) in `rex` so the user can monitor them; do not use harness background tasks, `&`, or `nohup`
+- Session = your harness (`claude-code`, `codex`, `pi`, ...); window (tab) = your thread's branch name, or the thread title slug if there is no branch
+- If the harness session is missing, create it with the tab: `rex new <harness> --window <tab> --keep-open -- <command>`; otherwise add the tab: `rex window new -s <harness> <tab> --focus=false --keep-open -- <command>`
+- Put further processes for the same thread in that tab: `rex run -s <harness> -w <tab> --split right --focus=false -- <command>`
+- Inspect with `rex ls`, `rex window ls -s <harness>`, and `rex capture -s <harness> -w <tab>`; when finished, close only your tab with `rex window close -s <harness> <tab>`, never the shared session
 - If `rex` is not on PATH, use `/Applications/Rex Beta.app/Contents/Helpers/Rex Server.app/Contents/MacOS/rex`
 
 ## Safety
