@@ -1,1 +1,0 @@
-/Users/trmcnvn/.agents/AGENTS.md

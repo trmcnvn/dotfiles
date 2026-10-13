@@ -632,12 +632,6 @@
       "variants": []
     },
     {
-      "path": "home/.pi/agent/AGENTS.md",
-      "autosave": true,
-      "encrypt": false,
-      "variants": []
-    },
-    {
       "path": "home/.pi/agent/agents/reviewer.md",
       "autosave": true,
       "encrypt": false,
