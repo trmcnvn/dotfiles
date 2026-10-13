@@ -27,12 +27,3 @@ source scripts/share.nu
 source scripts/transcode.nu
 source scripts/krc.nu
 source scripts/metafy.nu
-
-# Zeron sees $SHELL=zsh and types `. "$ZERON_ACTION_SCRIPT"`, but .zshrc hands off to Nu.
-# Replace this shell with one that runs the action as Nu and stays interactive.
-def --wrapped . [...args] {
-    if ($env.ZERON_ACTION_SCRIPT? | is-empty) {
-        error make --unspanned {msg: "`.` only runs Zeron action scripts in Nu; use `source` instead."}
-    }
-    exec $nu.current-exe --execute (open --raw $env.ZERON_ACTION_SCRIPT)
-}
