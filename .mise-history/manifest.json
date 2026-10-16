@@ -62,6 +62,54 @@
       "variants": []
     },
     {
+      "path": "home/.agents/skills/effect-standards/SKILL.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.agents/skills/effect-standards/references/concurrency.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.agents/skills/effect-standards/references/durable-objects.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.agents/skills/effect-standards/references/errors.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.agents/skills/effect-standards/references/platform.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.agents/skills/effect-standards/references/schemas.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.agents/skills/effect-standards/references/services.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
+      "path": "home/.agents/skills/effect-standards/references/testing.md",
+      "autosave": true,
+      "encrypt": false,
+      "variants": []
+    },
+    {
       "path": "home/.agents/skills/herdr/SKILL.md",
       "autosave": true,
       "encrypt": false,

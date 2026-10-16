@@ -36,6 +36,14 @@ builtin = "history-watch"
 [dotfiles]
 "~/.agents/AGENTS.md" = { mode = "track" }
 "~/.agents/skills/bro/SKILL.md" = { mode = "track" }
+"~/.agents/skills/effect-standards/SKILL.md" = { mode = "track" }
+"~/.agents/skills/effect-standards/references/concurrency.md" = { mode = "track" }
+"~/.agents/skills/effect-standards/references/durable-objects.md" = { mode = "track" }
+"~/.agents/skills/effect-standards/references/errors.md" = { mode = "track" }
+"~/.agents/skills/effect-standards/references/platform.md" = { mode = "track" }
+"~/.agents/skills/effect-standards/references/schemas.md" = { mode = "track" }
+"~/.agents/skills/effect-standards/references/services.md" = { mode = "track" }
+"~/.agents/skills/effect-standards/references/testing.md" = { mode = "track" }
 "~/.agents/skills/herdr/SKILL.md" = { mode = "track" }
 "~/.bash_profile" = { mode = "track" }
 "~/.bashrc" = { mode = "track" }
