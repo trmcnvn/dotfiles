@@ -47,8 +47,8 @@ Business logic goes inside a generator; cross-cutting policy goes outside it.
 ```ts
 const fetchUserPosts = Effect.fn("UserService.fetchUserPosts")(
   function* (userId: UserId) {
-    const database = yield* UserDatabase.Service
-    const cache = yield* UserCache.Service
+    const database = yield* UserDatabase
+    const cache = yield* UserCache
     const cached = yield* cache.getUserPosts(userId)
 
     if (Option.isSome(cached)) return cached.value
