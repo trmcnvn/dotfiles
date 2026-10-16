@@ -205,7 +205,7 @@ With one target per invocation, memoize the suspended client directly. `Layer.su
 
 - Test caller-visible behavior through real public entrypoints. No `vi.mock`/`jest.mock`; substitute through Layers, SQLite, or faithful in-memory implementations, and assert observable outcomes.
 - Use `it.effect`; drive time with `TestClock` (fork the sleeper first); synchronize with `Deferred`, `Queue`, `Latch`, and `Ref`.
-- Reusable test implementations cross the production `Service` tag, with controls on a separate `TestService` supplied from the same `Layer.effectContext`. Name them for behavior (`RecordingEmailSender`). Use FastCheck arbitraries derived from schemas for invariants and round trips.
+- `<capability>TestLayer` crosses the production service tag with complete, behaviorally honest implementations, no partial mocks. Put test-only controls on a separate service (e.g. `NotifierTestControl`) supplied from the same `Layer.effectContext`. Name them for behavior (`RecordingEmailSender`). Use FastCheck arbitraries derived from schemas for invariants and round trips.
 
 ## Comments and JSDoc
 
