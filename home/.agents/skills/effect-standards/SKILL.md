@@ -112,28 +112,45 @@ export class UserStoreUnavailable extends Schema.TaggedError<UserStoreUnavailabl
 
 A service owns a real capability: persistence, credentials, I/O, resources, configuration, time, randomness, reusable effect sequencing, or real implementation variation. Prefer built-ins (`Clock`, `Random`, `Config`, `HttpClient`, `FileSystem`). Keep parsed inputs, pure calculations, and forwarding wrappers as values. Name capabilities with stable domain nouns (`UserStore`, `EmailSender`) and put specifics in operation names.
 
+Put each service in a file named for its capability, in this order: interface, service class, constructor, dependency-preserving Layer, production Layer, test Layer. Every export carries the capability name; no `Tag` in names.
+
 ```ts
-export interface Interface {
-  readonly operation: (input: Input) => Effect.Effect<Output, OperationError>
+/** Defines the Invoice service capability exposed to application callers. */
+export interface IInvoiceService {
+  readonly findInvoice: (id: InvoiceId) => Effect.Effect<Invoice, InvoiceNotFound>
 }
 
-export class Service extends Context.Service<Service, Interface>()("@app/Capability") {}
+/** Provides the contextual Invoice service capability. */
+export class InvoiceService extends Context.Service<InvoiceService, IInvoiceService>()(
+  "@app/InvoiceService",
+) {}
 
-export const make = Effect.gen(function* () {
-  const dependency = yield* Dependency.Service
-  const operation = Effect.fn("Capability.operation")(function* (input: Input) {
-    return yield* dependency.operation(input)
+/** Constructs the Invoice service while preserving its dependency requirements. */
+export const makeInvoiceService = Effect.gen(function* () {
+  const invoiceStore = yield* InvoiceStore
+  return InvoiceService.of({
+    findInvoice: Effect.fn("InvoiceService.findInvoice")(function* (id: InvoiceId) {
+      return yield* invoiceStore.findInvoice(id)
+    }),
   })
-  return Service.of({ operation })
 })
 
-export const layerWithoutDependencies = Layer.effect(Service, make)
-export const layer = layerWithoutDependencies.pipe(Layer.provide(Dependency.layer))
+/** Provides the Invoice service without selecting dependency implementations. */
+export const invoiceServiceLayerWithoutDependencies = Layer.effect(InvoiceService, makeInvoiceService)
 
-export * as Capability from "./capability.js"
+/** Provides the Invoice service with its production dependencies. */
+export const invoiceServiceLayer = invoiceServiceLayerWithoutDependencies.pipe(
+  Layer.provide(invoiceStoreLayer),
+)
+
+/** Provides the Invoice service with behaviorally faithful test dependencies. */
+export const invoiceServiceTestLayer = invoiceServiceLayerWithoutDependencies.pipe(
+  Layer.provide(invoiceStoreTestLayer),
+)
 ```
 
-- Consumers yield `Capability.Service`. Only the owning module and tests call `make`; runtime code imports Layers.
+- Use the shortest natural capability name; it need not end in `Service` (`InvoiceStore` → `IInvoiceStore`, `makeInvoiceStore`, `invoiceStoreLayer`, `invoiceStoreTestLayer`). Export all three Layer names even without production dependencies.
+- Consumers yield `InvoiceService`. Only `*.test.*` / `*.spec.*` files may import a `make<Capability>` constructor; runtime code imports Layers. No exported `make<X>` for dependency bundles or manual injection.
 - Yield stable dependencies while building the Layer; yield request-scoped context inside the method. Never export `makeXLayer(service)` factories that take services as arguments.
 - `Layer.provide` hides a dependency, `Layer.provideMerge` re-exposes it, `Layer.mergeAll` combines independent Layers. Long-lived fibers and stream consumers fork into the Layer scope with `Effect.forkScoped`.
 
@@ -144,7 +161,7 @@ Alchemy's outer init Effect runs at planning and cold start; returned handlers r
 Treat each Durable Object as an independent HTTP service exposing an Effect HTTP API through `fetch`:
 
 - No typed Alchemy RPC. Bindings, namespaces, stubs, and `Cloudflare.toHttpClient` stay inside composition roots and client implementations.
-- Pair an `AccountClient` service module (what the app yields) with an `AccountServer` Durable Object. The client's `make` yields the Durable Object service directly and closes over its namespace.
+- Name the boundary `IAccountClient` (application-facing interface), `AccountClient` (the contextual service the app yields), and `AccountServer` (the Durable Object). `makeAccountClient` yields the Durable Object service directly and closes over its namespace; never pass a namespace into the constructor or Layer.
 - Key every instance by its canonical branded ID (`AccountServer` by `AccountId`); client methods accept domain IDs.
 - Version every route from `/v1`, with no unversioned aliases.
 
