@@ -45,15 +45,6 @@ on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
 automatically-unhide-macos-hidden-apps = false
 
 [[on-window-detected]]
-if = 'test %{app-bundle-id} = com.apple.finder'
-run = 'layout floating'
-
-# AeroSpace floats Zeron's window on its own; force it to tile like everything else
-[[on-window-detected]]
-if = 'test %{app-bundle-id} = sh.zeron.app'
-run = ['layout tiling', 'layout --root accordion']
-
-[[on-window-detected]]
 if = 'true'
 run = 'layout --root accordion'
 
