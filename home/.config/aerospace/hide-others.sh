@@ -9,8 +9,13 @@ aerospace=/opt/homebrew/bin/aerospace
 focused_pid=$("$aerospace" list-windows --focused --format '%{app-pid}' 2>/dev/null)
 [ -n "$focused_pid" ] || exit 0
 
-# Only hide apps with tiled windows; leave floating windows and ones AeroSpace
-# doesn't manage (native fullscreen, popups, etc.) alone.
+# Force floating windows into the (accordion) tiling tree.
+"$aerospace" list-windows --workspace focused --format '%{window-id} %{window-layout}' |
+  awk '$2 == "floating" { print $1 }' |
+  while read -r id; do "$aerospace" layout --window-id "$id" tiling; done
+
+# Only hide apps with tiled windows; leave ones AeroSpace doesn't manage
+# (native fullscreen, popups, etc.) alone.
 pids=$("$aerospace" list-windows --workspace focused --format '%{app-pid} %{window-layout}' |
   awk '$2 ~ /^[hv]_(tiles|accordion)$/ { print $1 }' |
   grep -vx "$focused_pid" | sort -u | paste -sd, -)
