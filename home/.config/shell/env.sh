@@ -16,6 +16,7 @@ _path_prepend() {
   esac
 }
 
+_path_prepend "$XDG_DATA_HOME/mise/shims"
 _path_prepend "$BUN_INSTALL/bin"
 _path_prepend "$CARGO_HOME/bin"
 _path_prepend "$HOME/.local/bin"
