@@ -23,6 +23,12 @@
 - Verify completed work with the smallest relevant check and state exactly what was not run
 - Do not add dependencies, change package managers, or alter generated or lock files unless required
 
+## Shell
+
+- The user's interactive shell is Nushell (`nu`); write scripts and snippets for the user in Nushell, not Bash/zsh/POSIX sh
+- Use idiomatic Nushell (structured data, pipelines, `def` commands) and current syntax; check `nu --version` and `help <command>` when unsure
+- Repository conventions take precedence: match the existing shell of scripts in a repo
+
 ## Background Processes
 
 - Run long-lived or background processes (port-forwards, dev servers, watchers, CI polls, long jobs) in `rex` so the user can monitor them; do not use harness background tasks, `&`, or `nohup`
