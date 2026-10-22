@@ -3,6 +3,11 @@
 - Optimize for minimal, correct, maintainable changes
 - Match repository conventions and prefer existing patterns over new abstractions
 - Avoid features, configurability, refactors, or collateral changes beyond the request
+- Follow YAGNI principles
+- When deleting code, leave no vestigial traces, whale legs, or references to the old implementation
+- Never write a new unit test or integration test unless explicitly instructed. You may write new e2e or system level tests
+- Never add new code comments
+- Rather than dirty up the present working directory, put "temporary" work files in ./tmp if it exists or /tmp if it does not
 
 ## Communication
 
