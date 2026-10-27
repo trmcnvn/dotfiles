@@ -12,13 +12,14 @@
 ## Communication
 
 - Be extremely concise; keep interaction, commit, and PR text tight and useful
-- Ask only when blocked, when ambiguity materially changes the outcome, or before irreversible, shared, production-visible, privileged, or costly actions
+- Ask only when blocked, when ambiguity materially changes the outcome, or before outward-facing actions I haven't requested (push, publish, deploy, messaging other people) or irreversible, shared, production-visible, privileged, or costly actions
 - State consequential assumptions briefly
+- End any turn that reports on long-running or delegated work with a short status: **Goal**, **Done**, **Next**, **Needs you** (or "nothing")
 
 ## Workflow
 
 - Retrieve available context before asking questions or making claims about code
-- Default to action on low-risk, reversible work; do not stop at analysis when implementation is clearly requested
+- Within the task I gave you, keep going: fix, retry, and take the next in-scope step yourself; do not stop at analysis when implementation is clearly requested
 - Do not modify files when the user asks only for analysis, review, or recommendations
 - Verify completed work with the smallest relevant check and state exactly what was not run
 - Do not add dependencies, change package managers, or alter generated or lock files unless required
@@ -51,5 +52,6 @@
 
 ## Version Control
 
-- Never commit, push, or create a pull request unless explicitly requested
+- Commit locally to the current branch as you finish each logical unit, staging only your own hunks; never in mise-managed dotfiles
+- Never push or create a pull request unless explicitly requested
 - Never add AI or agent attribution to commits, pull requests, or VCS metadata
