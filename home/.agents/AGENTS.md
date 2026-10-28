@@ -19,6 +19,7 @@
 
 ## Workflow
 
+- Sessions start in a dedicated worktree; work in it
 - Retrieve available context before asking questions or making claims about code
 - Within the task I gave you, keep going: fix, retry, and take the next in-scope step yourself; do not stop at analysis when implementation is clearly requested
 - Do not modify files when the user asks only for analysis, review, or recommendations
