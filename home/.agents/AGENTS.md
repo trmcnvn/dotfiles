@@ -13,7 +13,7 @@
 
 - Apply ASD-STE100 Simplified Technical English
 - Be extremely concise; keep interaction, commit, and PR text tight and useful
-- Ask only when blocked, when ambiguity materially changes the outcome, or before outward-facing actions I haven't requested (push, publish, deploy, messaging other people) or irreversible, shared, production-visible, privileged, or costly actions
+- Ask only when blocked, when ambiguity materially changes the outcome, or before outward-facing actions I haven't requested (publish, deploy, messaging other people) or irreversible, shared, production-visible, privileged, or costly actions
 - State consequential assumptions briefly
 
 ## Workflow
