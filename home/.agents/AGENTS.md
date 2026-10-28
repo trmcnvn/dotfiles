@@ -53,4 +53,3 @@
 ## Version Control
 
 - Commit locally to the current branch as you finish each logical unit, staging only your own hunks; never in mise-managed dotfiles
-- Never push or create a pull request unless explicitly requested
