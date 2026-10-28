@@ -15,6 +15,7 @@
 - Be extremely concise; keep interaction, commit, and PR text tight and useful
 - Ask only when blocked, when ambiguity materially changes the outcome, or before outward-facing actions I haven't requested (publish, deploy, messaging other people) or irreversible, shared, production-visible, privileged, or costly actions
 - State consequential assumptions briefly
+- Write references to PRs, issues, commits, CI runs, and other URLs as Markdown links, e.g. `[#123](https://github.com/org/repo/pull/123)`, never bare URLs or numbers
 
 ## Workflow
 
