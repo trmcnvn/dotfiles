@@ -37,7 +37,7 @@
 - If the harness session is missing, create it with the tab: `rex new <harness> --window <tab> --keep-open -- <command>`; otherwise add the tab: `rex window new -s <harness> <tab> --focus=false --keep-open -- <command>`
 - Put further processes for the same thread in that tab: `rex run -s <harness> -w <tab> --split right --focus=false -- <command>`
 - Inspect with `rex ls`, `rex window ls -s <harness>`, and `rex capture -s <harness> -w <tab>`; when finished, close only your tab with `rex window close -s <harness> <tab>`, never the shared session
-- If `rex` is not on PATH, use `/Applications/Rex Beta.app/Contents/Helpers/Rex Server.app/Contents/MacOS/rex`
+- If `rex` is not on PATH, use `~/Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex`
 
 ## Safety
 
