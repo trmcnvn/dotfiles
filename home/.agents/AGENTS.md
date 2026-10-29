@@ -6,7 +6,7 @@
 - Follow YAGNI principles
 - When deleting code, leave no vestigial traces, whale legs, or references to the old implementation
 - Never write a new unit test or integration test unless explicitly instructed. You may write new e2e or system level tests
-- Never add new code comments
+- Never add new code comments; a comment that justifies a hack makes the hack spread. Exceptions: a URL to an upstream issue, RFC, or spec that explains the code, and legal or license notices
 - Rather than dirty up the present working directory, put "temporary" work files in ./tmp if it exists or /tmp if it does not
 
 ## Communication
